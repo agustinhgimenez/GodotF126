@@ -1,0 +1,105 @@
+{
+  "season": 2026,
+  "default_driver_id": "colapinto",
+  "teams": [
+    {
+      "id": "mclaren",
+      "name": "McLaren",
+      "color": "#FF8000",
+      "drivers": [
+        { "id": "norris", "name": "Lando Norris", "number": 4, "country": "GB" },
+        { "id": "piastri", "name": "Oscar Piastri", "number": 81, "country": "AU" }
+      ]
+    },
+    {
+      "id": "mercedes",
+      "name": "Mercedes",
+      "color": "#00D2BE",
+      "drivers": [
+        { "id": "russell", "name": "George Russell", "number": 63, "country": "GB" },
+        { "id": "antonelli", "name": "Kimi Antonelli", "number": 12, "country": "IT" }
+      ]
+    },
+    {
+      "id": "ferrari",
+      "name": "Ferrari",
+      "color": "#E8002D",
+      "drivers": [
+        { "id": "leclerc", "name": "Charles Leclerc", "number": 16, "country": "MC" },
+        { "id": "hamilton", "name": "Lewis Hamilton", "number": 44, "country": "GB" }
+      ]
+    },
+    {
+      "id": "red_bull",
+      "name": "Red Bull",
+      "color": "#3671C6",
+      "drivers": [
+        { "id": "verstappen", "name": "Max Verstappen", "number": 1, "country": "NL" },
+        { "id": "hadjar", "name": "Isack Hadjar", "number": 6, "country": "FR" }
+      ]
+    },
+    {
+      "id": "racing_bulls",
+      "name": "Racing Bulls",
+      "color": "#6692FF",
+      "drivers": [
+        { "id": "lawson", "name": "Liam Lawson", "number": 30, "country": "NZ" },
+        { "id": "lindblad", "name": "Arvid Lindblad", "number": 41, "country": "GB" }
+      ]
+    },
+    {
+      "id": "alpine",
+      "name": "Alpine",
+      "color": "#FF87BC",
+      "drivers": [
+        { "id": "gasly", "name": "Pierre Gasly", "number": 10, "country": "FR" },
+        { "id": "colapinto", "name": "Franco Colapinto", "number": 43, "country": "AR" }
+      ]
+    },
+    {
+      "id": "haas",
+      "name": "Haas",
+      "color": "#B6BABD",
+      "drivers": [
+        { "id": "ocon", "name": "Esteban Ocon", "number": 31, "country": "FR" },
+        { "id": "bearman", "name": "Oliver Bearman", "number": 87, "country": "GB" }
+      ]
+    },
+    {
+      "id": "audi",
+      "name": "Audi",
+      "color": "#F50537",
+      "drivers": [
+        { "id": "hulkenberg", "name": "Nico Hülkenberg", "number": 27, "country": "DE" },
+        { "id": "bortoleto", "name": "Gabriel Bortoleto", "number": 5, "country": "BR" }
+      ]
+    },
+    {
+      "id": "williams",
+      "name": "Williams",
+      "color": "#64C4FF",
+      "drivers": [
+        { "id": "sainz", "name": "Carlos Sainz", "number": 55, "country": "ES" },
+        { "id": "albon", "name": "Alexander Albon", "number": 23, "country": "TH" }
+      ]
+    },
+    {
+      "id": "aston_martin",
+      "name": "Aston Martin",
+      "color": "#229971",
+      "drivers": [
+        { "id": "alonso", "name": "Fernando Alonso", "number": 14, "country": "ES" },
+        { "id": "stroll", "name": "Lance Stroll", "number": 18, "country": "CA" }
+      ]
+    },
+    {
+      "id": "cadillac",
+      "name": "Cadillac",
+      "color": "#FFFFFF",
+      "drivers": [
+        { "id": "perez", "name": "Sergio Pérez", "number": 11, "country": "MX" },
+        { "id": "bottas", "name": "Valtteri Bottas", "number": 77, "country": "FI" }
+      ]
+    }
+  ]
+}

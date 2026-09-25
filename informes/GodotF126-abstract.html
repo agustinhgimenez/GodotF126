@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>GodotF126 — Simulador de Fórmula 1 — formalización del proyecto</title>
+<style>
+  @page { size: A4; margin: 2cm 2.2cm; }
+  body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11pt; line-height: 1.45; color: #1a1a1a; }
+  h1 { font-size: 19pt; margin: 0 0 4pt 0; color: #0b1f3a; }
+  h2 { font-size: 13pt; margin: 16pt 0 6pt 0; color: #0b1f3a; border-bottom: 2px solid #FF87BC; padding-bottom: 2pt; }
+  .meta { margin: 0 0 10pt 0; color: #333; }
+  .meta p { margin: 1pt 0; }
+  .abstract { text-align: justify; }
+  ul { margin: 4pt 0 4pt 18pt; padding: 0; }
+  li { margin: 2pt 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 10pt; margin-top: 4pt; }
+  th, td { border: 1px solid #bbb; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #0b1f3a; color: #fff; }
+  tr:nth-child(even) td { background: #f3f5f8; }
+  .footer { margin-top: 18pt; font-size: 9pt; color: #666; }
+</style>
+</head>
+<body>
+
+<h1>GodotF126 — Simulador de Fórmula 1</h1>
+<div class="meta">
+  <p><strong>Formalización del proyecto</strong></p>
+  <p><strong>Autor:</strong> Agustín Giménez</p>
+  <p><strong>Materia:</strong> 350 — Ingeniería de Software Avanzado (plan 2015)</p>
+  <p><strong>Motor:</strong> Godot 4.3 (GDScript)</p>
+</div>
+
+<h2>Abstract</h2>
+<p class="abstract">GodotF126 es un simulador de Fórmula 1 en tercera persona, pensado para entrenar el manejo de un auto de monoplaza en un circuito cerrado. El jugador controla aceleración, freno y dirección; el sistema responde con una física simplificada de agarre, deslizamiento y límites de velocidad en curva. Para la materia se entrega una demo jugable: un auto, un circuito, telemetría básica en pantalla y un modo de vuelta cronometrada. El motor elegido es Godot 4.</p>
+
+<h2>Descripción breve</h2>
+<ul>
+  <li><strong>Tipo de producto:</strong> simulador de entrenamiento + juego de entretenimiento. No es un simulador crítico (no hay riesgo para personas ni certificación).</li>
+  <li><strong>Entregable de cursada (demo):</strong>
+    <ul>
+      <li>1 auto (Franco Colapinto, Alpine, grilla 2026 cargada desde JSON).</li>
+      <li>1 pista: Bakú (Azerbaiyán), versión geométrica simplificada, no el trazado oficial FIA.</li>
+      <li>Física arcade: aceleración, freno, marcha atrás, dirección dependiente de la velocidad, agarre y derrape con freno de mano.</li>
+      <li>HUD: velocidad, piloto/equipo, pista, cronómetro y telemetría básica.</li>
+      <li>Flujo mínimo: menú → pista → resultado.</li>
+    </ul>
+  </li>
+  <li><strong>Fuera de alcance inicial:</strong> multijugador, IA de 22 autos, todas las pistas del calendario, clima, estrategia de boxes completa, modelos 3D detallados de los 22 pilotos.</li>
+  <li><strong>Por qué Godot:</strong> gratuito y de código abierto (sin licencias ni regalías), exporta a Windows, liviano y apto para un solo desarrollador.</li>
+  <li><strong>Metodología:</strong> desarrollo iterativo e incremental con un ROADMAP de 60 pasos agrupados en 8 fases y 4 hitos; cada paso deja una versión jugable. El hito 1 (demo de cursada) incluye caja de cambios manual de 8 marchas, tablero con marcha, RPM y luces de cambio, volante 3D en el cockpit, sonido de motor, selección de escudería y piloto, y vuelta cronometrada.</li>
+</ul>
+
+<h2>Encuadre en el programa</h2>
+<table>
+  <tr><th>Unidad</th><th>Tema</th><th>Aplicación en GodotF126</th></tr>
+  <tr><td>I</td><td>Tipos de producto: juegos, juegos serios, simuladores</td><td>Simulador de entrenamiento con componente de entretenimiento</td></tr>
+  <tr><td>II</td><td>Diseño y alcance</td><td>Documento de alcance, demo acotada, ROADMAP iterativo</td></tr>
+  <tr><td>III</td><td>Guión mínimo</td><td>Flujo menú → selección de piloto → carrera → resultado</td></tr>
+  <tr><td>IV</td><td>Física</td><td>Modelo arcade de aceleración, frenado, agarre y derrape</td></tr>
+  <tr><td>V</td><td>Nivel y HUD</td><td>Circuito de Bakú generado por código, HUD de velocidad, tiempos y telemetría</td></tr>
+</table>
+
+<h2>Estado al momento de la entrega</h2>
+<ul>
+  <li>Completos y jugables en el editor de Godot: Paso 0 (esqueleto), Paso 1 (auto con WASD, pista Bakú, HUD) y Paso 2 (cronómetro por sectores, mejor vuelta, récord guardado, tres cámaras).</li>
+  <li>Próximo: motor con RPM y caja de cambios manual.</li>
+</ul>
+
+<p class="footer">GodotF126 — Agustín Giménez — Materia 350, Ingeniería de Software Avanzado.</p>
+
+</body>
+</html>

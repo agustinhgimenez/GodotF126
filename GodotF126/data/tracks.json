@@ -1,0 +1,26 @@
+{
+  "default_track_id": "baku",
+  "tracks": [
+    {
+      "id": "baku",
+      "name": "Bakú",
+      "display_name": "Azerbaiyán — Bakú (placeholder)",
+      "country": "Azerbaiyán",
+      "city": "Bakú",
+      "scene": "res://scenes/tracks/baku.tscn",
+      "type": "callejero",
+      "real_length_km": 6.003,
+      "placeholder": true,
+      "notes": "Trazado geométrico inspirado en Bakú (recta larga junto al mar + sector cerrado tipo castillo). NO es el layout oficial FIA.",
+      "status": "jugable"
+    },
+    {
+      "id": "segunda_pista",
+      "name": "A definir",
+      "display_name": "Segunda pista (Paso 7)",
+      "scene": "",
+      "placeholder": true,
+      "status": "planificada"
+    }
+  ]
+}

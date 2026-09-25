@@ -1,0 +1,5 @@
+# Caché que genera el editor de Godot 4
+.godot/
+export/
+*.exe
+*.pck
