@@ -8,6 +8,8 @@ extends CharacterBody3D
 
 signal was_reset
 signal camera_changed(mode_name: String)
+## Choque contra un muro; strength 0–1 según la velocidad perdida (puede repetirse cada frame).
+signal wall_hit(strength: float)
 
 ## "smooth" = la cámara sigue el giro del auto con retraso; false = pegada al auto.
 const CAMERA_MODES := [
@@ -58,6 +60,8 @@ var spawn_transform: Transform3D = Transform3D.IDENTITY
 var camera_mode: int = 0
 
 var _steer: float = 0.0
+var _handbrake: bool = false
+var _touching_wall: bool = false
 var _camera_base: Transform3D = Transform3D.IDENTITY
 var _shake_noise := FastNoiseLite.new()
 var _shake_time: float = 0.0
@@ -72,6 +76,7 @@ var _impact: float = 0.0
 @onready var driver_arms: DriverArms = $DriverArms
 @onready var cockpit_detail: CockpitDetail = $CockpitDetail
 @onready var engine_audio: EngineAudio = $EngineAudio
+@onready var audio_fx: CarAudioFx = $CarAudioFx
 
 
 func _ready() -> void:
@@ -111,6 +116,9 @@ func configure(data: Dictionary) -> void:
 	var audio_data = data.get("audio", {})
 	if audio_data is Dictionary:
 		engine_audio.configure(audio_data)
+	var audio_fx_data = data.get("audio_fx", {})
+	if audio_fx_data is Dictionary:
+		audio_fx.configure(audio_fx_data)
 
 
 func _configure_shake(data: Dictionary) -> void:
@@ -177,6 +185,7 @@ func _physics_process(delta: float) -> void:
 		brake = Input.get_action_strength("brake")
 		steer_input = Input.get_axis("steer_right", "steer_left")
 		handbrake = Input.is_action_pressed("handbrake")
+	_handbrake = handbrake
 
 	var pedals := _map_pedals(throttle, brake)
 	_update_powertrain(pedals.x, delta)
@@ -261,12 +270,16 @@ func _apply_velocity(handbrake: bool, delta: float) -> void:
 
 
 func _handle_wall_hits() -> void:
+	_touching_wall = false
 	for i in get_slide_collision_count():
 		var collision := get_slide_collision(i)
 		if absf(collision.get_normal().y) < 0.5:
+			_touching_wall = true
 			var actual := velocity.dot(_flat_forward())
 			if absf(forward_speed) > absf(actual):
-				add_camera_impact((absf(forward_speed) - absf(actual)) / shake_wall_speed)
+				var strength := (absf(forward_speed) - absf(actual)) / shake_wall_speed
+				add_camera_impact(strength)
+				wall_hit.emit(clampf(strength, 0.0, 1.0))
 				forward_speed = lerpf(forward_speed, actual, 0.5)
 
 
@@ -364,6 +377,14 @@ func get_steer() -> float:
 
 func get_gear_label() -> String:
 	return gearbox.get_gear_label()
+
+
+func is_handbrake_on() -> bool:
+	return _handbrake
+
+
+func is_touching_wall() -> bool:
+	return _touching_wall
 
 
 ## Ángulo entre hacia dónde apunta el auto y hacia dónde se mueve (derrape).

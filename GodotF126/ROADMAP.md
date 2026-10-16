@@ -25,7 +25,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 1 | Auto arcade con WASD, pista Bakú generada por código, HUD de velocidad y piloto | ✅ |
 | 2 | Cronómetro por sectores, mejor vuelta, récord guardado, cámaras TV / cercana / cockpit (C) | ✅ |
 
-## Fase B — Motor, caja manual, cockpit y sonido ⏳
+## Fase B — Motor, caja manual, cockpit y sonido ✅
 
 | Paso | Contenido | Estado |
 |---|---|---|
@@ -36,13 +36,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 7 | **Manos y brazos del piloto** sobre el volante: siguen el giro; los dedos accionan la leva al cambiar | ✅ |
 | 8 | Cockpit detallado: halo, casco con visor, **espejos retrovisores** con imagen real (`SubViewport`), vibración de cámara con velocidad y pianos | ✅ |
 | 9 | **Sonido de motor** generado por código en capas según RPM y acelerador; sonido de cambio, limitador y petardeo al soltar | ✅ |
-| 10 | Sonidos de neumáticos (chirrido por deslizamiento), viento por velocidad, golpes contra muros | ⏳ Siguiente |
+| 10 | Sonidos de neumáticos (chirrido por deslizamiento), viento por velocidad, golpes contra muros | ✅ |
 
-## Fase C — Menús y flujo de juego (cierra H1)
+## Fase C — Menús y flujo de juego (cierra H1) ⏳
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 11 | Menú principal con fondo 3D del auto girando y música | |
+| 11 | Menú principal con fondo 3D del auto girando y música | ⏳ Siguiente |
 | 12 | **Selección de escudería → piloto** con tarjetas (color del equipo, número, bandera) desde `grid_2026.json` | |
 | 13 | Livery de dos colores por equipo y número del piloto en el auto | |
 | 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | |
@@ -208,3 +208,14 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Datos** en `data/car.json` → `"audio"`: volumen, frecuencia de muestreo, buffer, explosiones por vuelta y la intensidad de cada capa.
 - **Verificación**: prueba sin ventana que maneja (acelerar hasta el limitador, tres cambios, soltar, volver a acelerar) y graba el sonido en `informes/audio/paso9-motor.wav`. La síntesis tarda 0,37 ms por frame en promedio, pico 0,55, sin valores inválidos. Con audio real no hay cortes durante el juego (sólo algunos al cargar la escena).
 - **Cómo probar**: F5 → escuchar el ralentí → W a fondo en 1ª hasta el limitador (suena entrecortado) → E para subir (corte y golpe) → soltar W alto de vueltas (petardeo) → C a la cámara TV (baja el volumen).
+
+### Paso 10 — Neumáticos, viento y muros
+- Nuevo nodo `CarAudioFx` en `car.tscn` (`scripts/car/car_audio_fx.gd`), con su propio `AudioStreamGenerator`; mismo esquema que `EngineAudio` (síntesis por bloques, interpolación dentro del bloque, saturación suave, `synthesize(frames)` público).
+- **Chirrido de neumáticos**: ruido por un filtro pasabanda angosto de variables de estado (Q = 14, casi un tono) entre 950 y 1.400 Hz, con vibrato de 6 Hz. La cantidad sale del ángulo de derrape (`get_slip_angle_deg()`: empieza a 3°, pleno a 12°), escalada por la velocidad para que no chirríe casi parado, y del **freno de mano** a velocidad.
+- **Viento**: ruido por dos pasabajos en serie; volumen con el cuadrado de la velocidad y el filtro se abre (más agudo) cuanto más rápido.
+- **Muros**: `CarController` emite la señal nueva `wall_hit(strength)` en el mismo punto donde sacude la cámara. Cada golpe suena como un tono grave que cae de 90 a 45 Hz más un crujido de ruido, con 0,15 s de espera entre golpes (salvo que llegue uno más fuerte). Mientras el auto se arrastra contra el muro (`is_touching_wall()`) suena un **roce** continuo según la velocidad.
+- `CarController` expone además `is_handbrake_on()`.
+- **Volumen**: −8 dB en Cockpit y 3 dB menos en las cámaras exteriores.
+- **Datos** en `data/car.json` → `"audio_fx"`.
+- **Verificación**: prueba sin ventana que acelera a 110 km/h, dobla a fondo con freno de mano (derrape de 36°, chirrido a pleno) y termina contra el muro (golpes y roce). Grabaciones en `informes/audio/paso10-efectos.wav` (sólo efectos) y `paso10-motor-y-efectos.wav` (mezcla). 0,2 ms de síntesis por frame, sin valores inválidos. Con audio real no hay cortes durante el juego.
+- **Cómo probar**: F5 → acelerar en la recta (el viento sube) → doblar a fondo con Espacio (chirrido) → chocar un muro de frente (golpe) y arrastrarse contra él (roce).

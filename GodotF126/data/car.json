@@ -67,5 +67,23 @@
     "pop_min_rpm_ratio": 0.55,
     "pop_count_min": 3,
     "pop_count_max": 6
+  },
+  "audio_fx": {
+    "volume_db": -8,
+    "chase_volume_db": -3,
+    "mix_rate": 22050,
+    "buffer_length": 0.08,
+    "squeal_volume": 0.5,
+    "squeal_start_deg": 3,
+    "squeal_full_deg": 12,
+    "squeal_handbrake": 0.8,
+    "squeal_base_hz": 950,
+    "squeal_range_hz": 450,
+    "squeal_q": 14,
+    "wind_volume": 0.35,
+    "impact_volume": 0.9,
+    "impact_min_strength": 0.05,
+    "impact_cooldown": 0.15,
+    "scrape_volume": 0.35
   }
 }
