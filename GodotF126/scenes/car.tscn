@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scripts/car_controller.gd" id="1_car"]
 [ext_resource type="Script" path="res://scripts/car/car_engine.gd" id="2_engine"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/car/cockpit_detail.gd" id="6_cockpit"]
 [ext_resource type="Script" path="res://scripts/car/engine_audio.gd" id="7_audio"]
 [ext_resource type="Script" path="res://scripts/car/car_audio_fx.gd" id="8_audio_fx"]
+[ext_resource type="Script" path="res://scripts/car/car_livery.gd" id="9_livery"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_car"]
 size = Vector3(1.9, 0.8, 6)
@@ -123,12 +124,15 @@ script = ExtResource("5_arms")
 [node name="CockpitDetail" type="Node3D" parent="."]
 script = ExtResource("6_cockpit")
 
-[node name="FrontWing" type="MeshInstance3D" parent="."]
+[node name="Livery" type="Node3D" parent="."]
+script = ExtResource("9_livery")
+
+[node name="FrontWing" type="MeshInstance3D" parent="." groups=["team_paint_secondary"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, -3)
 mesh = SubResource("BoxMesh_front_wing")
 surface_material_override/0 = SubResource("Mat_carbon")
 
-[node name="RearWing" type="MeshInstance3D" parent="."]
+[node name="RearWing" type="MeshInstance3D" parent="." groups=["team_paint_secondary"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 2.1)
 mesh = SubResource("BoxMesh_rear_wing")
 surface_material_override/0 = SubResource("Mat_carbon")

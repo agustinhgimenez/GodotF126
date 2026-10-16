@@ -46,8 +46,9 @@ func _ready() -> void:
 	car.spawn_transform = track.get_spawn_transform()
 	car.reset_to_spawn()
 
-	var team_color := Color.html(str(selected_team.get("color", "#FF87BC")))
-	car.set_team_color(team_color)
+	var team_color := DataLoader.team_primary(selected_team)
+	car.set_livery(team_color, DataLoader.team_secondary(selected_team),
+		UiKit.number_text(selected_driver.get("number", "")))
 
 	hud.bind_car(car)
 	var dashboard_data = car_data.get("dashboard", {})

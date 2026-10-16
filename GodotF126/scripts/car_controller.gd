@@ -77,6 +77,7 @@ var _impact: float = 0.0
 @onready var cockpit_detail: CockpitDetail = $CockpitDetail
 @onready var engine_audio: EngineAudio = $EngineAudio
 @onready var audio_fx: CarAudioFx = $CarAudioFx
+@onready var livery: CarLivery = $Livery
 
 
 func _ready() -> void:
@@ -408,11 +409,6 @@ func get_slip_angle_deg() -> float:
 	return rad_to_deg(forward.angle_to(horizontal.normalized()))
 
 
-func set_team_color(color: Color) -> void:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.metallic = 0.3
-	material.roughness = 0.4
-	for node in find_children("*", "MeshInstance3D", true, false):
-		if node.is_in_group("team_paint"):
-			(node as MeshInstance3D).material_override = material
+## Colores del equipo y número del piloto (vacío = sin número).
+func set_livery(primary: Color, secondary: Color, number: String) -> void:
+	livery.apply(primary, secondary, number)

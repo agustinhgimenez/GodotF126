@@ -100,8 +100,9 @@ func _show_selected() -> void:
 ## Pinta el auto y la escena con el color del equipo y actualiza la tarjeta de abajo.
 ## Con driver vacío (eligiendo escudería) la tarjeta muestra los pilotos del equipo.
 func _preview(team: Dictionary, driver: Dictionary) -> void:
-	var color := Color.html(str(team.get("color", FALLBACK_TEAM_COLOR.to_html())))
-	_car.set_team_color(color)
+	var color := DataLoader.team_primary(team, FALLBACK_TEAM_COLOR)
+	var number := "" if driver.is_empty() else UiKit.number_text(driver.get("number", ""))
+	_car.set_livery(color, DataLoader.team_secondary(team), number)
 	_rim_light.light_color = color
 	_ring_material.albedo_color = color
 	_title_stripe.color = color

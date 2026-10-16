@@ -20,6 +20,17 @@ static func load_json(path: String) -> Dictionary:
 	return {}
 
 
+static func team_primary(team: Dictionary, fallback: Color = Color("#FF87BC")) -> Color:
+	return Color.html(str(team.get("color", fallback.to_html())))
+
+
+## Si el equipo no trae "secondary_color", una versión oscura del principal.
+static func team_secondary(team: Dictionary) -> Color:
+	if team.has("secondary_color"):
+		return Color.html(str(team["secondary_color"]))
+	return team_primary(team).darkened(0.55)
+
+
 ## Busca un piloto en la grilla. Devuelve {"driver": ..., "team": ...} o {} si no está.
 static func find_driver(grid: Dictionary, driver_id: String) -> Dictionary:
 	for team in grid.get("teams", []):

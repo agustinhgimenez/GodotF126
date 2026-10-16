@@ -67,6 +67,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 10: chirrido de neumáticos al derrapar y con freno de mano, viento según la velocidad, golpes y roce contra los muros (todo sintetizado por código). Muestras: `informes/audio/paso10-efectos.wav` y `paso10-motor-y-efectos.wav`.
 - ✅ Paso 11: menú principal (escena de arranque) con el auto girando sobre una plataforma con el color del equipo, música generada por código y botones Jugar / Salir; Esc en la pista vuelve al menú. Captura: `informes/capturas/paso11-menu.png`; música: `informes/audio/paso11-musica.wav`.
 - ✅ Paso 12: selección de escudería → piloto con tarjetas (color del equipo, número, bandera dibujada por código y país); el auto del menú toma el color del equipo y la carrera usa el piloto elegido. Capturas: `informes/capturas/paso12-escuderias.png`, `paso12-pilotos.png`, `paso12-banderas.png`.
-- ⏳ Paso 13: livery de dos colores y número del piloto en el auto.
+- ✅ Paso 13: livery de dos colores por equipo (principal en la carrocería; secundario en alerones y franjas) y número del piloto en el morro y la cubierta del motor. Capturas: `informes/capturas/paso13-menu.png`, `paso13-carrera.png`.
+- ⏳ Paso 14: pantalla de opciones guardadas en `user://settings.json`.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

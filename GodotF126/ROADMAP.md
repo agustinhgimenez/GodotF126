@@ -44,8 +44,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 |---|---|---|
 | 11 | Menú principal con fondo 3D del auto girando y música | ✅ |
 | 12 | **Selección de escudería → piloto** con tarjetas (color del equipo, número, bandera) desde `grid_2026.json` | ✅ |
-| 13 | Livery de dos colores por equipo y número del piloto en el auto | ⏳ Siguiente |
-| 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | |
+| 13 | Livery de dos colores por equipo y número del piloto en el auto | ✅ |
+| 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | ⏳ Siguiente |
 | 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | |
 | 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | |
 | 17 | **Semáforo de largada** con 5 luces y detección de salto | |
@@ -243,3 +243,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - Ayudantes de interfaz compartidos en `scripts/ui/ui_kit.gd` (`UiKit`): etiquetas, anclas, botones con borde de color y estilos.
 - **Verificación**: prueba que entra a la selección, enfoca Ferrari (auto y aro en `#E8002D`), abre los pilotos, vuelve con Esc, elige Hamilton y confirma que la pista muestra "#44 Lewis Hamilton / Ferrari"; al volver al menú sigue elegido y Esc desde escuderías vuelve al menú. Capturas: `informes/capturas/paso12-escuderias.png`, `paso12-pilotos.png` y `paso12-banderas.png` (las 15 banderas).
 - **Cómo probar**: F5 → Jugar → recorrer escuderías con flechas (el auto cambia de color) → Enter → elegir piloto → Enter → manejar con ese equipo → Esc → el menú recuerda la elección.
+
+### Paso 13 — Livery y número
+- Cada equipo de `grid_2026.json` tiene ahora `"secondary_color"` (aproximado a sus decoraciones, no oficial). `DataLoader.team_primary()` / `team_secondary()` los leen; si falta el secundario se usa el principal oscurecido.
+- Nuevo nodo `Livery` en `car.tscn` (`scripts/car/car_livery.gd`, `CarLivery`):
+  - **Principal** en el grupo `team_paint` (carrocería, morro, pontones, airbox y buzo del piloto).
+  - **Secundario** en el grupo nuevo `team_paint_secondary`: alerón delantero y trasero, y cuatro **franjas** que arma el nodo (sobre el morro, sobre la carrocería delante del cockpit y a los costados de los pontones).
+  - **Número** con `Label3D` (sin fuentes extra) acostado sobre el morro y arriba de la cubierta del motor, y parado a los dos costados de la cubierta. Color: el secundario si contrasta lo suficiente con el principal (diferencia de luminancia ≥ 0,35); si no, blanco o negro según el principal, con contorno opuesto.
+- `CarController.set_team_color(color)` se reemplazó por **`set_livery(principal, secundario, número)`**. La carrera lo llama con el piloto elegido; el menú, en la vista previa (sin número mientras se elige escudería).
+- **Verificación**: prueba con capturas del menú (Alpine rosa con alerones y franjas azules, #43 en negro), de la vista previa de Haas (números ocultos) y de la carrera con Verstappen (Red Bull azul con alerones rojos, #1 en blanco) en cámara cercana y cockpit: `informes/capturas/paso13-menu.png`, `paso13-carrera.png`, `paso13-cockpit.png`. El número del morro no se ve desde el cockpit (lo tapa la carrocería) y el de la cubierta se ve mejor desde la cámara TV, que está más alta.
+- **Cómo probar**: F5 → mirar el auto girando (franjas, alerones y número) → Jugar y recorrer escuderías (cambian los dos colores) → elegir piloto (aparece su número) → en la pista, C para ver el auto desde atrás.

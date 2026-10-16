@@ -20,7 +20,7 @@ const PULL_TIME := 0.05
 const RELEASE_TIME := 0.1
 
 @export var glove_color: Color = Color(0.1, 0.1, 0.12)
-@export var suit_color: Color = Color(0.3, 0.3, 0.35)   ## lo pisa set_team_color()
+@export var suit_color: Color = Color(0.3, 0.3, 0.35)   ## lo pisa CarLivery con el color del equipo
 
 var _wheel: SteeringWheel
 var _gearbox: Gearbox
