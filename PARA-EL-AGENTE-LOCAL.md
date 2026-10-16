@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 13 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
-- Próximo: **Paso 14 — opciones** (caja, ayudas, cámara por defecto, volumen, calidad) guardadas en `user://settings.json`.
+- Pasos 0 a 14 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
+- Próximo: **Paso 15 — pausa con Esc** (Continuar / Reiniciar / Menú / Salir).
 - El juego arranca en `scenes/menu.tscn`; `scenes/main.tscn` es la carrera. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
@@ -27,13 +27,15 @@ Leé esto antes de tocar el proyecto.
 |---|---|
 | `scripts/main.gd` | Escena de carrera: carga JSON, elige piloto (`default_driver_id`), spawnea auto, configura HUD. Esc vuelve al menú |
 | `scripts/game_state.gd` | Autoload `GameState`: `selected_driver_id` (vacío = `default_driver_id`). En scripts `-s` de prueba no se puede nombrar directo: usar `root.get_node("GameState")` |
+| `scripts/settings.gd` | Autoload `Settings` (sin `class_name`). Defaults y perfiles en `data/settings.json`, guardado en `user://settings.json`. `get_value`, `set_value` (sanea, aplica, guarda, emite `changed(key)`), `reset_to_defaults`, `apply_to_car(car)`, `shadows_enabled()`, constantes `BUS_ENGINE` / `BUS_FX` / `BUS_MUSIC`. Igual que `GameState`: en scripts `-s` usar `root.get_node("Settings")` y no nombrar clases que dependan de él (p. ej. `OptionsPanel`) |
+| `scripts/menu/options_panel.gd` | `class_name OptionsPanel`. Panel de opciones del menú (filas ‹ ›, deslizadores de volumen, Restablecer / Volver). `open()`, `set_accent(color)`, `refresh()`; señal `closed` |
 | `scripts/menu/driver_select.gd` | `class_name DriverSelect`. Escudería → piloto con tarjetas. `setup(grid, driver_id)`, `open()`, `back()`; señales `preview_changed`, `confirmed`, `cancelled` |
 | `scripts/ui/flag_icon.gd` | `class_name FlagIcon`. Bandera dibujada desde `data/flags.json`. `set_country(code)`, `country_name(code)` |
 | `scripts/ui/ui_kit.gd` | `class_name UiKit` (estático). `make_label`, `place`, `make_button`, `apply_button_style`, `number_text` para menús |
 | `scripts/data_loader.gd` | `class_name DataLoader` (estático). Rutas de `data/*.json`, `load_json(path)`, `find_driver(grid, id)` |
-| `scripts/menu/main_menu.gd` | Menú principal (`scenes/menu.tscn`): plataforma giratoria con el auto en modo exhibición, UI por código, Jugar / Salir. Datos en `data/menu.json` |
+| `scripts/menu/main_menu.gd` | Menú principal (`scenes/menu.tscn`): plataforma giratoria con el auto en modo exhibición, UI por código, Jugar / Opciones / Salir. Datos en `data/menu.json` |
 | `scripts/audio/menu_music.gd` | `class_name MenuMusic`. Música del menú generada por código (bombo, caja, hi-hat, bajo, arpegio, colchón). `configure(data)`, `play()`, `synthesize(frames)` |
-| `scripts/car_controller.gd` | `class_name CarController`. Física arcade, 3 cámaras (tecla C), `configure(data)`, `set_showcase(enabled)` (auto quieto, mudo y sin cámara para menús), `set_livery(principal, secundario, número)`, `get_speed_kmh()`, `get_rpm()`, `get_gear_label()`, `get_top_speed()`, `reset_to_spawn()`, `set_team_color()`. Señales `was_reset`, `camera_changed`. Accede a los componentes por `engine` y `gearbox` |
+| `scripts/car_controller.gd` | `class_name CarController`. Física arcade, 3 cámaras (tecla C), `configure(data)`, `set_showcase(enabled)` (auto quieto, mudo y sin cámara para menús), `set_livery(principal, secundario, número)`, `get_speed_kmh()`, `get_rpm()`, `get_gear_label()`, `get_top_speed()`, `reset_to_spawn()`, `set_camera_mode(mode)`. Señales `was_reset`, `camera_changed`. Accede a los componentes por `engine` y `gearbox` |
 | `scripts/car/car_engine.gd` | `class_name CarEngine` (nodo `Engine` del auto). RPM, curva de torque, limitador con corte, freno motor. `update(wheel_rpm, throttle, clutch_can_slip, in_neutral, delta)`, `get_output_torque()`. Señal `limiter_hit` |
 | `scripts/car/gearbox.gd` | `class_name Gearbox`. Secuencial R (`REVERSE` = −1), N (`NEUTRAL` = 0), 1–8; `manual` o automática. `shift_up/shift_down(speed)`, `toggle_mode()`, `select_gear()`, `get_ratio_for()`, `is_shifting()`, `get_direction()`. Señales `gear_changed`, `shift_denied(reason)`, `mode_changed(manual)` |
 | `data/car.json` | Masa, radio de rueda, tracción, drag, datos de motor y caja |
@@ -54,10 +56,10 @@ La vibración de cámara está en `CarController._update_shake()`; `add_camera_i
 
 Si se agrega un script con `class_name` nuevo y se prueba sin abrir el editor, correr antes `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --import` para que se registre la clase.
 
-## Sugerencia para el Paso 14
-- Autoload `Settings` (`scripts/settings.gd`): diccionario con valores por defecto, `load()` / `save()` en `user://settings.json`, señal `changed`.
-- Opciones: caja manual/automática por defecto (`Gearbox.manual`), cámara inicial (`CarController.camera_mode`), volumen general / motor / efectos / música (buses de audio: crear `Engine`, `Fx`, `Music` en un `default_bus_layout.tres` o por código con `AudioServer`), calidad (sombras on/off, resolución de espejos, MSAA) y ayudas (por ahora un placeholder hasta la Fase D).
-- Panel "Opciones" en el menú con `UiKit`, entre Jugar y Salir; aplicar en `main.gd` al cargar la carrera.
+## Sugerencia para el Paso 15
+- Hoy Esc en `main.gd` vuelve directo al menú: cambiarlo para que abra un menú de pausa (`scripts/ui/pause_menu.gd`, `CanvasLayer` con `process_mode = PROCESS_MODE_ALWAYS`) y ponga `get_tree().paused = true`.
+- Botones con `UiKit`: Continuar (o Esc otra vez), Reiniciar (`car.reset_to_spawn()` y reiniciar el `LapTimer`), Opciones (reusar `OptionsPanel`; al cerrar, `Settings.apply_to_car(car)`), Menú y Salir. Despausar antes de cambiar de escena.
+- Silenciar motor y efectos durante la pausa (`EngineAudio.set_muted(true)` o pausar el bus) y que el cronómetro no cuente.
 
 ## Verificación sin abrir el editor
 Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.

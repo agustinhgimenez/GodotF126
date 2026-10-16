@@ -45,8 +45,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 11 | Menú principal con fondo 3D del auto girando y música | ✅ |
 | 12 | **Selección de escudería → piloto** con tarjetas (color del equipo, número, bandera) desde `grid_2026.json` | ✅ |
 | 13 | Livery de dos colores por equipo y número del piloto en el auto | ✅ |
-| 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | ⏳ Siguiente |
-| 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | |
+| 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | ✅ |
+| 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | ⏳ Siguiente |
 | 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | |
 | 17 | **Semáforo de largada** con 5 luces y detección de salto | |
 | 18 | Cámaras extra: T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista | |
@@ -253,3 +253,17 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - `CarController.set_team_color(color)` se reemplazó por **`set_livery(principal, secundario, número)`**. La carrera lo llama con el piloto elegido; el menú, en la vista previa (sin número mientras se elige escudería).
 - **Verificación**: prueba con capturas del menú (Alpine rosa con alerones y franjas azules, #43 en negro), de la vista previa de Haas (números ocultos) y de la carrera con Verstappen (Red Bull azul con alerones rojos, #1 en blanco) en cámara cercana y cockpit: `informes/capturas/paso13-menu.png`, `paso13-carrera.png`, `paso13-cockpit.png`. El número del morro no se ve desde el cockpit (lo tapa la carrocería) y el de la cubierta se ve mejor desde la cámara TV, que está más alta.
 - **Cómo probar**: F5 → mirar el auto girando (franjas, alerones y número) → Jugar y recorrer escuderías (cambian los dos colores) → elegir piloto (aparece su número) → en la pista, C para ver el auto desde atrás.
+
+### Paso 14 — Opciones
+- **Autoload `Settings`** (`scripts/settings.gd`): valores por defecto, perfiles de dirección y de calidad en `data/settings.json`; lo que elige el jugador se guarda en **`user://settings.json`** apenas cambia (en Windows: `%APPDATA%\Godot\app_userdata\GodotF126\settings.json`). Los valores leídos se sanean (opciones desconocidas o volúmenes fuera de 0–100 vuelven al valor por defecto). Señal `changed(key)`.
+- **Opciones**:
+  - **Caja de cambios** inicial: manual o automática (M en la pista sigue alternando).
+  - **Dirección asistida**: sí = respuesta suave y menos giro a alta velocidad; no = dirección directa (más rápida y con más giro a fondo). Es la primera ayuda; el resto llega en la Fase D.
+  - **Cámara inicial**: TV, cercana o cockpit.
+  - **Volúmenes** general, motor, efectos y música, en buses de audio `Engine`, `Fx` y `Music` creados por código con `AudioServer` (el motor, los efectos y la música del menú usan cada uno su bus).
+  - **Calidad gráfica**: baja (sin sombras, espejos a media resolución), media (sombras) y alta (sombras, MSAA 4× y espejos a 1,5×).
+  - **Pantalla completa**.
+- **Panel "Opciones"** en el menú (`scripts/menu/options_panel.gd`, `OptionsPanel`), entre Jugar y Salir: filas con ‹ › que se cambian con ←/→ o Enter, deslizadores para los volúmenes, Restablecer y Volver (o Esc). Toma el color del equipo elegido y se aplica en vivo (las sombras y la música del menú cambian al instante).
+- **En la carrera** `main.gd` llama a `Settings.apply_to_car(car)` (caja, dirección, cámara y tamaño de los espejos) y apaga las sombras del sol en calidad baja.
+- **Verificación**: prueba que abre Opciones, pasa a caja automática, cámara cockpit, calidad baja y música al 30 %; comprueba el bus `Music` en −10,5 dB, las sombras apagadas, el archivo `user://settings.json` escrito y releído, que Esc vuelve con el foco en "Opciones", y que en la pista el auto arranca en automática, en cockpit, sin sombras y con espejos de 160×60; también que la dirección directa cambia la respuesta de 8 a 14. Al final restaura el archivo del jugador. Captura: `informes/capturas/paso14-opciones.png`.
+- **Cómo probar**: F5 → Opciones → cambiar la cámara a Cockpit y la caja a Automática → Volver → Jugar → la carrera arranca así; cerrar y volver a abrir el juego: las opciones siguen guardadas.

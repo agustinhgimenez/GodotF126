@@ -153,6 +153,13 @@ func cycle_camera() -> void:
 	camera_changed.emit(str(CAMERA_MODES[camera_mode]["name"]))
 
 
+## Cámara inicial (opciones); no muestra el aviso de cambio de cámara.
+func set_camera_mode(mode: int) -> void:
+	camera_mode = clampi(mode, 0, CAMERA_MODES.size() - 1)
+	_apply_camera_mode()
+	_snap_camera()
+
+
 ## Auto de exhibición para los menús: sin física, sin controles, sin sonido y sin su cámara.
 func set_showcase(enabled: bool) -> void:
 	controls_enabled = not enabled

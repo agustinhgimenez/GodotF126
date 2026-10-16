@@ -45,6 +45,7 @@ const CHIN_CURVE := 0.016
 
 var _camera: Camera3D
 var _cockpit_view: bool = false
+var _resolution_scale: float = 1.0
 var _visor: Node3D
 var _visor_tint_material: StandardMaterial3D
 var _visor_tint_mesh: MeshInstance3D
@@ -74,11 +75,22 @@ func configure(data: Dictionary) -> void:
 		mirror_resolution = Vector2i(int(resolution[0]), int(resolution[1]))
 	mirror_fov = float(data.get("mirror_fov", mirror_fov))
 	visor_tint = float(data.get("visor_tint", visor_tint))
-	for viewport in _mirror_viewports:
-		viewport.size = mirror_resolution
+	_apply_mirror_size()
 	for camera in _mirror_cameras:
 		camera.fov = mirror_fov
 	_apply_visor_tint()
+
+
+## Multiplica la resolución de los espejos (calidad gráfica en las opciones).
+func set_resolution_scale(factor: float) -> void:
+	_resolution_scale = clampf(factor, 0.25, 4.0)
+	_apply_mirror_size()
+
+
+func _apply_mirror_size() -> void:
+	var scaled := Vector2i(Vector2(mirror_resolution) * _resolution_scale)
+	for viewport in _mirror_viewports:
+		viewport.size = scaled.max(Vector2i(16, 8))
 
 
 ## Lo llama CarController al cambiar de cámara.

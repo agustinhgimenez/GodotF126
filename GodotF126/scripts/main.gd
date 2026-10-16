@@ -43,6 +43,8 @@ func _ready() -> void:
 
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	car.configure(car_data)
+	Settings.apply_to_car(car)
+	$Sun.shadow_enabled = Settings.shadows_enabled()
 	car.spawn_transform = track.get_spawn_transform()
 	car.reset_to_spawn()
 

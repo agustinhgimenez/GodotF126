@@ -16,7 +16,9 @@ var _selected_id: String = ""
 var _ring_material: StandardMaterial3D
 var _main_panel: VBoxContainer
 var _select: DriverSelect
+var _options: OptionsPanel
 var _play_button: Button
+var _options_button: Button
 var _quit_button: Button
 var _title_stripe: ColorRect
 var _card_stripe: ColorRect
@@ -27,6 +29,7 @@ var _card_subtitle: Label
 @onready var _car: CarController = $Turntable/Car
 @onready var _camera: Camera3D = $Camera3D
 @onready var _rim_light: OmniLight3D = $RimLight
+@onready var _key_light: DirectionalLight3D = $KeyLight
 @onready var _music: MenuMusic = $Music
 
 
@@ -50,6 +53,8 @@ func _ready() -> void:
 	_build_ui()
 	_show_selected()
 	_show_main()
+	_apply_quality()
+	Settings.changed.connect(func(_key: String) -> void: _apply_quality())
 
 
 func _process(delta: float) -> void:
@@ -62,14 +67,28 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	if _select.visible:
 		_select.back()
+	elif _options.visible:
+		_show_main()
+		_options_button.grab_focus()
 	else:
 		get_tree().quit()
 
 
 func _show_main() -> void:
 	_select.visible = false
+	_options.visible = false
 	_main_panel.visible = true
 	_play_button.grab_focus()
+
+
+func _on_options_pressed() -> void:
+	_main_panel.visible = false
+	_options.visible = true
+	_options.open()
+
+
+func _apply_quality() -> void:
+	_key_light.shadow_enabled = Settings.shadows_enabled()
 
 
 func _on_play_pressed() -> void:
@@ -108,7 +127,9 @@ func _preview(team: Dictionary, driver: Dictionary) -> void:
 	_title_stripe.color = color
 	_card_stripe.color = color
 	UiKit.apply_button_style(_play_button, color)
+	UiKit.apply_button_style(_options_button, color)
 	UiKit.apply_button_style(_quit_button, color)
+	_options.set_accent(color)
 	if driver.is_empty():
 		_card_title.text = str(team.get("name", ""))
 		var names := PackedStringArray()
@@ -179,6 +200,9 @@ func _build_ui() -> void:
 	_play_button = UiKit.make_button("Jugar", FALLBACK_TEAM_COLOR)
 	_play_button.pressed.connect(_on_play_pressed)
 	_main_panel.add_child(_play_button)
+	_options_button = UiKit.make_button("Opciones", FALLBACK_TEAM_COLOR)
+	_options_button.pressed.connect(_on_options_pressed)
+	_main_panel.add_child(_options_button)
 	_quit_button = UiKit.make_button("Salir", FALLBACK_TEAM_COLOR)
 	_quit_button.pressed.connect(_on_quit_pressed)
 	_main_panel.add_child(_quit_button)
@@ -194,6 +218,14 @@ func _build_ui() -> void:
 	_select.preview_changed.connect(_preview)
 	_select.confirmed.connect(_on_driver_confirmed)
 	_select.cancelled.connect(_on_select_cancelled)
+
+	_options = OptionsPanel.new()
+	_options.name = "Options"
+	UiKit.place(_options, Vector4(0, 0, 0, 0), Vector4(80, 200, 640, 710))
+	root.add_child(_options)
+	_options.closed.connect(func() -> void:
+		_show_main()
+		_options_button.grab_focus())
 
 	# Abajo a la derecha: piloto o escudería en exhibición.
 	var card := HBoxContainer.new()

@@ -85,6 +85,7 @@ func _start() -> void:
 	if _player == null:
 		_player = AudioStreamPlayer.new()
 		_player.name = "Player"
+		_player.bus = Settings.BUS_ENGINE
 		add_child(_player)
 	_player.stream = stream
 	_player.volume_db = volume_db
