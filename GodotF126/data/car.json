@@ -30,5 +30,10 @@
     "shift_up_rpm": 12000,
     "shift_down_rpm": 7000,
     "min_shift_interval": 0.25
+  },
+  "dashboard": {
+    "shift_light_count": 15,
+    "shift_light_start_rpm": 9000,
+    "speed_tick_step": 20
   }
 }

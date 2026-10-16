@@ -1,10 +1,7 @@
 class_name RaceHUD
 extends CanvasLayer
-## HUD: velocidad, marcha y RPM, piloto/equipo, pista, tiempos por vuelta y sectores.
+## HUD: tablero (Dashboard), piloto/equipo, pista, tiempos por vuelta y sectores.
 
-const COLOR_RPM_LOW := Color(0.2, 0.85, 0.3)
-const COLOR_RPM_HIGH := Color(1.0, 0.2, 0.15)
-const RPM_HIGH_RATIO := 0.85
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_SLOWER := Color(1.0, 0.85, 0.2)
 const COLOR_NEUTRAL := Color.WHITE
@@ -15,11 +12,7 @@ var _timer: LapTimer = null
 var _freeze_until_ms: int = 0
 var _message_until_ms: int = 0
 
-var _speed_label: Label
-var _speed_bar: ProgressBar
-var _gear_label: Label
-var _rpm_bar: ProgressBar
-var _rpm_fill: StyleBoxFlat
+var _dashboard: Dashboard
 var _driver_label: Label
 var _team_label: Label
 var _team_stripe: ColorRect
@@ -38,12 +31,14 @@ func _ready() -> void:
 
 func bind_car(car: CarController) -> void:
 	_car = car
-	_speed_bar.max_value = maxf(car.max_speed * 3.6, 1.0)
-	_rpm_bar.min_value = car.engine.idle_rpm
-	_rpm_bar.max_value = car.engine.limiter_rpm
+	_dashboard.bind_car(car)
 	car.camera_changed.connect(func(mode_name: String) -> void: show_message(mode_name, 1.2))
 	car.gearbox.shift_denied.connect(func(reason: String) -> void: show_message(reason, 1.2, COLOR_SLOWER))
 	car.gearbox.mode_changed.connect(_on_gearbox_mode_changed)
+
+
+func configure_dashboard(data: Dictionary) -> void:
+	_dashboard.configure(data)
 
 
 func bind_lap_timer(timer: LapTimer) -> void:
@@ -80,14 +75,6 @@ func _process(_delta: float) -> void:
 
 	if _car != null:
 		var kmh := _car.get_speed_kmh()
-		_speed_label.text = "%d" % roundi(kmh)
-		_speed_bar.value = kmh
-		var rpm := _car.get_rpm()
-		var mode := "MAN" if _car.gearbox.manual else "AUT"
-		_gear_label.text = "%s   %s   %d rpm" % [mode, _car.get_gear_label(), roundi(rpm)]
-		_rpm_bar.value = rpm
-		var high := _car.engine.get_rpm_ratio() >= RPM_HIGH_RATIO
-		_rpm_fill.bg_color = COLOR_RPM_HIGH if high else COLOR_RPM_LOW
 		_drift_label.visible = kmh > 30.0 and _car.get_slip_angle_deg() > 12.0
 
 	if _timer != null:
@@ -207,31 +194,12 @@ func _build_ui() -> void:
 	_track_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_track_label)
 
-	# Abajo a la derecha: velocímetro.
-	var speed_box := VBoxContainer.new()
-	speed_box.alignment = BoxContainer.ALIGNMENT_END
-	_place(speed_box, Vector4(1, 1, 1, 1), Vector4(-324, -210, -24, -20))
-	root.add_child(speed_box)
-
-	_speed_label = _make_label(64, HORIZONTAL_ALIGNMENT_RIGHT, "0")
-	speed_box.add_child(_speed_label)
-	speed_box.add_child(_make_label(20, HORIZONTAL_ALIGNMENT_RIGHT, "km/h"))
-
-	_speed_bar = ProgressBar.new()
-	_speed_bar.show_percentage = false
-	_speed_bar.custom_minimum_size = Vector2(300, 14)
-	speed_box.add_child(_speed_bar)
-
-	_gear_label = _make_label(26, HORIZONTAL_ALIGNMENT_RIGHT, "1   0 rpm")
-	speed_box.add_child(_gear_label)
-
-	_rpm_bar = ProgressBar.new()
-	_rpm_bar.show_percentage = false
-	_rpm_bar.custom_minimum_size = Vector2(300, 14)
-	_rpm_fill = StyleBoxFlat.new()
-	_rpm_fill.bg_color = COLOR_RPM_LOW
-	_rpm_bar.add_theme_stylebox_override("fill", _rpm_fill)
-	speed_box.add_child(_rpm_bar)
+	# Abajo a la derecha: tablero.
+	_dashboard = Dashboard.new()
+	_dashboard.name = "Dashboard"
+	_place(_dashboard, Vector4(1, 1, 1, 1),
+		Vector4(-Dashboard.SIZE.x - 24, -Dashboard.SIZE.y - 20, -24, -20))
+	root.add_child(_dashboard)
 
 	# Centro: mensajes y aviso de derrape.
 	_message_label = _make_label(30, HORIZONTAL_ALIGNMENT_CENTER)
@@ -249,7 +217,7 @@ func _build_ui() -> void:
 	var hint := _make_label(16, HORIZONTAL_ALIGNMENT_LEFT,
 		"W acelerar · S frenar · A/D girar · E/Q subir/bajar marcha · M caja man/aut · Espacio freno de mano · C cámara · R reiniciar · Esc salir")
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_place(hint, Vector4(0, 1, 0, 1), Vector4(24, -64, 900, -20))
+	_place(hint, Vector4(0, 1, 0, 1), Vector4(24, -84, 760, -20))
 	root.add_child(hint)
 
 

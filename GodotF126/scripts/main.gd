@@ -40,7 +40,8 @@ func _ready() -> void:
 	_select_driver(grid, str(grid.get("default_driver_id", "colapinto")))
 	var track_info := _find_track(tracks, TRACK_ID)
 
-	car.configure(_load_json(CAR_PATH))
+	var car_data := _load_json(CAR_PATH)
+	car.configure(car_data)
 	car.spawn_transform = track.get_spawn_transform()
 	car.reset_to_spawn()
 
@@ -48,6 +49,9 @@ func _ready() -> void:
 	car.set_team_color(team_color)
 
 	hud.bind_car(car)
+	var dashboard_data = car_data.get("dashboard", {})
+	if dashboard_data is Dictionary:
+		hud.configure_dashboard(dashboard_data)
 	hud.set_driver_info(selected_driver, selected_team, team_color)
 	hud.set_track_name(str(track_info.get("display_name", track.track_name)))
 

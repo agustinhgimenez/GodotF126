@@ -30,7 +30,7 @@ GodotF126/
   data/
     grid_2026.json     grilla 2026 (11 equipos, 22 pilotos)
     tracks.json        metadatos de pistas
-    car.json           masa, curva de torque, RPM, relaciones de marcha
+    car.json           masa, curva de torque, RPM, relaciones de marcha, tablero
   scenes/
     main.tscn          Main: entorno + BakuTrack + Car + HUD
     car.tscn           CharacterBody3D con componentes Engine y Gearbox, cámara 3ra persona
@@ -42,7 +42,8 @@ GodotF126/
     car/gearbox.gd     caja secuencial 8 marchas + N + R, manual (levas) o automática
     baku_track.gd      genera la pista y los checkpoints por código
     lap_timer.gd       vueltas, sectores, mejor vuelta y récord
-    hud.gd             velocímetro, marcha y RPM, tiempos, datos de piloto/pista
+    hud.gd             tiempos, datos de piloto/pista, mensajes; contiene el tablero
+    ui/dashboard.gd    tablero: luces de cambio, marcha, RPM, velocímetro con aguja
 ```
 
 ## Decisiones de diseño
@@ -53,4 +54,4 @@ GodotF126/
 - La pista de Bakú es un **placeholder geométrico**, no el trazado oficial FIA.
 
 ## Estado
-Pasos 0 a 4 completos. Ver [ROADMAP.md](ROADMAP.md). Todavía **no hay ejecutable .exe** (eso es el Paso 59).
+Pasos 0 a 5 completos. Ver [ROADMAP.md](ROADMAP.md). Todavía **no hay ejecutable .exe** (eso es el Paso 59).
