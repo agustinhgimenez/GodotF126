@@ -2,7 +2,7 @@
 
 **Autor:** Agustín Giménez
 **Materia:** 350 — Ingeniería de Software Avanzado (plan 2015)
-**Motor:** Godot 4.3 (GDScript)
+**Motor:** Godot 4.7 (GDScript)
 
 ---
 

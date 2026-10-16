@@ -1,0 +1,31 @@
+{
+  "description": "Datos del monoplaza. Valores aproximados y escalados para manejo arcade; no son datos oficiales.",
+  "mass_kg": 800,
+  "wheel_radius": 0.36,
+  "traction_limit": 16.0,
+  "aero_drag": 0.0012,
+  "engine": {
+    "idle_rpm": 4000,
+    "limiter_rpm": 12500,
+    "launch_rpm": 7500,
+    "rpm_response": 40000,
+    "limiter_cut_time": 0.06,
+    "engine_braking": 2.5,
+    "torque_curve": [
+      [4000, 180],
+      [6000, 260],
+      [8000, 330],
+      [10500, 380],
+      [11500, 370],
+      [12500, 330]
+    ]
+  },
+  "gearbox": {
+    "gear_ratios": [9.43, 7.95, 6.70, 5.65, 4.76, 4.02, 3.39, 2.85],
+    "final_drive": 3.0,
+    "efficiency": 0.9,
+    "shift_up_rpm": 12000,
+    "shift_down_rpm": 7000,
+    "min_shift_interval": 0.25
+  }
+}

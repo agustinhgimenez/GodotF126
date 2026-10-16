@@ -1,8 +1,9 @@
 extends Node3D
-## Escena principal del Paso 1: carga datos, spawnea el auto en Bakú y arma el HUD.
+## Escena principal: carga datos (grilla, pistas, auto), spawnea el auto en Bakú y arma el HUD.
 
 const GRID_PATH := "res://data/grid_2026.json"
 const TRACKS_PATH := "res://data/tracks.json"
+const CAR_PATH := "res://data/car.json"
 const TRACK_ID := "baku"
 
 ## Respaldo por si el input map de project.godot se pierde o se edita mal.
@@ -36,6 +37,7 @@ func _ready() -> void:
 	_select_driver(grid, str(grid.get("default_driver_id", "colapinto")))
 	var track_info := _find_track(tracks, TRACK_ID)
 
+	car.configure(_load_json(CAR_PATH))
 	car.spawn_transform = track.get_spawn_transform()
 	car.reset_to_spawn()
 

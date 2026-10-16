@@ -2,7 +2,7 @@
 
 **Autor:** Agustín Giménez
 **Materia:** 350 — Ingeniería de Software Avanzado (plan 2015)
-**Motor / lenguaje:** Godot 4.3 / GDScript
+**Motor / lenguaje:** Godot 4.7 / GDScript
 **Fecha:** septiembre de 2026
 
 ---
@@ -89,4 +89,4 @@ Desarrollo iterativo e incremental. Cada paso deja una versión jugable:
 | Datos no incluidos en el export | Filtro `*.json` en el preset de export (Paso 8) |
 
 ## 9. Estado actual
-Los Pasos 0 y 1 están implementados y se prueban abriendo `GodotF126/project.godot` en Godot 4.3 y apretando F5. Todavía no existe un ejecutable `.exe`; se generará en el Paso 8.
+Los Pasos 0 a 3 están implementados (base, manejo, cronómetro y cámaras, motor con RPM) y se prueban abriendo `GodotF126/project.godot` en Godot 4.7 y apretando F5. Todavía no existe un ejecutable `.exe`; se generará en el Paso 59.

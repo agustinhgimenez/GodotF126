@@ -1,7 +1,10 @@
 class_name RaceHUD
 extends CanvasLayer
-## HUD: velocidad, piloto/equipo, pista, tiempos por vuelta y sectores.
+## HUD: velocidad, marcha y RPM, piloto/equipo, pista, tiempos por vuelta y sectores.
 
+const COLOR_RPM_LOW := Color(0.2, 0.85, 0.3)
+const COLOR_RPM_HIGH := Color(1.0, 0.2, 0.15)
+const RPM_HIGH_RATIO := 0.85
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_SLOWER := Color(1.0, 0.85, 0.2)
 const COLOR_NEUTRAL := Color.WHITE
@@ -14,6 +17,9 @@ var _message_until_ms: int = 0
 
 var _speed_label: Label
 var _speed_bar: ProgressBar
+var _gear_label: Label
+var _rpm_bar: ProgressBar
+var _rpm_fill: StyleBoxFlat
 var _driver_label: Label
 var _team_label: Label
 var _team_stripe: ColorRect
@@ -33,6 +39,8 @@ func _ready() -> void:
 func bind_car(car: CarController) -> void:
 	_car = car
 	_speed_bar.max_value = maxf(car.max_speed * 3.6, 1.0)
+	_rpm_bar.min_value = car.engine.idle_rpm
+	_rpm_bar.max_value = car.engine.limiter_rpm
 	car.camera_changed.connect(func(mode_name: String) -> void: show_message(mode_name, 1.2))
 
 
@@ -72,6 +80,11 @@ func _process(_delta: float) -> void:
 		var kmh := _car.get_speed_kmh()
 		_speed_label.text = "%d" % roundi(kmh)
 		_speed_bar.value = kmh
+		var rpm := _car.get_rpm()
+		_gear_label.text = "%s   %d rpm" % [_car.get_gear_label(), roundi(rpm)]
+		_rpm_bar.value = rpm
+		var high := _car.engine.get_rpm_ratio() >= RPM_HIGH_RATIO
+		_rpm_fill.bg_color = COLOR_RPM_HIGH if high else COLOR_RPM_LOW
 		_drift_label.visible = kmh > 30.0 and _car.get_slip_angle_deg() > 12.0
 
 	if _timer != null:
@@ -190,7 +203,7 @@ func _build_ui() -> void:
 	# Abajo a la derecha: velocímetro.
 	var speed_box := VBoxContainer.new()
 	speed_box.alignment = BoxContainer.ALIGNMENT_END
-	_place(speed_box, Vector4(1, 1, 1, 1), Vector4(-324, -150, -24, -20))
+	_place(speed_box, Vector4(1, 1, 1, 1), Vector4(-324, -210, -24, -20))
 	root.add_child(speed_box)
 
 	_speed_label = _make_label(64, HORIZONTAL_ALIGNMENT_RIGHT, "0")
@@ -201,6 +214,17 @@ func _build_ui() -> void:
 	_speed_bar.show_percentage = false
 	_speed_bar.custom_minimum_size = Vector2(300, 14)
 	speed_box.add_child(_speed_bar)
+
+	_gear_label = _make_label(26, HORIZONTAL_ALIGNMENT_RIGHT, "1   0 rpm")
+	speed_box.add_child(_gear_label)
+
+	_rpm_bar = ProgressBar.new()
+	_rpm_bar.show_percentage = false
+	_rpm_bar.custom_minimum_size = Vector2(300, 14)
+	_rpm_fill = StyleBoxFlat.new()
+	_rpm_fill.bg_color = COLOR_RPM_LOW
+	_rpm_bar.add_theme_stylebox_override("fill", _rpm_fill)
+	speed_box.add_child(_rpm_bar)
 
 	# Centro: mensajes y aviso de derrape.
 	_message_label = _make_label(30, HORIZONTAL_ALIGNMENT_CENTER)

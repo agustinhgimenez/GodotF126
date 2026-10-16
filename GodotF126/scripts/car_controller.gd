@@ -1,8 +1,9 @@
 class_name CarController
 extends CharacterBody3D
-## Física arcade del monoplaza (Paso 1).
+## Física arcade del monoplaza (Paso 1) con motor y caja como componentes (Paso 3).
 ## El auto avanza sobre su eje -Z. La velocidad "de motor" (forward_speed) se
 ## separa de la velocidad real para poder simular agarre y derrape.
+## La aceleración hacia adelante sale del torque del motor × relación de la marcha.
 
 signal was_reset
 signal camera_changed(mode_name: String)
@@ -15,9 +16,12 @@ const CAMERA_MODES := [
 ]
 
 @export_group("Motor")
-@export var max_speed: float = 55.0            ## m/s (~198 km/h)
+@export var max_speed: float = 55.0            ## m/s; se recalcula en configure() desde la última marcha
 @export var max_reverse_speed: float = 12.0
-@export var acceleration: float = 16.0
+@export var mass_kg: float = 800.0
+@export var wheel_radius: float = 0.36
+@export var traction_limit: float = 16.0       ## m/s² máximos que el agarre deja acelerar
+@export var aero_drag: float = 0.0012          ## desaceleración = aero_drag × v²
 @export var brake_deceleration: float = 38.0
 @export var reverse_acceleration: float = 8.0
 @export var rolling_drag: float = 3.0
@@ -47,6 +51,8 @@ var _steer: float = 0.0
 @onready var _camera_pivot: Node3D = $CameraPivot
 @onready var _camera: Camera3D = $CameraPivot/Camera3D
 @onready var _helmet: Node3D = $Helmet
+@onready var engine: CarEngine = $Engine
+@onready var gearbox: Gearbox = $Gearbox
 
 
 func _ready() -> void:
@@ -55,6 +61,22 @@ func _ready() -> void:
 	_camera_pivot.top_level = true
 	_apply_camera_mode()
 	_snap_camera()
+	max_speed = get_top_speed()
+
+
+## Carga los datos de data/car.json. Lo que falte queda con el valor del inspector.
+func configure(data: Dictionary) -> void:
+	mass_kg = float(data.get("mass_kg", mass_kg))
+	wheel_radius = float(data.get("wheel_radius", wheel_radius))
+	traction_limit = float(data.get("traction_limit", traction_limit))
+	aero_drag = float(data.get("aero_drag", aero_drag))
+	var engine_data = data.get("engine", {})
+	if engine_data is Dictionary:
+		engine.configure(engine_data)
+	var gearbox_data = data.get("gearbox", {})
+	if gearbox_data is Dictionary:
+		gearbox.configure(gearbox_data)
+	max_speed = get_top_speed()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -95,6 +117,7 @@ func _physics_process(delta: float) -> void:
 		steer_input = Input.get_axis("steer_right", "steer_left")
 		handbrake = Input.is_action_pressed("handbrake")
 
+	_update_powertrain(throttle, delta)
 	_update_speed(throttle, brake, handbrake, delta)
 	_update_steering(steer_input, handbrake, delta)
 	_apply_velocity(handbrake, delta)
@@ -106,20 +129,30 @@ func _physics_process(delta: float) -> void:
 		reset_to_spawn()
 
 
+func _update_powertrain(throttle: float, delta: float) -> void:
+	var engine_throttle := throttle if forward_speed >= 0.0 else 0.0
+	engine.update(_wheel_rpm(), engine_throttle, gearbox.gear == 1, delta)
+	gearbox.update_automatic(engine.rpm, delta)
+
+
 func _update_speed(throttle: float, brake: float, handbrake: bool, delta: float) -> void:
 	if throttle > 0.0:
 		if forward_speed < 0.0:
 			forward_speed = move_toward(forward_speed, 0.0, brake_deceleration * throttle * delta)
 		else:
-			var ratio := clampf(forward_speed / max_speed, 0.0, 1.0)
-			forward_speed += acceleration * throttle * (1.0 - ratio * 0.7) * delta
+			forward_speed += _drive_acceleration() * delta
 	elif brake > 0.0:
 		if forward_speed > 0.5:
 			forward_speed = move_toward(forward_speed, 0.0, brake_deceleration * brake * delta)
 		else:
 			forward_speed -= reverse_acceleration * brake * delta
 	else:
-		forward_speed = move_toward(forward_speed, 0.0, rolling_drag * delta)
+		var coast_decel := rolling_drag
+		if forward_speed > 0.0:
+			coast_decel += engine.get_engine_brake_accel()
+		forward_speed = move_toward(forward_speed, 0.0, coast_decel * delta)
+
+	forward_speed = move_toward(forward_speed, 0.0, aero_drag * forward_speed * forward_speed * delta)
 
 	if handbrake:
 		forward_speed = move_toward(forward_speed, 0.0, handbrake_deceleration * delta)
@@ -174,6 +207,18 @@ func _snap_camera() -> void:
 	_camera_pivot.global_transform = Transform3D(Basis(Vector3.UP, rotation.y), global_position)
 
 
+## RPM que impone la velocidad de las ruedas a través de la marcha actual.
+func _wheel_rpm() -> float:
+	var wheel_rad_per_s := absf(forward_speed) / wheel_radius
+	return wheel_rad_per_s * gearbox.get_total_ratio() * 60.0 / TAU
+
+
+func _drive_acceleration() -> float:
+	var wheel_torque := engine.get_output_torque() * gearbox.get_total_ratio() * gearbox.efficiency
+	var force := wheel_torque / wheel_radius
+	return minf(force / mass_kg, traction_limit)
+
+
 func _flat_forward() -> Vector3:
 	var forward := -global_transform.basis.z
 	forward.y = 0.0
@@ -185,12 +230,30 @@ func reset_to_spawn() -> void:
 	velocity = Vector3.ZERO
 	forward_speed = 0.0
 	_steer = 0.0
+	engine.reset()
+	gearbox.reset()
 	_snap_camera()
 	was_reset.emit()
 
 
 func get_speed_kmh() -> float:
 	return Vector2(velocity.x, velocity.z).length() * 3.6
+
+
+## Velocidad (m/s) con el motor en el limitador en la última marcha.
+func get_top_speed() -> float:
+	var top_ratio := gearbox.get_total_ratio(gearbox.get_gear_count())
+	return engine.limiter_rpm * TAU / 60.0 / top_ratio * wheel_radius
+
+
+func get_rpm() -> float:
+	return engine.rpm
+
+
+func get_gear_label() -> String:
+	if forward_speed < -0.5:
+		return "R"
+	return str(gearbox.gear)
 
 
 ## Ángulo entre hacia dónde apunta el auto y hacia dónde se mueve (derrape).
