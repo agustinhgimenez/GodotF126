@@ -74,6 +74,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 17: largada detenida en Contrarreloj con semáforo de 5 luces (en el pórtico y en el HUD), tiempo de reacción y detección de salto con +5 s de penalización. Capturas: `informes/capturas/paso17-semaforo.png`, `paso17-resultado-salto.png`.
 - ✅ Paso 18: cámaras extra: T-cam sobre el airbox, cámara de capot y 10 cámaras de TV fijas en la pista que cortan a la más cercana y hacen zoom sobre el auto. Capturas: `informes/capturas/paso18-tcam.png`, `paso18-capot.png`, `paso18-pista-2.png`.
 - ✅ Paso 19: pianos rojos y blancos en las curvas (vibran y retumban al pisarlos), escapatorias del lado de afuera y límites de pista: con las cuatro ruedas afuera la vuelta queda invalidada. Capturas: `informes/capturas/paso19-curva-arriba.png`, `paso19-invalidada.png`.
-- ⏳ Paso 20: carteles de frenado 150 / 100 / 50 m antes de cada curva.
+- ✅ Paso 20: carteles de frenado 150 / 100 / 50 m antes de cada curva, del lado de afuera y detrás del muro (sólo donde la recta previa alcanza). Capturas: `informes/capturas/paso20-carteles.png`, `paso20-cockpit.png`.
+- ⏳ Paso 21: Bakú mejorado — trazado más parecido (aproximado), sector del castillo estrecho, elevación suave.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

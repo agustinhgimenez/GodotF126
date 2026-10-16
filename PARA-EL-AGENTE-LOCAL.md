@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 19 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
-- Próximo: **Paso 20 — carteles de frenado** 150 / 100 / 50 m antes de cada curva.
+- Pasos 0 a 20 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
+- Próximo: **Paso 21 — Bakú mejorado**: trazado más parecido (aproximado, sin datos oficiales FIA), sector del castillo estrecho, elevación suave.
 - El juego arranca en `scenes/menu.tscn`; `scenes/main.tscn` es la carrera. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
@@ -47,7 +47,7 @@ Leé esto antes de tocar el proyecto.
 | `scripts/car/car_engine.gd` | `class_name CarEngine` (nodo `Engine` del auto). RPM, curva de torque, limitador con corte, freno motor. `update(wheel_rpm, throttle, clutch_can_slip, in_neutral, delta)`, `get_output_torque()`. Señal `limiter_hit` |
 | `scripts/car/gearbox.gd` | `class_name Gearbox`. Secuencial R (`REVERSE` = −1), N (`NEUTRAL` = 0), 1–8; `manual` o automática. `shift_up/shift_down(speed)`, `toggle_mode()`, `select_gear()`, `get_ratio_for()`, `is_shifting()`, `get_direction()`. Señales `gear_changed`, `shift_denied(reason)`, `mode_changed(manual)` |
 | `data/car.json` | Masa, radio de rueda, tracción, drag, datos de motor y caja |
-| `scripts/baku_track.gd` | `class_name BakuTrack`. Genera la pista y 3 `Area3D` de checkpoint; expone `centerline`, `track_length`, `get_spawn_transform()`, `get_start_line_transform()`, `get_grid_transform(distancia)`, `GANTRY_HEIGHT`. Paso 19: lee `layout` de `data/tracks.json` (`track_id`), calcula curvatura → `kerb_mask`, `turn_sign`, `wall_left` / `wall_right`; arma escapatoria, pianos y muros a distancia variable. `wall_offset(i, lado)`, `half_width()`, `has_kerb(i)`, `locate(pos, hint)` → `Vector2(índice, lateral)`. Señal `checkpoint_crossed(checkpoint, body)` |
+| `scripts/baku_track.gd` | `class_name BakuTrack`. Genera la pista y 3 `Area3D` de checkpoint; expone `centerline`, `track_length`, `get_spawn_transform()`, `get_start_line_transform()`, `get_grid_transform(distancia)`, `GANTRY_HEIGHT`. Paso 19: lee `layout` de `data/tracks.json` (`track_id`), calcula curvatura → `kerb_mask`, `turn_sign`, `wall_left` / `wall_right`; arma escapatoria, pianos y muros a distancia variable. `wall_offset(i, lado)`, `half_width()`, `has_kerb(i)`, `locate(pos, hint)` → `Vector2(índice, lateral)`. Paso 20: `corner_mask`, `corner_starts` (inicio de cada curva) y carteles de frenado en el nodo `BrakeBoards` / `brake_boards` (`index`, `distance`, `corner`; datos en `"brake_boards"` de `tracks.json`). Señal `checkpoint_crossed(checkpoint, body)` |
 | `scripts/lap_timer.gd` | `class_name LapTimer`. Vueltas, sectores, mejor vuelta, récord en `user://records.json`. `lap_limit` (0 = sin límite), `finished`, `lap_history`, `total_time()` (incluye `penalty`), `beat_record()`, `start_now()` (largada detenida), `add_penalty(s, motivo)`, `reaction_time`, `invalidate_lap(motivo)`, `current_invalid` (las vueltas inválidas no cuentan para mejor vuelta / sectores / récord; `"invalid"` en `lap_history`), señales `session_finished`, `lap_invalidated`. `format_time()` estático |
 | `scripts/hud.gd` | `class_name RaceHUD`. UI construida por código; crea el `Dashboard`. `bind_car()`, `configure_dashboard(data)`, `show_message()` |
 | `scripts/ui/dashboard.gd` | `class_name Dashboard`. Tablero dibujado en `_draw()`: luces de cambio, marcha, RPM, velocímetro con aguja. `configure(data)`, `bind_car(car)` |
@@ -64,10 +64,11 @@ La vibración de cámara está en `CarController._update_shake()`; `add_camera_i
 
 Si se agrega un script con `class_name` nuevo y se prueba sin abrir el editor, correr antes `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --import` para que se registre la clase.
 
-## Sugerencia para el Paso 20
-- **Carteles de frenado** 150 / 100 / 50 m antes de cada curva: las curvas ya están detectadas en `BakuTrack` (`kerb_mask` y `turn_sign`; el inicio real de cada curva es donde la curvatura pasa el umbral, `kerb_extend` metros después de donde empieza el piano). Recorrer el `centerline` hacia atrás desde cada inicio de curva sumando distancia y poner un cartel (poste + panel blanco con el número en `Label3D`, o 3 / 2 / 1 rayas) a cada distancia, del lado de afuera, detrás del muro (`wall_offset`).
-- Saltear curvas que empiezan muy cerca del final de otra (p. ej. la chicana del castillo) o poner sólo el de 50 m. Las distancias y el tamaño del cartel en `data/tracks.json` (`"layout"` o un bloque nuevo `"brake_boards"`).
-- Ojo con las cámaras de TV: las torres están a `wall_clearance` detrás del muro; que los carteles no queden adentro de una torre.
+## Sugerencia para el Paso 21
+- **Bakú mejorado**: el trazado sale de `centerline` (puntos de control en `BakuTrack._ensure_centerline()`). Rehacer los puntos de control para que se parezca más a Bakú (recta larga junto al mar, ángulos rectos de la ciudad vieja, **sector del castillo** estrecho y sinuoso), dejando claro en la doc que es aproximado y no el layout oficial FIA. Guardar los puntos en `data/tracks.json` si se puede.
+- **Castillo estrecho**: permitir ancho variable (hoy `track_width` es fijo); el asfalto, los pianos, los muros, `locate()`, `half_width()` y `TrackLimits` asumen un ancho único, así que hace falta un ancho por índice.
+- **Elevación suave**: sumar Y al `centerline` (subida hacia el castillo). Revisar que los muros, la escapatoria, los checkpoints, el pórtico, las torres de TV y los carteles de frenado usen la altura del punto y no Y = 0, y que el auto no se trabe (pendientes chicas).
+- Todo lo del Paso 19 y 20 (curvas, pianos, escapatorias, carteles) se recalcula solo desde el `centerline`; volver a correr las pruebas de los pasos 19 y 20 después de cambiar el trazado.
 
 ## Verificación sin abrir el editor
 Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.

@@ -51,8 +51,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 17 | **Semáforo de largada** con 5 luces y detección de salto | ✅ |
 | 18 | Cámaras extra: T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista | ✅ |
 | 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | ✅ |
-| 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | ⏳ Siguiente |
-| 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | |
+| 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | ✅ |
+| 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | ⏳ Siguiente |
 | 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | |
 | 23 | Iluminación de atardecer, sombras, reflejos en el mar | |
 | 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | |
@@ -323,3 +323,11 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Al pisar un piano**: vibración de cámara (`add_camera_impact(0,18)` mientras dura) y **retumbe** en `CarAudioFx`, una onda triangular con la frecuencia de las estrías (velocidad / 0,3 m) más ruido sordo. `CarController.kerb_contact` (0–1) lo escribe `TrackLimits`.
 - **Verificación**: prueba que mide el trazado (1.184 puntos, muros de 7,6 a 16,6 m del centro, 0 muros sobre otra parte de la pista), saca una captura cenital de la curva con más escapatoria, comprueba que con dos ruedas afuera la vuelta sigue válida y con cuatro se invalida, que esa vuelta no marca mejor vuelta, sectores ni récord y la siguiente sí, que sobre un piano `kerb_contact` = 1 con retumbe (pico 0,36, sin valores inválidos) y en el centro de la pista 0. Restaura `user://records.json` al final. Capturas: `informes/capturas/paso19-curva-arriba.png`, `paso19-invalidada.png`, `paso19-piano.png`.
 - **Cómo probar**: F5 → Jugar → elegir piloto → en una curva subirse al piano (se siente y se oye) → cortar una curva con las cuatro ruedas por la escapatoria: aviso rojo y vuelta en gris → en Contrarreloj, ver la vuelta con `*` en el resultado.
+
+### Paso 20 — Carteles de frenado
+- **Inicio de cada curva**: `BakuTrack._find_corner_starts()` toma los puntos donde `corner_mask` (curvatura por encima del umbral del Paso 19) pasa de 0 a 1 y la curva dura al menos 8 m (`corner_starts`). En Bakú son 12.
+- **Carteles** (`_build_brake_boards()`): desde cada inicio se recorre el `centerline` hacia atrás sumando distancia y se pone un cartel a 150, 100 y 50 m: poste gris, panel blanco y el número en negro (`Label3D`), mirando al auto que llega, **del lado de afuera de la curva** y 0,9 m detrás del muro (`wall_offset` + espesor). Quedan en el nodo `BrakeBoards` y en `brake_boards` (`index`, `distance`, `corner`).
+- **Curvas seguidas**: si antes de llegar a la distancia aparece otra curva, ese cartel no se pone (tiene que quedar al menos 8 m después del final de la curva anterior). Por eso en la parte sinuosa (rectas de menos de 50 m entre curvas) no hay carteles, y Bakú queda con 8: tres antes de la curva al final de la recta larga, tres antes de la del índice 900 y 100 / 50 m antes de la del 991.
+- **Datos** en `data/tracks.json` → `"brake_boards"`: distancias, separación mínima, largo mínimo de curva, distancia al muro y medidas del cartel.
+- **Verificación**: prueba que cuenta curvas y carteles, mide sobre el trazado la distancia de cada cartel a su curva (error máximo 1,2 m, el espaciado del `centerline`), comprueba que los 8 quedan del lado de afuera, detrás del muro y a más de 2 m de las torres de TV, y saca capturas llegando a la curva con los tres carteles. Capturas: `informes/capturas/paso20-carteles.png` (cámara TV, cartel de 150), `paso20-cockpit.png` (cartel de 100).
+- **Cómo probar**: F5 → Jugar → elegir piloto → recorrer la recta larga: a la derecha, antes de la curva a la izquierda, aparecen 150, 100 y 50.

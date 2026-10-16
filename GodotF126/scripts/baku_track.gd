@@ -68,6 +68,15 @@ const BARRIER_WHITE := Color(0.92, 0.92, 0.92)
 @export var runoff_width: float = 9.0          ## escapatoria extra del lado de afuera
 @export var runoff_ramp: float = 25.0          ## m en que el muro se abre y se cierra
 
+@export_group("Carteles de frenado")
+@export var board_distances: PackedFloat32Array = PackedFloat32Array([150.0, 100.0, 50.0])
+@export var board_min_gap: float = 8.0         ## m mínimos entre el final de la curva anterior y un cartel
+@export var board_min_corner_length: float = 8.0  ## curvas más cortas no llevan carteles
+@export var board_wall_clearance: float = 0.9  ## m detrás del muro
+@export var board_height: float = 2.3          ## altura del centro del panel
+@export var board_width: float = 1.6
+@export var board_panel_height: float = 1.1
+
 var centerline: PackedVector3Array = PackedVector3Array()
 var track_length: float = 0.0
 var checkpoint_indices: PackedInt32Array = PackedInt32Array()
@@ -77,6 +86,13 @@ var kerb_mask: PackedFloat32Array = PackedFloat32Array()
 var turn_sign: PackedFloat32Array = PackedFloat32Array()
 var wall_left: PackedFloat32Array = PackedFloat32Array()
 var wall_right: PackedFloat32Array = PackedFloat32Array()
+## 1 donde el radio es menor a corner_radius (la curva en sí, sin la extensión del piano).
+var corner_mask: PackedFloat32Array = PackedFloat32Array()
+## Índice donde empieza cada curva, en orden de carrera (Paso 20; la IA del Paso 44 los
+## puede usar como puntos de frenado).
+var corner_starts: PackedInt32Array = PackedInt32Array()
+## Carteles armados: {"index", "distance", "corner"} por cada uno.
+var brake_boards: Array[Dictionary] = []
 
 var _rights: PackedVector3Array = PackedVector3Array()
 
@@ -90,6 +106,8 @@ func _ready() -> void:
 	_build_asphalt()
 	_build_kerbs()
 	_build_walls()
+	_find_corner_starts()
+	_build_brake_boards()
 	_build_start_line()
 	_build_checkpoints()
 	_build_scenery()
@@ -159,6 +177,17 @@ func _load_layout() -> void:
 	for info in DataLoader.load_json(DataLoader.TRACKS_PATH).get("tracks", []):
 		if str(info.get("id", "")) != track_id:
 			continue
+		var boards = info.get("brake_boards", {})
+		if boards is Dictionary:
+			var distances = boards.get("distances", [])
+			if distances is Array and not distances.is_empty():
+				board_distances = PackedFloat32Array(distances)
+			board_min_gap = float(boards.get("min_gap", board_min_gap))
+			board_min_corner_length = float(boards.get("min_corner_length", board_min_corner_length))
+			board_wall_clearance = float(boards.get("wall_clearance", board_wall_clearance))
+			board_height = float(boards.get("height", board_height))
+			board_width = float(boards.get("width", board_width))
+			board_panel_height = float(boards.get("panel_height", board_panel_height))
 		var data = info.get("layout", {})
 		if not data is Dictionary:
 			return
@@ -193,6 +222,10 @@ func _compute_layout() -> void:
 	for i in n:
 		left_turn[i] = 1.0 if curvature[i] > threshold else 0.0
 		right_turn[i] = 1.0 if curvature[i] < -threshold else 0.0
+	corner_mask = PackedFloat32Array()
+	corner_mask.resize(n)
+	for i in n:
+		corner_mask[i] = maxf(left_turn[i], right_turn[i])
 
 	var extend := int(kerb_extend / spacing)
 	var left_kerb := _moving_max(left_turn, extend)
@@ -482,6 +515,95 @@ func _build_walls() -> void:
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
 	walls.add_child(collision)
+
+
+## Inicio de cada tramo de curva de al menos board_min_corner_length metros.
+func _find_corner_starts() -> void:
+	corner_starts = PackedInt32Array()
+	var n := centerline.size()
+	var spacing := track_length / n
+	var min_points := maxi(int(board_min_corner_length / spacing), 1)
+	for i in n:
+		if corner_mask[i] == 0.0 or corner_mask[(i - 1 + n) % n] > 0.0:
+			continue
+		var length := 0
+		while length < min_points and corner_mask[(i + length) % n] > 0.0:
+			length += 1
+		if length >= min_points:
+			corner_starts.append(i)
+
+
+## Carteles 150 / 100 / 50 m antes de cada curva, del lado de afuera y detrás del muro,
+## mirando al auto que llega. Sólo los que entran en la recta: a más de board_min_gap del
+## final de la curva anterior (en la chicana del castillo quedan pocos o ninguno).
+func _build_brake_boards() -> void:
+	brake_boards.clear()
+	var holder := Node3D.new()
+	holder.name = "BrakeBoards"
+	add_child(holder)
+	var n := centerline.size()
+	var farthest := 0.0
+	for d in board_distances:
+		farthest = maxf(farthest, d)
+
+	var panel_mesh := BoxMesh.new()
+	panel_mesh.size = Vector3(board_width, board_panel_height, 0.08)
+	var pole_mesh := BoxMesh.new()
+	pole_mesh.size = Vector3(0.12, board_height, 0.12)
+	var white := _make_material(Color(0.97, 0.97, 0.97))
+	var grey := _make_material(Color(0.35, 0.36, 0.4))
+
+	for k in corner_starts.size():
+		var start := corner_starts[k]
+		# Recta disponible antes de la curva: hasta tocar la curva anterior.
+		var marks := {}   # distancia → índice
+		var travelled := 0.0
+		var i := start
+		var available := farthest + board_min_gap
+		while travelled < farthest + board_min_gap:
+			var prev := (i - 1 + n) % n
+			travelled += centerline[i].distance_to(centerline[prev])
+			i = prev
+			if corner_mask[i] > 0.0:
+				available = travelled
+				break
+			for d in board_distances:
+				if not marks.has(d) and travelled >= d:
+					marks[d] = i
+		# Afuera de la curva: a la izquierda (+1) el lado de afuera es la derecha (+1).
+		var side := signf(turn_sign[start]) if turn_sign[start] != 0.0 else 1.0
+		for d in board_distances:
+			if not marks.has(d) or d > available - board_min_gap:
+				continue
+			var idx: int = marks[d]
+			var orientation := Basis.looking_at(_tangent(idx), Vector3.UP)
+			var lateral := wall_offset(idx, side) + wall_thickness + board_wall_clearance
+			var base := _edge(idx, side * lateral, 0.0)
+			var board := Node3D.new()
+			board.name = "Board%d_%d" % [k, int(d)]
+			board.transform = Transform3D(orientation, base)
+			holder.add_child(board)
+
+			var pole := MeshInstance3D.new()
+			pole.mesh = pole_mesh
+			pole.material_override = grey
+			pole.position = Vector3(0, board_height * 0.5, 0.06)
+			board.add_child(pole)
+			var panel := MeshInstance3D.new()
+			panel.mesh = panel_mesh
+			panel.material_override = white
+			panel.position = Vector3(0, board_height, 0)
+			board.add_child(panel)
+			var label := Label3D.new()
+			label.text = str(int(d))
+			label.font_size = 128
+			label.pixel_size = board_panel_height * 0.0055
+			label.modulate = Color(0.05, 0.05, 0.05)
+			label.outline_size = 0
+			label.double_sided = false
+			label.position = Vector3(0, board_height, 0.045)
+			board.add_child(label)
+			brake_boards.append({"index": idx, "distance": d, "corner": start})
 
 
 func _build_start_line() -> void:

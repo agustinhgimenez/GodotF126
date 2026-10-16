@@ -24,6 +24,15 @@
         "runoff_width": 9.0,
         "runoff_ramp": 25.0
       },
+      "brake_boards": {
+        "distances": [150, 100, 50],
+        "min_gap": 8.0,
+        "min_corner_length": 8.0,
+        "wall_clearance": 0.9,
+        "height": 2.3,
+        "width": 1.6,
+        "panel_height": 1.1
+      },
       "limits": {
         "car_half_width": 1.0,
         "wheel_track": 0.85,
