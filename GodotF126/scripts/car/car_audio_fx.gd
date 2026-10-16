@@ -93,6 +93,12 @@ func _start() -> void:
 	_playback.push_buffer(synthesize(_playback.get_frames_available()))
 
 
+func set_muted(muted: bool) -> void:
+	set_process(not muted)
+	if _player != null:
+		_player.stream_paused = muted
+
+
 func _exit_tree() -> void:
 	if _player != null:
 		_player.stop()

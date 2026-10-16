@@ -1,9 +1,7 @@
 extends Node3D
 ## Escena principal: carga datos (grilla, pistas, auto), spawnea el auto en Bakú y arma el HUD.
 
-const GRID_PATH := "res://data/grid_2026.json"
-const TRACKS_PATH := "res://data/tracks.json"
-const CAR_PATH := "res://data/car.json"
+const MENU_SCENE := "res://scenes/menu.tscn"
 const TRACK_ID := "baku"
 
 ## Respaldo por si el input map de project.godot se pierde o se edita mal.
@@ -35,12 +33,12 @@ var selected_team: Dictionary = {}
 func _ready() -> void:
 	_ensure_input_actions()
 
-	var grid := _load_json(GRID_PATH)
-	var tracks := _load_json(TRACKS_PATH)
+	var grid := DataLoader.load_json(DataLoader.GRID_PATH)
+	var tracks := DataLoader.load_json(DataLoader.TRACKS_PATH)
 	_select_driver(grid, str(grid.get("default_driver_id", "colapinto")))
 	var track_info := _find_track(tracks, TRACK_ID)
 
-	var car_data := _load_json(CAR_PATH)
+	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	car.configure(car_data)
 	car.spawn_transform = track.get_spawn_transform()
 	car.reset_to_spawn()
@@ -70,27 +68,15 @@ func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		get_tree().quit()
-
-
-func _load_json(path: String) -> Dictionary:
-	if not FileAccess.file_exists(path):
-		push_error("No se encontró %s" % path)
-		return {}
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
-	if parsed is Dictionary:
-		return parsed
-	push_error("JSON inválido en %s" % path)
-	return {}
+		get_tree().change_scene_to_file(MENU_SCENE)
 
 
 func _select_driver(grid: Dictionary, driver_id: String) -> void:
-	for team in grid.get("teams", []):
-		for driver in team.get("drivers", []):
-			if str(driver.get("id", "")) == driver_id:
-				selected_driver = driver
-				selected_team = team
-				return
+	var found := DataLoader.find_driver(grid, driver_id)
+	if not found.is_empty():
+		selected_driver = found["driver"]
+		selected_team = found["team"]
+		return
 	push_warning("Piloto '%s' no encontrado en la grilla; uso el de respaldo." % driver_id)
 	selected_driver = FALLBACK_DRIVER.duplicate()
 	selected_team = FALLBACK_TEAM.duplicate()

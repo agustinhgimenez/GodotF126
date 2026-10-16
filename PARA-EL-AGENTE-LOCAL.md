@@ -8,8 +8,9 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 10 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas).
-- Próximo: **Paso 11 — menú principal**, que abre la Fase C (menús y flujo de juego, cierra el hito H1 en el Paso 24). El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
+- Pasos 0 a 11 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
+- Próximo: **Paso 12 — selección de escudería → piloto**.
+- El juego arranca en `scenes/menu.tscn`; `scenes/main.tscn` es la carrera. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
 ## Reglas
@@ -24,8 +25,11 @@ Leé esto antes de tocar el proyecto.
 ## Mapa del código
 | Archivo | Responsabilidad |
 |---|---|
-| `scripts/main.gd` | Carga JSON, elige piloto (`default_driver_id`), spawnea auto, configura HUD |
-| `scripts/car_controller.gd` | `class_name CarController`. Física arcade, 3 cámaras (tecla C), `configure(data)`, `get_speed_kmh()`, `get_rpm()`, `get_gear_label()`, `get_top_speed()`, `reset_to_spawn()`, `set_team_color()`. Señales `was_reset`, `camera_changed`. Accede a los componentes por `engine` y `gearbox` |
+| `scripts/main.gd` | Escena de carrera: carga JSON, elige piloto (`default_driver_id`), spawnea auto, configura HUD. Esc vuelve al menú |
+| `scripts/data_loader.gd` | `class_name DataLoader` (estático). Rutas de `data/*.json`, `load_json(path)`, `find_driver(grid, id)` |
+| `scripts/menu/main_menu.gd` | Menú principal (`scenes/menu.tscn`): plataforma giratoria con el auto en modo exhibición, UI por código, Jugar / Salir. Datos en `data/menu.json` |
+| `scripts/audio/menu_music.gd` | `class_name MenuMusic`. Música del menú generada por código (bombo, caja, hi-hat, bajo, arpegio, colchón). `configure(data)`, `play()`, `synthesize(frames)` |
+| `scripts/car_controller.gd` | `class_name CarController`. Física arcade, 3 cámaras (tecla C), `configure(data)`, `set_showcase(enabled)` (auto quieto, mudo y sin cámara para menús), `get_speed_kmh()`, `get_rpm()`, `get_gear_label()`, `get_top_speed()`, `reset_to_spawn()`, `set_team_color()`. Señales `was_reset`, `camera_changed`. Accede a los componentes por `engine` y `gearbox` |
 | `scripts/car/car_engine.gd` | `class_name CarEngine` (nodo `Engine` del auto). RPM, curva de torque, limitador con corte, freno motor. `update(wheel_rpm, throttle, clutch_can_slip, in_neutral, delta)`, `get_output_torque()`. Señal `limiter_hit` |
 | `scripts/car/gearbox.gd` | `class_name Gearbox`. Secuencial R (`REVERSE` = −1), N (`NEUTRAL` = 0), 1–8; `manual` o automática. `shift_up/shift_down(speed)`, `toggle_mode()`, `select_gear()`, `get_ratio_for()`, `is_shifting()`, `get_direction()`. Señales `gear_changed`, `shift_denied(reason)`, `mode_changed(manual)` |
 | `data/car.json` | Masa, radio de rueda, tracción, drag, datos de motor y caja |
@@ -45,11 +49,10 @@ La vibración de cámara está en `CarController._update_shake()`; `add_camera_i
 
 Si se agrega un script con `class_name` nuevo y se prueba sin abrir el editor, correr antes `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --import` para que se registre la clase.
 
-## Sugerencia para el Paso 11
-- Escena nueva `scenes/menu.tscn` como `run/main_scene` en `project.godot`; `main.tscn` pasa a ser la carrera y se carga con `get_tree().change_scene_to_file()`.
-- Fondo 3D: instanciar `car.tscn` con `controls_enabled = false`, girando sobre un piso, con cámara fija y luz; desactivar el sonido del auto o bajarlo.
-- Botones Jugar / Salir (Opciones queda para el Paso 14). Música: puede generarse por código con un `AudioStreamGenerator` como los sonidos del auto, o un `.ogg` libre de derechos en `assets/audio/` citando la licencia.
-- Al volver con Esc desde la pista ir al menú en lugar de salir del juego (la pausa completa es el Paso 15).
+## Sugerencia para el Paso 12
+- Autoload `GameState` (previsto en la arquitectura) con `selected_driver_id`; `main.gd` lo lee en lugar de `default_driver_id`.
+- Jugar en el menú → pantalla de selección (puede ser la misma escena del menú con otro panel, reusando la plataforma y `set_showcase`): primero escudería (tarjetas con color y nombre), después piloto (número, nombre, bandera por código de país). El auto de la plataforma cambia de color al recorrer las escuderías.
+- Volver con Esc al paso anterior.
 
 ## Verificación sin abrir el editor
 Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.

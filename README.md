@@ -20,7 +20,7 @@ GodotF126 es un videojuego-simulador de Fórmula 1 en tercera persona hecho con 
 3. Apretar **Import & Edit**. La primera vez Godot tarda unos segundos importando.
 
 ## 3. Jugar
-Apretar **F5** (o el botón ▶ arriba a la derecha).
+Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) carga la pista.
 
 | Tecla | Acción |
 |-------|--------|
@@ -32,7 +32,7 @@ Apretar **F5** (o el botón ▶ arriba a la derecha).
 | **Espacio** | Freno de mano |
 | C | Cambiar cámara (TV / cercana / cockpit) |
 | R | Volver a la largada (anula la vuelta) |
-| Esc | Salir |
+| Esc | Volver al menú (en el menú: salir) |
 
 También funcionan las flechas del teclado.
 
@@ -65,6 +65,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 8: cockpit detallado: halo con pilar central, casco con visera y visor, espejos retrovisores con imagen real (`SubViewport`), vibración de cámara con la velocidad y golpes (muros, cambios de marcha). Capturas: `informes/capturas/paso8-cockpit.png` y `paso8-tv.png`.
 - ✅ Paso 9: sonido de motor sintetizado por código (V6, tono según RPM, combustión según acelerador, turbo), limitador entrecortado, golpe de caja al cambiar y petardeo al soltar. Muestra grabada: `informes/audio/paso9-motor.wav`.
 - ✅ Paso 10: chirrido de neumáticos al derrapar y con freno de mano, viento según la velocidad, golpes y roce contra los muros (todo sintetizado por código). Muestras: `informes/audio/paso10-efectos.wav` y `paso10-motor-y-efectos.wav`.
-- ⏳ Paso 11: menú principal con el auto girando y música.
+- ✅ Paso 11: menú principal (escena de arranque) con el auto girando sobre una plataforma con el color del equipo, música generada por código y botones Jugar / Salir; Esc en la pista vuelve al menú. Captura: `informes/capturas/paso11-menu.png`; música: `informes/audio/paso11-musica.wav`.
+- ⏳ Paso 12: selección de escudería y piloto.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

@@ -42,8 +42,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 11 | Menú principal con fondo 3D del auto girando y música | ⏳ Siguiente |
-| 12 | **Selección de escudería → piloto** con tarjetas (color del equipo, número, bandera) desde `grid_2026.json` | |
+| 11 | Menú principal con fondo 3D del auto girando y música | ✅ |
+| 12 | **Selección de escudería → piloto** con tarjetas (color del equipo, número, bandera) desde `grid_2026.json` | ⏳ Siguiente |
 | 13 | Livery de dos colores por equipo y número del piloto en el auto | |
 | 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | |
 | 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | |
@@ -219,3 +219,14 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Datos** en `data/car.json` → `"audio_fx"`.
 - **Verificación**: prueba sin ventana que acelera a 110 km/h, dobla a fondo con freno de mano (derrape de 36°, chirrido a pleno) y termina contra el muro (golpes y roce). Grabaciones en `informes/audio/paso10-efectos.wav` (sólo efectos) y `paso10-motor-y-efectos.wav` (mezcla). 0,2 ms de síntesis por frame, sin valores inválidos. Con audio real no hay cortes durante el juego.
 - **Cómo probar**: F5 → acelerar en la recta (el viento sube) → doblar a fondo con Espacio (chirrido) → chocar un muro de frente (golpe) y arrastrarse contra él (roce).
+
+### Paso 11 — Menú principal
+- **Escena de arranque** nueva: `scenes/menu.tscn` (`run/main_scene` en `project.godot`), script `scripts/menu/main_menu.gd`. `main.tscn` queda como la carrera.
+- **Fondo 3D**: estudio oscuro con piso, plataforma giratoria (`Turntable`) y el **auto real** (`car.tscn`) encima, pintado con el color del equipo del piloto por defecto. Aro luminoso y luz de contorno con ese mismo color. Cámara fija con `h_offset` para dejar el auto a la derecha y los botones a la izquierda.
+- **Modo exhibición** del auto: `CarController.set_showcase(true)` apaga física, controles, sonidos (`set_muted()` en `EngineAudio` y `CarAudioFx`) y su cámara. Se va a reusar en la selección de piloto (Paso 12).
+- **Interfaz** armada por código como el HUD: título, subtítulo, botones **Jugar** y **Salir** con borde del color del equipo al enfocar, tarjeta del piloto abajo a la derecha y créditos. Se maneja con teclado (foco inicial en Jugar, flechas, Enter) o mouse. Esc sale del juego.
+- **Música** generada por código (`scripts/audio/menu_music.gd`, `MenuMusic`): loop de 4/4 a 112 BPM sobre La menor – Fa – Do – Sol, dividido en semicorcheas. Bombo en cada negra, caja en 2 y 4, hi-hat a contratiempo, bajo diente de sierra filtrado en corcheas, arpegio de onda cuadrada suave y colchón de acordes. Entra con un fundido de 2,5 s.
+- **Flujo**: Jugar → `change_scene_to_file("res://scenes/main.tscn")`; en la pista **Esc vuelve al menú** (antes cerraba el juego). La pausa completa queda para el Paso 15.
+- **Datos**: nuevo `data/menu.json` (velocidad de la plataforma, cámara y música). La lectura de JSON y la búsqueda de piloto se movieron a `scripts/data_loader.gd` (`DataLoader`), que usan el menú y `main.gd`.
+- **Verificación**: prueba que abre el menú (cámara del menú activa, auto sin física ni sonido, música sonando, foco en Jugar), aprieta Jugar (carga la pista con el auto manejable y su cámara), manda Esc y vuelve al menú. Captura en `informes/capturas/paso11-menu.png` y música en `informes/audio/paso11-musica.wav` (0,39 ms de síntesis por frame).
+- **Cómo probar**: F5 → ver el auto girando y escuchar la música → Enter en Jugar → manejar → Esc para volver al menú → Salir.

@@ -152,6 +152,16 @@ func cycle_camera() -> void:
 	camera_changed.emit(str(CAMERA_MODES[camera_mode]["name"]))
 
 
+## Auto de exhibición para los menús: sin física, sin controles, sin sonido y sin su cámara.
+func set_showcase(enabled: bool) -> void:
+	controls_enabled = not enabled
+	set_physics_process(not enabled)
+	set_process_unhandled_input(not enabled)
+	engine_audio.set_muted(enabled)
+	audio_fx.set_muted(enabled)
+	_camera.current = not enabled
+
+
 func is_cockpit_view() -> bool:
 	return not bool(CAMERA_MODES[camera_mode]["smooth"])
 
