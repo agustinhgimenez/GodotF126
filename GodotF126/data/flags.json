@@ -1,0 +1,59 @@
+{
+  "description": "Banderas simplificadas para dibujar por código (FlagIcon). stripes: 'h' horizontales o 'v' verticales con colors/weights; overlays en coordenadas 0–1 de su region (por defecto la bandera entera); radius y width se miden en altos de la region.",
+  "flags": {
+    "AR": { "name": "Argentina", "stripes": "h", "colors": ["#74ACDF", "#FFFFFF", "#74ACDF"],
+      "overlays": [{ "shape": "circle", "center": [0.5, 0.5], "radius": 0.12, "color": "#F6B40E" }] },
+    "GB": { "name": "Reino Unido", "stripes": "h", "colors": ["#012169"],
+      "overlays": [
+        { "shape": "saltire", "width": 0.2, "color": "#FFFFFF" },
+        { "shape": "saltire", "width": 0.07, "color": "#C8102E" },
+        { "shape": "cross", "width": 0.33, "color": "#FFFFFF" },
+        { "shape": "cross", "width": 0.2, "color": "#C8102E" }
+      ] },
+    "AU": { "name": "Australia", "stripes": "h", "colors": ["#012169"],
+      "overlays": [
+        { "shape": "saltire", "width": 0.2, "color": "#FFFFFF", "region": [0, 0, 0.5, 0.5] },
+        { "shape": "saltire", "width": 0.07, "color": "#C8102E", "region": [0, 0, 0.5, 0.5] },
+        { "shape": "cross", "width": 0.33, "color": "#FFFFFF", "region": [0, 0, 0.5, 0.5] },
+        { "shape": "cross", "width": 0.2, "color": "#C8102E", "region": [0, 0, 0.5, 0.5] },
+        { "shape": "circle", "center": [0.25, 0.75], "radius": 0.1, "color": "#FFFFFF" },
+        { "shape": "circle", "center": [0.75, 0.2], "radius": 0.05, "color": "#FFFFFF" },
+        { "shape": "circle", "center": [0.63, 0.47], "radius": 0.05, "color": "#FFFFFF" },
+        { "shape": "circle", "center": [0.87, 0.42], "radius": 0.05, "color": "#FFFFFF" },
+        { "shape": "circle", "center": [0.75, 0.82], "radius": 0.05, "color": "#FFFFFF" }
+      ] },
+    "NZ": { "name": "Nueva Zelanda", "stripes": "h", "colors": ["#012169"],
+      "overlays": [
+        { "shape": "saltire", "width": 0.2, "color": "#FFFFFF", "region": [0, 0, 0.5, 0.5] },
+        { "shape": "saltire", "width": 0.07, "color": "#C8102E", "region": [0, 0, 0.5, 0.5] },
+        { "shape": "cross", "width": 0.33, "color": "#FFFFFF", "region": [0, 0, 0.5, 0.5] },
+        { "shape": "cross", "width": 0.2, "color": "#C8102E", "region": [0, 0, 0.5, 0.5] },
+        { "shape": "circle", "center": [0.75, 0.22], "radius": 0.065, "color": "#FFFFFF" },
+        { "shape": "circle", "center": [0.75, 0.22], "radius": 0.045, "color": "#C8102E" },
+        { "shape": "circle", "center": [0.64, 0.48], "radius": 0.065, "color": "#FFFFFF" },
+        { "shape": "circle", "center": [0.64, 0.48], "radius": 0.045, "color": "#C8102E" },
+        { "shape": "circle", "center": [0.86, 0.44], "radius": 0.055, "color": "#FFFFFF" },
+        { "shape": "circle", "center": [0.86, 0.44], "radius": 0.038, "color": "#C8102E" },
+        { "shape": "circle", "center": [0.75, 0.8], "radius": 0.07, "color": "#FFFFFF" },
+        { "shape": "circle", "center": [0.75, 0.8], "radius": 0.05, "color": "#C8102E" }
+      ] },
+    "IT": { "name": "Italia", "stripes": "v", "colors": ["#009246", "#FFFFFF", "#CE2B37"] },
+    "MC": { "name": "Mónaco", "stripes": "h", "colors": ["#CE1126", "#FFFFFF"] },
+    "NL": { "name": "Países Bajos", "stripes": "h", "colors": ["#AE1C28", "#FFFFFF", "#21468B"] },
+    "FR": { "name": "Francia", "stripes": "v", "colors": ["#0055A4", "#FFFFFF", "#EF4135"] },
+    "DE": { "name": "Alemania", "stripes": "h", "colors": ["#000000", "#DD0000", "#FFCE00"] },
+    "BR": { "name": "Brasil", "stripes": "h", "colors": ["#009C3B"],
+      "overlays": [
+        { "shape": "diamond", "inset": 0.1, "color": "#FFDF00" },
+        { "shape": "circle", "center": [0.5, 0.5], "radius": 0.22, "color": "#002776" }
+      ] },
+    "ES": { "name": "España", "stripes": "h", "colors": ["#AA151B", "#F1BF00", "#AA151B"], "weights": [1, 2, 1] },
+    "TH": { "name": "Tailandia", "stripes": "h", "colors": ["#A51931", "#F4F5F8", "#2D2A4A", "#F4F5F8", "#A51931"], "weights": [1, 1, 2, 1, 1] },
+    "CA": { "name": "Canadá", "stripes": "v", "colors": ["#D52B1E", "#FFFFFF", "#D52B1E"], "weights": [1, 2, 1],
+      "overlays": [{ "shape": "diamond", "inset": 0.0, "color": "#D52B1E", "region": [0.4, 0.25, 0.2, 0.5] }] },
+    "MX": { "name": "México", "stripes": "v", "colors": ["#006847", "#FFFFFF", "#CE1126"],
+      "overlays": [{ "shape": "circle", "center": [0.5, 0.5], "radius": 0.13, "color": "#8C6A2F" }] },
+    "FI": { "name": "Finlandia", "stripes": "h", "colors": ["#FFFFFF"],
+      "overlays": [{ "shape": "cross", "center": [0.36, 0.5], "width": 0.27, "color": "#002F6C" }] }
+  }
+}

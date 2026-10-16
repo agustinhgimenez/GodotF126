@@ -20,7 +20,7 @@ GodotF126 es un videojuego-simulador de Fórmula 1 en tercera persona hecho con 
 3. Apretar **Import & Edit**. La primera vez Godot tarda unos segundos importando.
 
 ## 3. Jugar
-Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) carga la pista.
+Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) → elegir escudería → elegir piloto → carga la pista.
 
 | Tecla | Acción |
 |-------|--------|
@@ -66,6 +66,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 9: sonido de motor sintetizado por código (V6, tono según RPM, combustión según acelerador, turbo), limitador entrecortado, golpe de caja al cambiar y petardeo al soltar. Muestra grabada: `informes/audio/paso9-motor.wav`.
 - ✅ Paso 10: chirrido de neumáticos al derrapar y con freno de mano, viento según la velocidad, golpes y roce contra los muros (todo sintetizado por código). Muestras: `informes/audio/paso10-efectos.wav` y `paso10-motor-y-efectos.wav`.
 - ✅ Paso 11: menú principal (escena de arranque) con el auto girando sobre una plataforma con el color del equipo, música generada por código y botones Jugar / Salir; Esc en la pista vuelve al menú. Captura: `informes/capturas/paso11-menu.png`; música: `informes/audio/paso11-musica.wav`.
-- ⏳ Paso 12: selección de escudería y piloto.
+- ✅ Paso 12: selección de escudería → piloto con tarjetas (color del equipo, número, bandera dibujada por código y país); el auto del menú toma el color del equipo y la carrera usa el piloto elegido. Capturas: `informes/capturas/paso12-escuderias.png`, `paso12-pilotos.png`, `paso12-banderas.png`.
+- ⏳ Paso 13: livery de dos colores y número del piloto en el auto.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

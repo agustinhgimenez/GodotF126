@@ -43,8 +43,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Paso | Contenido | Estado |
 |---|---|---|
 | 11 | Menú principal con fondo 3D del auto girando y música | ✅ |
-| 12 | **Selección de escudería → piloto** con tarjetas (color del equipo, número, bandera) desde `grid_2026.json` | ⏳ Siguiente |
-| 13 | Livery de dos colores por equipo y número del piloto en el auto | |
+| 12 | **Selección de escudería → piloto** con tarjetas (color del equipo, número, bandera) desde `grid_2026.json` | ✅ |
+| 13 | Livery de dos colores por equipo y número del piloto en el auto | ⏳ Siguiente |
 | 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | |
 | 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | |
 | 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | |
@@ -230,3 +230,16 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Datos**: nuevo `data/menu.json` (velocidad de la plataforma, cámara y música). La lectura de JSON y la búsqueda de piloto se movieron a `scripts/data_loader.gd` (`DataLoader`), que usan el menú y `main.gd`.
 - **Verificación**: prueba que abre el menú (cámara del menú activa, auto sin física ni sonido, música sonando, foco en Jugar), aprieta Jugar (carga la pista con el auto manejable y su cámara), manda Esc y vuelve al menú. Captura en `informes/capturas/paso11-menu.png` y música en `informes/audio/paso11-musica.wav` (0,39 ms de síntesis por frame).
 - **Cómo probar**: F5 → ver el auto girando y escuchar la música → Enter en Jugar → manejar → Esc para volver al menú → Salir.
+
+### Paso 12 — Selección de escudería y piloto
+- **Flujo**: Jugar → *Elegí escudería* → *Elegí piloto* → carrera. Esc vuelve una etapa (piloto → escudería → menú). Todo dentro de `menu.tscn`, reusando la plataforma con el auto.
+- Nuevo `scripts/menu/driver_select.gd` (`DriverSelect`), armado por código desde `grid_2026.json`:
+  - **Escuderías**: 11 tarjetas en 2 columnas con el color del equipo en el borde y los apellidos de sus pilotos.
+  - **Pilotos**: tarjeta por piloto con el número grande en el color del equipo, nombre, **bandera** y país.
+  - Señales `preview_changed(team, driver)`, `confirmed(driver_id)` y `cancelled`; el foco inicial cae en el equipo/piloto elegido antes.
+- **Vista previa**: al recorrer las tarjetas, el auto, el aro, la luz de contorno, las franjas y los botones toman el color del equipo, y la tarjeta de abajo a la derecha muestra el equipo o el piloto con foco.
+- **Banderas** dibujadas por código (`scripts/ui/flag_icon.gd`, `FlagIcon`) desde `data/flags.json`: franjas horizontales o verticales con pesos y figuras encima (círculo, cruz, aspa, rombo, rectángulo) dentro de una región; así se arman las 15 banderas de la grilla, incluidas las de Reino Unido, Australia y Nueva Zelanda (cantón con la Union Jack). Son simplificadas: sin escudos ni hoja de arce detallada.
+- **Autoload `GameState`** (`scripts/game_state.gd`) con `selected_driver_id`; `main.gd` lo usa (si está vacío, `default_driver_id`), así el HUD y el color del auto en la pista salen del piloto elegido. Al volver al menú queda recordado.
+- Ayudantes de interfaz compartidos en `scripts/ui/ui_kit.gd` (`UiKit`): etiquetas, anclas, botones con borde de color y estilos.
+- **Verificación**: prueba que entra a la selección, enfoca Ferrari (auto y aro en `#E8002D`), abre los pilotos, vuelve con Esc, elige Hamilton y confirma que la pista muestra "#44 Lewis Hamilton / Ferrari"; al volver al menú sigue elegido y Esc desde escuderías vuelve al menú. Capturas: `informes/capturas/paso12-escuderias.png`, `paso12-pilotos.png` y `paso12-banderas.png` (las 15 banderas).
+- **Cómo probar**: F5 → Jugar → recorrer escuderías con flechas (el auto cambia de color) → Enter → elegir piloto → Enter → manejar con ese equipo → Esc → el menú recuerda la elección.

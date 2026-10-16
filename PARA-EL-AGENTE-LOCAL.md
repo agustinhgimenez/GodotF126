@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 11 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
-- Próximo: **Paso 12 — selección de escudería → piloto**.
+- Pasos 0 a 12 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
+- Próximo: **Paso 13 — livery de dos colores y número del piloto en el auto**.
 - El juego arranca en `scenes/menu.tscn`; `scenes/main.tscn` es la carrera. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
@@ -26,6 +26,10 @@ Leé esto antes de tocar el proyecto.
 | Archivo | Responsabilidad |
 |---|---|
 | `scripts/main.gd` | Escena de carrera: carga JSON, elige piloto (`default_driver_id`), spawnea auto, configura HUD. Esc vuelve al menú |
+| `scripts/game_state.gd` | Autoload `GameState`: `selected_driver_id` (vacío = `default_driver_id`). En scripts `-s` de prueba no se puede nombrar directo: usar `root.get_node("GameState")` |
+| `scripts/menu/driver_select.gd` | `class_name DriverSelect`. Escudería → piloto con tarjetas. `setup(grid, driver_id)`, `open()`, `back()`; señales `preview_changed`, `confirmed`, `cancelled` |
+| `scripts/ui/flag_icon.gd` | `class_name FlagIcon`. Bandera dibujada desde `data/flags.json`. `set_country(code)`, `country_name(code)` |
+| `scripts/ui/ui_kit.gd` | `class_name UiKit` (estático). `make_label`, `place`, `make_button`, `apply_button_style`, `number_text` para menús |
 | `scripts/data_loader.gd` | `class_name DataLoader` (estático). Rutas de `data/*.json`, `load_json(path)`, `find_driver(grid, id)` |
 | `scripts/menu/main_menu.gd` | Menú principal (`scenes/menu.tscn`): plataforma giratoria con el auto en modo exhibición, UI por código, Jugar / Salir. Datos en `data/menu.json` |
 | `scripts/audio/menu_music.gd` | `class_name MenuMusic`. Música del menú generada por código (bombo, caja, hi-hat, bajo, arpegio, colchón). `configure(data)`, `play()`, `synthesize(frames)` |
@@ -49,10 +53,9 @@ La vibración de cámara está en `CarController._update_shake()`; `add_camera_i
 
 Si se agrega un script con `class_name` nuevo y se prueba sin abrir el editor, correr antes `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --import` para que se registre la clase.
 
-## Sugerencia para el Paso 12
-- Autoload `GameState` (previsto en la arquitectura) con `selected_driver_id`; `main.gd` lo lee en lugar de `default_driver_id`.
-- Jugar en el menú → pantalla de selección (puede ser la misma escena del menú con otro panel, reusando la plataforma y `set_showcase`): primero escudería (tarjetas con color y nombre), después piloto (número, nombre, bandera por código de país). El auto de la plataforma cambia de color al recorrer las escuderías.
-- Volver con Esc al paso anterior.
+## Sugerencia para el Paso 13
+- Agregar `"secondary_color"` a cada equipo en `grid_2026.json` y extender `CarController.set_team_color(primary, secondary)` con un segundo grupo de mallas (por ejemplo `team_paint_secondary`: alerones, franja del morro, airbox).
+- Número del piloto: `Label3D` (sin necesidad de fuentes extra) sobre el morro y a los costados, o un `SubViewport` con texto como la pantalla del volante. Agregar `set_driver_number(n)` y llamarlo desde `main.gd` y desde la vista previa del menú.
 
 ## Verificación sin abrir el editor
 Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.

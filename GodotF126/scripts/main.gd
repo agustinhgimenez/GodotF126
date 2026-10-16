@@ -35,7 +35,10 @@ func _ready() -> void:
 
 	var grid := DataLoader.load_json(DataLoader.GRID_PATH)
 	var tracks := DataLoader.load_json(DataLoader.TRACKS_PATH)
-	_select_driver(grid, str(grid.get("default_driver_id", "colapinto")))
+	var driver_id := GameState.selected_driver_id
+	if driver_id.is_empty():
+		driver_id = str(grid.get("default_driver_id", "colapinto"))
+	_select_driver(grid, driver_id)
 	var track_info := _find_track(tracks, TRACK_ID)
 
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
