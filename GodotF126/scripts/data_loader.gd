@@ -6,6 +6,7 @@ const GRID_PATH := "res://data/grid_2026.json"
 const TRACKS_PATH := "res://data/tracks.json"
 const CAR_PATH := "res://data/car.json"
 const MENU_PATH := "res://data/menu.json"
+const MODES_PATH := "res://data/modes.json"
 
 
 ## Devuelve {} (y avisa) si el archivo falta o no es un objeto JSON.
@@ -37,4 +38,12 @@ static func find_driver(grid: Dictionary, driver_id: String) -> Dictionary:
 		for driver in team.get("drivers", []):
 			if str(driver.get("id", "")) == driver_id:
 				return {"driver": driver, "team": team}
+	return {}
+
+
+## Busca un modo en data/modes.json. Devuelve {} si no está.
+static func find_mode(modes: Dictionary, mode_id: String) -> Dictionary:
+	for mode in modes.get("modes", []):
+		if str(mode.get("id", "")) == mode_id:
+			return mode
 	return {}

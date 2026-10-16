@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://dvdp7irld2kho" path="res://scripts/hud.gd" id="4_hud"]
 [ext_resource type="Script" uid="uid://bdgwd4glcun3n" path="res://scripts/lap_timer.gd" id="5_timer"]
 [ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="6_pause"]
+[ext_resource type="Script" path="res://scripts/ui/results_screen.gd" id="7_results"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.25, 0.45, 0.8, 1)
@@ -43,3 +44,6 @@ script = ExtResource("4_hud")
 
 [node name="PauseMenu" type="CanvasLayer" parent="."]
 script = ExtResource("6_pause")
+
+[node name="ResultsScreen" type="CanvasLayer" parent="."]
+script = ExtResource("7_results")

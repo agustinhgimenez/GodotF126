@@ -1,9 +1,10 @@
 extends Node3D
 ## Menú principal (Paso 11) y selección de piloto (Paso 12).
 ## El auto real (car.tscn en modo exhibición) gira sobre una plataforma, con música
-## generada por código. Jugar abre DriverSelect (escudería → piloto); mientras se recorren
-## las tarjetas el auto, el aro y la luz toman el color del equipo. Al confirmar se guarda
-## el piloto en GameState y se carga la carrera.
+## generada por código. Jugar abre ModeSelect (práctica libre / contrarreloj, Paso 16) y
+## después DriverSelect (escudería → piloto); mientras se recorren las tarjetas el auto, el
+## aro y la luz toman el color del equipo. Al confirmar se guardan el modo y el piloto en
+## GameState y se carga la carrera.
 
 const RACE_SCENE := "res://scenes/main.tscn"
 const FALLBACK_TEAM_COLOR := Color("#FF87BC")
@@ -15,6 +16,7 @@ var _grid: Dictionary = {}
 var _selected_id: String = ""
 var _ring_material: StandardMaterial3D
 var _main_panel: VBoxContainer
+var _modes: ModeSelect
 var _select: DriverSelect
 var _options: OptionsPanel
 var _play_button: Button
@@ -67,6 +69,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	if _select.visible:
 		_select.back()
+	elif _modes.visible:
+		_modes.back()
 	elif _options.visible:
 		_show_main()
 		_options_button.grab_focus()
@@ -75,6 +79,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _show_main() -> void:
+	_modes.visible = false
 	_select.visible = false
 	_options.visible = false
 	_main_panel.visible = true
@@ -93,13 +98,30 @@ func _apply_quality() -> void:
 
 func _on_play_pressed() -> void:
 	_main_panel.visible = false
+	_show_modes()
+
+
+func _show_modes() -> void:
+	_select.visible = false
+	_modes.visible = true
+	_modes.open()
+
+
+func _on_mode_confirmed(mode_id: String, laps: int) -> void:
+	GameState.selected_mode = mode_id
+	GameState.lap_count = laps
+	_modes.visible = false
 	_select.visible = true
 	_select.open()
 
 
+func _on_modes_cancelled() -> void:
+	_show_main()
+
+
 func _on_select_cancelled() -> void:
 	_show_selected()
-	_show_main()
+	_show_modes()
 
 
 func _on_driver_confirmed(driver_id: String) -> void:
@@ -130,6 +152,7 @@ func _preview(team: Dictionary, driver: Dictionary) -> void:
 	UiKit.apply_button_style(_options_button, color)
 	UiKit.apply_button_style(_quit_button, color)
 	_options.set_accent(color)
+	_modes.set_accent(color)
 	if driver.is_empty():
 		_card_title.text = str(team.get("name", ""))
 		var names := PackedStringArray()
@@ -209,6 +232,14 @@ func _build_ui() -> void:
 	var hint := UiKit.make_label("Flechas para elegir · Enter para confirmar · Esc para salir", 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
 	_main_panel.add_child(hint)
+
+	_modes = ModeSelect.new()
+	_modes.name = "ModeSelect"
+	UiKit.place(_modes, Vector4(0, 0, 0, 0), Vector4(80, 210, 640, 560))
+	root.add_child(_modes)
+	_modes.setup(DataLoader.load_json(DataLoader.MODES_PATH), GameState.selected_mode, GameState.lap_count)
+	_modes.confirmed.connect(_on_mode_confirmed)
+	_modes.cancelled.connect(_on_modes_cancelled)
 
 	_select = DriverSelect.new()
 	_select.name = "DriverSelect"

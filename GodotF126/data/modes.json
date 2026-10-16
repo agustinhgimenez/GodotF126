@@ -1,0 +1,18 @@
+{
+  "default_mode": "time_trial",
+  "results_delay": 2.5,
+  "modes": [
+    {
+      "id": "practice",
+      "name": "Práctica libre",
+      "description": "Vueltas sin límite para aprender la pista"
+    },
+    {
+      "id": "time_trial",
+      "name": "Contrarreloj",
+      "description": "Vueltas cronometradas y resultado por vuelta y sector",
+      "lap_options": [1, 2, 3, 5, 10],
+      "default_laps": 3
+    }
+  ]
+}

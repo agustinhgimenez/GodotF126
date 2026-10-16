@@ -20,7 +20,7 @@ GodotF126 es un videojuego-simulador de Fórmula 1 en tercera persona hecho con 
 3. Apretar **Import & Edit**. La primera vez Godot tarda unos segundos importando.
 
 ## 3. Jugar
-Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) → elegir escudería → elegir piloto → carga la pista. En **Opciones** se elige caja, dirección asistida, cámara inicial, volúmenes y calidad; se guardan solas.
+Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) → elegir modo (**Práctica libre** o **Contrarreloj**, con ← → para la cantidad de vueltas) → elegir escudería → elegir piloto → carga la pista. En Contrarreloj, al completar las vueltas aparece el resultado con los tiempos por vuelta y sector. En **Opciones** se elige caja, dirección asistida, cámara inicial, volúmenes y calidad; se guardan solas.
 
 | Tecla | Acción |
 |-------|--------|
@@ -45,7 +45,7 @@ También funcionan las flechas del teclado.
 | Archivo / carpeta | Qué es |
 |---|---|
 | `GodotF126/` | Proyecto Godot (abrir `project.godot`) |
-| `GodotF126/ROADMAP.md` | Plan iterativo, pasos 0 a 9 |
+| `GodotF126/ROADMAP.md` | Plan iterativo de 60 pasos en 8 fases |
 | `PARA-EL-PROFESOR-GodotF126-abstract.md` | Abstract + descripción breve para entregar |
 | `informes/GodotF126-Agustin-Gimenez-formalizacion.md` | Formalización completa del proyecto |
 | `informes/capturas/` | Capturas del juego para informes y presentaciones |
@@ -70,6 +70,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 13: livery de dos colores por equipo (principal en la carrocería; secundario en alerones y franjas) y número del piloto en el morro y la cubierta del motor. Capturas: `informes/capturas/paso13-menu.png`, `paso13-carrera.png`.
 - ✅ Paso 14: opciones en el menú (caja inicial, dirección asistida, cámara inicial, volúmenes general / motor / efectos / música, calidad gráfica, pantalla completa) guardadas en `user://settings.json`. Captura: `informes/capturas/paso14-opciones.png`.
 - ✅ Paso 15: pausa con Esc (todo se congela y el auto se calla) con Continuar / Reiniciar / Opciones / Menú principal / Salir. Capturas: `informes/capturas/paso15-pausa.png`, `paso15-opciones.png`.
-- ⏳ Paso 16: modo Contrarreloj (N vueltas y pantalla de resultado).
+- ✅ Paso 16: modo Contrarreloj (1 a 10 vueltas elegidas en el menú) con pantalla de resultado: tiempo y sectores de cada vuelta, mejores en violeta, tiempo total y récord; Repetir o volver al menú. Capturas: `informes/capturas/paso16-modos.png`, `paso16-resultado.png`.
+- ⏳ Paso 17: semáforo de largada con 5 luces y detección de salto.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

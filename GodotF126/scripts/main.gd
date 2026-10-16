@@ -1,6 +1,7 @@
 extends Node3D
 ## Escena principal: carga datos (grilla, pistas, auto), spawnea el auto en Bakú y arma el HUD.
-## Esc abre el menú de pausa (PauseMenu).
+## Esc abre el menú de pausa (PauseMenu). En contrarreloj, al cerrar la última vuelta se
+## sueltan los controles y se muestra el resultado (ResultsScreen).
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 const TRACK_ID := "baku"
@@ -25,12 +26,15 @@ const FALLBACK_TEAM := {"id": "alpine", "name": "Alpine", "color": "#FF87BC"}
 var selected_driver: Dictionary = {}
 var selected_team: Dictionary = {}
 var track_name: String = ""
+var mode_name: String = ""
+var results_delay: float = 2.5
 
 @onready var track: BakuTrack = $BakuTrack
 @onready var car: CarController = $Car
 @onready var hud: RaceHUD = $HUD
 @onready var lap_timer: LapTimer = $LapTimer
 @onready var pause_menu: PauseMenu = $PauseMenu
+@onready var results_screen: ResultsScreen = $ResultsScreen
 
 
 func _ready() -> void:
@@ -65,6 +69,7 @@ func _ready() -> void:
 	hud.set_track_name(track_name)
 
 	lap_timer.setup(TRACK_ID)
+	_setup_mode()
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)
 	hud.bind_lap_timer(lap_timer)
@@ -74,12 +79,49 @@ func _ready() -> void:
 	pause_menu.paused_changed.connect(_on_paused_changed)
 	pause_menu.restart_requested.connect(get_tree().reload_current_scene)
 	pause_menu.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
+	results_screen.set_accent(team_color)
+	results_screen.repeat_requested.connect(get_tree().reload_current_scene)
+	results_screen.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
+	lap_timer.session_finished.connect(_on_session_finished)
 	Settings.changed.connect(_on_setting_changed)
+
+
+## Modo elegido en el menú (GameState); en contrarreloj fija las vueltas del cronómetro.
+func _setup_mode() -> void:
+	var modes := DataLoader.load_json(DataLoader.MODES_PATH)
+	results_delay = float(modes.get("results_delay", results_delay))
+	var mode_id := GameState.selected_mode
+	if mode_id.is_empty():
+		mode_id = str(modes.get("default_mode", GameState.MODE_PRACTICE))
+	var mode := DataLoader.find_mode(modes, mode_id)
+	mode_name = str(mode.get("name", "Práctica libre"))
+	if mode_id == GameState.MODE_TIME_TRIAL:
+		var laps := GameState.lap_count
+		if laps <= 0:
+			laps = int(mode.get("default_laps", 3))
+		lap_timer.lap_limit = laps
+		mode_name = "%s · %d %s" % [mode_name, laps, "vuelta" if laps == 1 else "vueltas"]
+	hud.set_track_name("%s\n%s" % [track_name, mode_name])
 
 
 func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:
 	if body == car:
 		lap_timer.on_checkpoint(checkpoint)
+
+
+func _on_session_finished() -> void:
+	car.controls_enabled = false
+	pause_menu.set_process_unhandled_input(false)
+	await get_tree().create_timer(results_delay, false).timeout
+	car.engine_audio.set_muted(true)
+	car.audio_fx.set_muted(true)
+	hud.visible = false
+	results_screen.open(lap_timer, _session_subtitle())
+
+
+func _session_subtitle() -> String:
+	return "#%s %s  ·  %s  ·  %s" % [UiKit.number_text(selected_driver.get("number", "")),
+		str(selected_driver.get("name", "")), track_name, mode_name]
 
 
 func _on_paused_changed(paused: bool) -> void:
@@ -99,9 +141,13 @@ func _pause_subtitle() -> String:
 	var parts: Array[String] = [
 		"#%s %s" % [UiKit.number_text(selected_driver.get("number", "")), str(selected_driver.get("name", ""))],
 		track_name,
+		mode_name,
 	]
 	if lap_timer.running:
-		parts.append("Vuelta %d · %s" % [lap_timer.lap, LapTimer.format_time(lap_timer.current_time)])
+		var lap_text := str(lap_timer.lap)
+		if lap_timer.lap_limit > 0:
+			lap_text += "/%d" % lap_timer.lap_limit
+		parts.append("Vuelta %s · %s" % [lap_text, LapTimer.format_time(lap_timer.current_time)])
 	if lap_timer.best_lap >= 0.0:
 		parts.append("Mejor %s" % LapTimer.format_time(lap_timer.best_lap))
 	return "  ·  ".join(parts)

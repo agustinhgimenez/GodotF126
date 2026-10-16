@@ -47,8 +47,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 13 | Livery de dos colores por equipo y número del piloto en el auto | ✅ |
 | 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | ✅ |
 | 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | ✅ |
-| 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | ⏳ Siguiente |
-| 17 | **Semáforo de largada** con 5 luces y detección de salto | |
+| 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | ✅ |
+| 17 | **Semáforo de largada** con 5 luces y detección de salto | ⏳ Siguiente |
 | 18 | Cámaras extra: T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista | |
 | 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | |
 | 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | |
@@ -278,3 +278,12 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   - **Menú principal** y **Salir del juego**. Siempre se despausa antes de cambiar de escena.
 - **Verificación**: prueba que acelera hasta 60 km/h, aprieta Esc y comprueba pausa activa, foco en "Continuar", audio pausado y que el auto no se mueve; abre Opciones, pasa a calidad baja y caja automática (sombras apagadas, caja automática, cámara cercana conservada); Esc vuelve con el foco en "Opciones", Esc otra vez continúa (audio y movimiento vuelven); Reiniciar crea una carrera nueva quieta en la largada y Menú vuelve a `menu.tscn` sin pausa. Capturas: `informes/capturas/paso15-pausa.png`, `paso15-opciones.png`.
 - **Cómo probar**: F5 → Jugar → elegir piloto → acelerar → Esc (todo se congela y se calla) → Opciones → Esc → Continuar; probar Reiniciar y Menú principal.
+
+### Paso 16 — Contrarreloj
+- **Modos** en `data/modes.json`: *Práctica libre* (vueltas sin límite, lo de antes) y *Contrarreloj* con `lap_options` (1, 2, 3, 5, 10) y `default_laps` (3). También `default_mode` y `results_delay` (segundos entre la bandera a cuadros y el resultado).
+- **Menú**: Jugar → **Elegí modo** → escudería → piloto. Nuevo `scripts/menu/mode_select.gd` (`ModeSelect`): una tarjeta por modo; en Contrarreloj ←/→ cambian las vueltas (`‹ 3 vueltas ›`). Enter confirma, Esc vuelve al menú; Esc desde las escuderías vuelve a los modos. El modo y las vueltas se guardan en `GameState` (`selected_mode`, `lap_count`) y quedan recordados.
+- **`LapTimer`**: `lap_limit` (0 = sin límite), historial `lap_history` (vuelta, tiempo, sectores y si fue récord), `total_time()`, `beat_record()` y señal `session_finished`. Al cerrar la última vuelta el cronómetro se detiene (`finished`) y ya no arranca otra al cruzar la línea. Reiniciar el auto con R sigue anulando sólo la vuelta en curso.
+- **En la carrera**: el HUD muestra "VUELTA 2 / 3", avisa "¡ÚLTIMA VUELTA!" y "¡BANDERA A CUADROS!", y debajo de la pista el modo. Al terminar se sueltan los controles (el auto sigue rodando y frena solo), se bloquea la pausa y a los 2,5 s se abre el resultado.
+- **Pantalla de resultado** (`scripts/ui/results_screen.gd`, `ResultsScreen`, nodo en `main.tscn`, mismo estilo que `PauseMenu` y también `process_mode = ALWAYS`): pausa el juego, oculta el HUD y calla el auto. Tabla con vuelta, S1, S2, S3 y tiempo; la **mejor vuelta y el mejor tiempo de cada sector de la sesión en violeta**. Abajo: tiempo total, mejor vuelta y récord de la pista (con "¡NUEVO RÉCORD!" en amarillo si se batió en la sesión). Botones **Repetir** (recarga la carrera con el mismo modo) y **Menú principal** (también Esc).
+- **Verificación**: prueba que abre los modos (foco en Contrarreloj), cambia las vueltas 3 → 5 → 3 → 2, confirma (GameState en `time_trial` / 2), Esc desde escuderías vuelve a los modos, elige Hamilton; en la pista simula los checkpoints de dos vueltas y comprueba `lap_limit = 2`, sesión terminada con 2 vueltas en el historial, controles sueltos, que la línea no arranca otra vuelta, resultado abierto con el juego pausado, HUD oculto y foco en Repetir; Repetir crea una carrera nueva sin pausa e historial vacío; en práctica libre `lap_limit = 0`. Restaura `user://records.json` al final. Capturas: `informes/capturas/paso16-modos.png`, `paso16-resultado.png`.
+- **Cómo probar**: F5 → Jugar → Contrarreloj con ← → elegir 1 o 2 vueltas → Enter → elegir piloto → cruzar la línea y completar las vueltas → ver el resultado → Repetir o Menú principal.

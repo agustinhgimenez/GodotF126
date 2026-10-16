@@ -47,6 +47,7 @@ func bind_lap_timer(timer: LapTimer) -> void:
 	timer.sector_completed.connect(_on_sector_completed)
 	timer.lap_completed.connect(_on_lap_completed)
 	timer.lap_aborted.connect(_on_lap_aborted)
+	timer.session_finished.connect(func() -> void: show_message("¡BANDERA A CUADROS!", 3.0, COLOR_BEST))
 	_reset_sectors()
 	_update_summary()
 
@@ -80,14 +81,24 @@ func _process(_delta: float) -> void:
 		_drift_label.visible = kmh > 30.0 and _car.get_slip_angle_deg() > 12.0
 
 	if _timer != null:
-		if not _timer.running:
+		if _timer.finished:
+			if now >= _freeze_until_ms:
+				_lap_label.text = "SESIÓN TERMINADA"
+				_time_label.text = LapTimer.format_time(_timer.total_time())
+		elif not _timer.running:
 			_lap_label.text = "CRUZÁ LA LÍNEA PARA CRONOMETRAR"
 			_time_label.text = LapTimer.format_time(-1.0)
 			_set_color(_time_label, COLOR_NEUTRAL)
 		elif now >= _freeze_until_ms:
-			_lap_label.text = "VUELTA %d" % _timer.lap
+			_lap_label.text = _lap_text(_timer.lap)
 			_time_label.text = LapTimer.format_time(_timer.current_time)
 			_set_color(_time_label, COLOR_NEUTRAL)
+
+
+func _lap_text(lap: int) -> String:
+	if _timer.lap_limit > 0:
+		return "VUELTA %d / %d" % [lap, _timer.lap_limit]
+	return "VUELTA %d" % lap
 
 
 func _on_gearbox_mode_changed(manual: bool) -> void:
@@ -98,6 +109,8 @@ func _on_lap_started(lap: int) -> void:
 	if lap == 1:
 		_reset_sectors()
 		show_message("¡Cronómetro en marcha!", 1.5)
+	elif _timer.lap_limit > 0 and lap == _timer.lap_limit:
+		show_message("¡ÚLTIMA VUELTA!", 2.0, COLOR_SLOWER)
 
 
 func _on_sector_completed(sector: int, time: float, is_best: bool) -> void:

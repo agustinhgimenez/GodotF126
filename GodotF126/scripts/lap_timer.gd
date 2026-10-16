@@ -3,11 +3,14 @@ extends Node
 ## Cronómetro de vueltas por sectores (Paso 2).
 ## Checkpoint 0 = línea de meta; 1 y 2 = fin del sector 1 y 2.
 ## Una vuelta sólo cuenta si se pasan los checkpoints en orden.
+## Con lap_limit > 0 (contrarreloj, Paso 16) el cronómetro se detiene al cerrar la última
+## vuelta y emite session_finished.
 
 signal lap_started(lap: int)
 signal sector_completed(sector: int, time: float, is_best: bool)
 signal lap_completed(lap: int, time: float, is_best: bool, is_record: bool)
 signal lap_aborted
+signal session_finished
 
 const SECTOR_COUNT := 3
 const RECORDS_PATH := "user://records.json"
@@ -26,6 +29,13 @@ var best_lap_splits: Array[float] = []
 ## Diferencia contra la mejor vuelta en el último sector cerrado (NAN si no hay referencia).
 ## Negativo = más rápido. El delta continuo en vivo es el Paso 40.
 var split_delta: float = NAN
+## Vueltas a completar; 0 = sin límite (práctica libre).
+var lap_limit: int = 0
+var finished: bool = false
+## Vueltas completas en orden: {"lap", "time", "sectors": Array[float], "is_record"}.
+var lap_history: Array[Dictionary] = []
+## Récord de la pista antes de empezar la sesión (para saber si se batió).
+var record_before_session: float = -1.0
 
 var _next_checkpoint: int = 0
 var _sector_start: float = 0.0
@@ -35,6 +45,7 @@ var _current_splits: Array[float] = []
 func setup(id: String) -> void:
 	track_id = id
 	record_lap = float(_load_records().get(track_id, -1.0))
+	record_before_session = record_lap
 
 
 func _physics_process(delta: float) -> void:
@@ -43,13 +54,18 @@ func _physics_process(delta: float) -> void:
 
 
 func on_checkpoint(checkpoint: int) -> void:
+	if finished:
+		return
 	if checkpoint == 0:
 		if not running:
 			_start_lap()
 		elif _next_checkpoint == 0:
 			_finish_sector(SECTOR_COUNT - 1)
 			_complete_lap()
-			_start_lap()
+			if lap_limit > 0 and lap_history.size() >= lap_limit:
+				_finish_session()
+			else:
+				_start_lap()
 		return
 	if running and checkpoint == _next_checkpoint:
 		_finish_sector(checkpoint - 1)
@@ -100,7 +116,27 @@ func _complete_lap() -> void:
 	if is_record:
 		record_lap = last_lap
 		_save_record()
+	lap_history.append({"lap": lap, "time": last_lap, "sectors": sector_times.duplicate(), "is_record": is_record})
 	lap_completed.emit(lap, last_lap, is_best, is_record)
+
+
+func _finish_session() -> void:
+	running = false
+	finished = true
+	split_delta = NAN
+	session_finished.emit()
+
+
+## Suma de las vueltas completas.
+func total_time() -> float:
+	var total := 0.0
+	for entry in lap_history:
+		total += float(entry["time"])
+	return total
+
+
+func beat_record() -> bool:
+	return record_lap >= 0.0 and (record_before_session < 0.0 or record_lap < record_before_session)
 
 
 func _load_records() -> Dictionary:
