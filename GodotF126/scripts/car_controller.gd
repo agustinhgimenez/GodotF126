@@ -41,6 +41,16 @@ const CAMERA_MODES := [
 @export_group("Cámara")
 @export var camera_follow: float = 6.0
 
+@export_group("Vibración de cámara")
+@export var shake_speed_amplitude: float = 0.004   ## m de vibración a velocidad máxima
+@export var shake_impact_amplitude: float = 0.03   ## m extra con un golpe de intensidad 1
+@export var shake_max_roll_deg: float = 0.4
+@export var shake_frequency: float = 14.0
+@export var shake_impact_decay: float = 2.5        ## intensidad de golpe que se pierde por segundo
+@export var shake_wall_speed: float = 15.0         ## m/s perdidos contra un muro = golpe de intensidad 1
+@export var shake_shift_kick: float = 0.25         ## golpe al cambiar de marcha
+@export var shake_chase_factor: float = 0.25       ## fracción que llega a las cámaras exteriores
+
 var forward_speed: float = 0.0
 var controls_enabled: bool = true
 var spawn_transform: Transform3D = Transform3D.IDENTITY
@@ -48,6 +58,10 @@ var spawn_transform: Transform3D = Transform3D.IDENTITY
 var camera_mode: int = 0
 
 var _steer: float = 0.0
+var _camera_base: Transform3D = Transform3D.IDENTITY
+var _shake_noise := FastNoiseLite.new()
+var _shake_time: float = 0.0
+var _impact: float = 0.0
 
 @onready var _camera_pivot: Node3D = $CameraPivot
 @onready var _camera: Camera3D = $CameraPivot/Camera3D
@@ -56,11 +70,14 @@ var _steer: float = 0.0
 @onready var gearbox: Gearbox = $Gearbox
 @onready var steering_wheel: SteeringWheel = $SteeringWheel
 @onready var driver_arms: DriverArms = $DriverArms
+@onready var cockpit_detail: CockpitDetail = $CockpitDetail
 
 
 func _ready() -> void:
 	spawn_transform = global_transform
 	floor_snap_length = 0.5
+	_shake_noise.frequency = 1.0
+	gearbox.gear_changed.connect(_on_gear_changed)
 	_camera_pivot.top_level = true
 	_apply_camera_mode()
 	_snap_camera()
@@ -84,6 +101,23 @@ func configure(data: Dictionary) -> void:
 	gearbox.wheel_radius = wheel_radius
 	gearbox.limiter_rpm = engine.limiter_rpm
 	max_speed = get_top_speed()
+	var cockpit_data = data.get("cockpit", {})
+	if cockpit_data is Dictionary:
+		cockpit_detail.configure(cockpit_data)
+		var shake_data = cockpit_data.get("shake", {})
+		if shake_data is Dictionary:
+			_configure_shake(shake_data)
+
+
+func _configure_shake(data: Dictionary) -> void:
+	shake_speed_amplitude = float(data.get("speed_amplitude", shake_speed_amplitude))
+	shake_impact_amplitude = float(data.get("impact_amplitude", shake_impact_amplitude))
+	shake_max_roll_deg = float(data.get("max_roll_deg", shake_max_roll_deg))
+	shake_frequency = float(data.get("frequency", shake_frequency))
+	shake_impact_decay = float(data.get("impact_decay", shake_impact_decay))
+	shake_wall_speed = float(data.get("wall_speed", shake_wall_speed))
+	shake_shift_kick = float(data.get("shift_kick", shake_shift_kick))
+	shake_chase_factor = float(data.get("chase_factor", shake_chase_factor))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -111,12 +145,14 @@ func _apply_camera_mode() -> void:
 	var pitch := deg_to_rad(float(mode["pitch"]))
 	var offset: Vector3 = mode["position"]
 	var is_chase := bool(mode["smooth"])
-	_camera.transform = Transform3D(Basis(Vector3.RIGHT, pitch), offset)
+	_camera_base = Transform3D(Basis(Vector3.RIGHT, pitch), offset)
+	_camera.transform = _camera_base
 	_camera.fov = float(mode["fov"])
 	_camera.near = 0.3 if is_chase else 0.1
 	_helmet.visible = is_chase
 	steering_wheel.visible = not is_chase
 	driver_arms.visible = not is_chase
+	cockpit_detail.set_cockpit_view(not is_chase)
 
 
 func _physics_process(delta: float) -> void:
@@ -222,6 +258,7 @@ func _handle_wall_hits() -> void:
 		if absf(collision.get_normal().y) < 0.5:
 			var actual := velocity.dot(_flat_forward())
 			if absf(forward_speed) > absf(actual):
+				add_camera_impact((absf(forward_speed) - absf(actual)) / shake_wall_speed)
 				forward_speed = lerpf(forward_speed, actual, 0.5)
 
 
@@ -232,6 +269,33 @@ func _update_camera(delta: float) -> void:
 	var weight := clampf(camera_follow * delta, 0.0, 1.0) if CAMERA_MODES[camera_mode]["smooth"] else 1.0
 	t.basis = t.basis.slerp(target_basis, weight).orthonormalized()
 	_camera_pivot.global_transform = t
+	_update_shake(delta)
+
+
+## Vibración: crece con el cuadrado de la velocidad y suma los golpes (muros, cambios;
+## los pianos del Paso 19 también van a llamar a add_camera_impact()).
+func _update_shake(delta: float) -> void:
+	_shake_time += delta
+	_impact = move_toward(_impact, 0.0, shake_impact_decay * delta)
+	var speed_part := pow(clampf(absf(forward_speed) / max_speed, 0.0, 1.0), 2.0)
+	var impact_part := _impact * _impact
+	var factor := shake_chase_factor if CAMERA_MODES[camera_mode]["smooth"] else 1.0
+	var amount := (shake_speed_amplitude * speed_part + shake_impact_amplitude * impact_part) * factor
+	var roll_amount := deg_to_rad(shake_max_roll_deg) * minf(speed_part * 0.5 + impact_part, 1.0) * factor
+	var n := _shake_time * shake_frequency
+	var offset := Vector3(_shake_noise.get_noise_2d(n, 0.0), _shake_noise.get_noise_2d(n, 100.0), 0.0) * amount
+	var roll := _shake_noise.get_noise_2d(n, 200.0) * roll_amount
+	_camera.transform = _camera_base * Transform3D(Basis(Vector3.BACK, roll), offset)
+
+
+## Golpe de cámara de intensidad 0–1 que se desvanece solo.
+func add_camera_impact(strength: float) -> void:
+	_impact = clampf(maxf(_impact, strength), 0.0, 1.0)
+
+
+func _on_gear_changed(_gear: int) -> void:
+	if absf(forward_speed) > 3.0:
+		add_camera_impact(shake_shift_kick)
 
 
 func _snap_camera() -> void:
@@ -264,6 +328,7 @@ func reset_to_spawn() -> void:
 	velocity = Vector3.ZERO
 	forward_speed = 0.0
 	_steer = 0.0
+	_impact = 0.0
 	engine.reset()
 	gearbox.reset()
 	_snap_camera()

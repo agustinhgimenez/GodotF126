@@ -35,5 +35,20 @@
     "shift_light_count": 15,
     "shift_light_start_rpm": 9000,
     "speed_tick_step": 20
+  },
+  "cockpit": {
+    "mirror_resolution": [320, 120],
+    "mirror_fov": 24,
+    "visor_tint": 0.08,
+    "shake": {
+      "speed_amplitude": 0.004,
+      "impact_amplitude": 0.03,
+      "max_roll_deg": 0.4,
+      "frequency": 14,
+      "impact_decay": 2.5,
+      "wall_speed": 15,
+      "shift_kick": 0.25,
+      "chase_factor": 0.25
+    }
   }
 }

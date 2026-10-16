@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 7 del [ROADMAP](GodotF126/ROADMAP.md) completos.
-- Próximo: **Paso 8 — cockpit detallado** (halo, visor, espejos, vibración), luego 9 sonido de motor, 10 sonidos de neumáticos. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
+- Pasos 0 a 8 del [ROADMAP](GodotF126/ROADMAP.md) completos.
+- Próximo: **Paso 9 — sonido de motor**, luego 10 sonidos de neumáticos. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
 ## Reglas
@@ -37,11 +37,16 @@ Leé esto antes de tocar el proyecto.
 | `scripts/ui/wheel_screen.gd` | `class_name WheelScreen`. Pantalla del volante, dentro de un `SubViewport` |
 | `scripts/car/steering_wheel.gd` | `class_name SteeringWheel` (nodo hijo de `Car`). Volante armado por código; nodos `Rim`, `PaddleLeft`, `PaddleRight`, `ShiftLeds`. `configure(data)`, `bind_lap_timer()`, `get_rim()`, `get_grip_position(side)`, `get_paddle(side)` |
 | `scripts/car/driver_arms.gd` | `class_name DriverArms`. Manos colgadas del aro, brazos con IK de dos huesos, animación de levas con `Tween` al cambiar de marcha |
+| `scripts/car/cockpit_detail.gd` | `class_name CockpitDetail`. Halo (siempre visible), espejos con `SubViewport` + `Camera3D` (sólo renderizan en Cockpit), visera/mentonera del casco colgadas de la cámara en la capa visual 2. `configure(data)`, `set_cockpit_view(enabled)` |
 
-## Sugerencia para el Paso 8
-- Halo y visor como mallas simples hijas de `Car`, visibles sólo en Cockpit (sumarlas en `_apply_camera_mode()`).
-- Espejos: dos `SubViewport` con `Camera3D` mirando hacia atrás (+Z del auto), textura en `QuadMesh` espejada (escala X negativa o UV invertida). Bajar resolución y `UPDATE_WHEN_VISIBLE` por rendimiento.
-- Vibración: offset aleatorio pequeño en `_update_camera()` proporcional a la velocidad, y más fuerte sobre pianos (cuando existan, Paso 19).
+La vibración de cámara está en `CarController._update_shake()`; `add_camera_impact(0–1)` agrega un golpe (lo usan los muros y los cambios; los pianos del Paso 19 deberían llamarlo).
+
+Si se agrega un script con `class_name` nuevo y se prueba sin abrir el editor, correr antes `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --import` para que se registre la clase.
+
+## Sugerencia para el Paso 9
+- Autoload o nodo `EngineAudio` hijo de `Car` con `AudioStreamPlayer3D` + `AudioStreamGenerator`, llenando el buffer en `_process` con varias armónicas cuya frecuencia sale de `engine.rpm` (un V6 4 tiempos dispara 3 veces por vuelta: `f = rpm / 60 × 3`).
+- Mezclar capas según acelerador (más armónicas altas con carga), ruido en el limitador (`limiter_hit`) y petardeo al soltar el acelerador a altas RPM. Cambio de marcha: corte breve al recibir `gear_changed`.
+- Parámetros en `data/car.json` → `"audio"`.
 
 ## Verificación sin abrir el editor
 Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.

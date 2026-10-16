@@ -25,7 +25,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 1 | Auto arcade con WASD, pista Bakú generada por código, HUD de velocidad y piloto | ✅ |
 | 2 | Cronómetro por sectores, mejor vuelta, récord guardado, cámaras TV / cercana / cockpit (C) | ✅ |
 
-## Fase B — Motor, caja manual y cockpit ⏳
+## Fase B — Motor, caja manual, cockpit y sonido ⏳
 
 | Paso | Contenido | Estado |
 |---|---|---|
@@ -34,8 +34,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 5 | **Tablero en el HUD**: marcha grande (R, N, 1–8), RPM en barra con **luces de cambio** tipo F1 (verde → rojo → azul), velocímetro digital + **aguja analógica** | ✅ |
 | 6 | **Volante 3D** en el cockpit: gira con la dirección (±180°), pantalla con marcha / RPM / velocidad / delta, LEDs de cambio arriba | ✅ |
 | 7 | **Manos y brazos del piloto** sobre el volante: siguen el giro; los dedos accionan la leva al cambiar | ✅ |
-| 8 | Cockpit detallado: halo, casco con visor, **espejos retrovisores** con imagen real (`SubViewport`), vibración de cámara con velocidad y pianos | ⏳ Siguiente |
-| 9 | **Sonido de motor** generado por código en capas según RPM y acelerador; sonido de cambio, limitador y petardeo al soltar | |
+| 8 | Cockpit detallado: halo, casco con visor, **espejos retrovisores** con imagen real (`SubViewport`), vibración de cámara con velocidad y pianos | ✅ |
+| 9 | **Sonido de motor** generado por código en capas según RPM y acelerador; sonido de cambio, limitador y petardeo al soltar | ⏳ Siguiente |
 | 10 | Sonidos de neumáticos (chirrido por deslizamiento), viento por velocidad, golpes contra muros | |
 
 ## Fase C — Menús y flujo de juego (cierra H1)
@@ -187,3 +187,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - Se corrigió el número del piloto en el HUD (se veía "#43.0" porque el JSON lo trae como float).
 - **Verificación**: prueba sin ventana (cámara Cockpit, subir y bajar marcha, posición de los brazos) y captura en `informes/capturas/paso7-cockpit.png`.
 - **Cómo probar**: F5 → C hasta "Cockpit" → girar con A/D (las manos y brazos siguen al volante) → E y Q (se mueven la leva y el dedo de cada lado).
+
+### Paso 8 — Cockpit detallado
+- Nuevo nodo `CockpitDetail` en `car.tscn` (`scripts/car/cockpit_detail.gd`), armado por código con formas simples. `CarController._apply_camera_mode()` le avisa con `set_cockpit_view()`.
+- **Halo**: aro alrededor de la cabeza (12 tramos sobre una elipse que baja un poco hacia atrás), pilar central hasta el chasis delante del volante y dos patas traseras. Es parte del auto, así que se ve en todas las cámaras; en Cockpit queda arriba con el pilar en el centro, como en una cámara onboard.
+- **Espejos retrovisores** a cada lado: carcasa, brazo al chasis y vidrio con imagen real. Cada espejo tiene un `SubViewport` con su `Camera3D` que mira hacia atrás y un poco hacia afuera; la cámara copia cada frame la posición de un marcador del auto. La textura se espeja con `uv1_scale = (-1, 1, 1)`. Sólo se renderizan en Cockpit (`UPDATE_ALWAYS`); en las otras cámaras quedan apagados y el vidrio usa un material metálico oscuro.
+- **Casco**: visera arriba y mentonera abajo como franjas curvas (`SurfaceTool`) colgadas de la cámara a 0,12 m, con un borde de goma más claro y un tinte suave del visor. Están en la capa visual 2, que las cámaras de los espejos no ven, y no proyectan sombra.
+- **Vibración de cámara** en `CarController._update_shake()`: desplazamiento y rolido con ruido (`FastNoiseLite`) que crecen con el cuadrado de la velocidad, más **golpes** que se desvanecen solos: contra muros (según la velocidad perdida) y al cambiar de marcha. `add_camera_impact(intensidad)` queda público para los pianos del Paso 19. Las cámaras exteriores reciben el 25 %.
+- **Datos** en `data/car.json` → `"cockpit"`: resolución y fov de los espejos, tinte del visor y parámetros de vibración (`"shake"`).
+- **Verificación**: prueba con script (cámara Cockpit, acelerar, cambiar de marcha, volver a TV) y capturas en `informes/capturas/paso8-cockpit.png`, `paso8-espejo-izq.png` y `paso8-tv.png`.
+- **Cómo probar**: F5 → C hasta "Cockpit" → mirar el halo arriba y los espejos a los costados (acelerar y ver la pista alejarse en ellos) → a alta velocidad la cámara vibra más; al cambiar con E se siente un golpe; chocar un muro sacude fuerte → C a la cámara TV y ver el halo sobre el auto.
