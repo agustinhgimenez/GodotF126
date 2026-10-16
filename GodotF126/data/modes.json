@@ -1,16 +1,29 @@
 {
   "default_mode": "time_trial",
   "results_delay": 2.5,
+  "start_lights": {
+    "grid_distance": 6.0,
+    "pre_delay": 1.5,
+    "light_interval": 1.0,
+    "hold_min": 0.2,
+    "hold_max": 3.0,
+    "jump_distance": 0.3,
+    "jump_penalty": 5.0,
+    "reaction_speed": 0.5,
+    "hide_after": 2.0
+  },
   "modes": [
     {
       "id": "practice",
       "name": "Práctica libre",
-      "description": "Vueltas sin límite para aprender la pista"
+      "description": "Vueltas sin límite para aprender la pista",
+      "standing_start": false
     },
     {
       "id": "time_trial",
       "name": "Contrarreloj",
-      "description": "Vueltas cronometradas y resultado por vuelta y sector",
+      "description": "Largada con semáforo y resultado por vuelta y sector",
+      "standing_start": true,
       "lap_options": [1, 2, 3, 5, 10],
       "default_laps": 3
     }

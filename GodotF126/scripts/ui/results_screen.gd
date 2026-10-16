@@ -96,6 +96,12 @@ func _fill_summary(timer: LapTimer) -> void:
 	for child in _summary.get_children():
 		child.queue_free()
 	_summary.add_child(UiKit.make_label("Tiempo total   %s" % LapTimer.format_time(timer.total_time()), 26))
+	if timer.penalty > 0.0:
+		var penalty := UiKit.make_label("Penalización   +%.0f s (%s)" % [timer.penalty, timer.penalty_reason], 20)
+		penalty.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
+		_summary.add_child(penalty)
+	elif timer.reaction_time >= 0.0:
+		_summary.add_child(UiKit.make_label("Reacción en la largada   %.3f s" % timer.reaction_time, 20))
 	var best := UiKit.make_label("Mejor vuelta   %s" % LapTimer.format_time(_session_best_lap(timer.lap_history)), 22)
 	best.add_theme_color_override("font_color", COLOR_BEST)
 	_summary.add_child(best)

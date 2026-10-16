@@ -23,6 +23,8 @@ var _time_label: Label
 var _summary_label: Label
 var _sector_labels: Array[Label] = []
 var _message_label: Label
+var _start_lights: StartLightsDisplay
+var _start_hint: Label
 
 
 func _ready() -> void:
@@ -50,6 +52,22 @@ func bind_lap_timer(timer: LapTimer) -> void:
 	timer.session_finished.connect(func() -> void: show_message("¡BANDERA A CUADROS!", 3.0, COLOR_BEST))
 	_reset_sectors()
 	_update_summary()
+
+
+## Largada detenida (Paso 17): muestra el semáforo hasta que termina la secuencia.
+func bind_start_lights(lights: StartLights) -> void:
+	_start_lights.visible = true
+	_start_hint.visible = true
+	lights.lights_changed.connect(_start_lights.set_lights)
+	lights.lights_out.connect(func() -> void:
+		_start_hint.visible = false
+		if not lights.jumped:
+			show_message("¡LARGADA!", 1.5))
+	lights.jump_start.connect(func() -> void:
+		show_message("¡LARGADA EN FALSO! Penalización", 3.0, COLOR_SLOWER))
+	lights.reaction_measured.connect(func(seconds: float) -> void:
+		show_message("Reacción %.3f s" % seconds, 2.5))
+	lights.finished.connect(func() -> void: _start_lights.visible = false)
 
 
 func set_driver_info(driver: Dictionary, team: Dictionary, team_color: Color) -> void:
@@ -81,7 +99,10 @@ func _process(_delta: float) -> void:
 		_drift_label.visible = kmh > 30.0 and _car.get_slip_angle_deg() > 12.0
 
 	if _timer != null:
-		if _timer.finished:
+		if _start_hint.visible:
+			_lap_label.text = "LARGADA DETENIDA"
+			_time_label.text = LapTimer.format_time(-1.0)
+		elif _timer.finished:
 			if now >= _freeze_until_ms:
 				_lap_label.text = "SESIÓN TERMINADA"
 				_time_label.text = LapTimer.format_time(_timer.total_time())
@@ -227,6 +248,19 @@ func _build_ui() -> void:
 	_drift_label.visible = false
 	_place(_drift_label, Vector4(0.5, 0, 0.5, 0), Vector4(-200, 250, 200, 290))
 	root.add_child(_drift_label)
+
+	# Centro: semáforo de largada (sólo en largada detenida).
+	_start_lights = StartLightsDisplay.new()
+	_start_lights.name = "StartLights"
+	_start_lights.visible = false
+	_place(_start_lights, Vector4(0.5, 0, 0.5, 0),
+		Vector4(-StartLightsDisplay.SIZE.x * 0.5, 290, StartLightsDisplay.SIZE.x * 0.5, 290 + StartLightsDisplay.SIZE.y))
+	root.add_child(_start_lights)
+	_start_hint = _make_label(18, HORIZONTAL_ALIGNMENT_CENTER,
+		"Esperá que se apaguen las luces · en 1ª acelerar mueve el auto (Q para N y acelerar quieto)")
+	_start_hint.visible = false
+	_place(_start_hint, Vector4(0.5, 0, 0.5, 0), Vector4(-460, 420, 460, 450))
+	root.add_child(_start_hint)
 
 	# Abajo a la izquierda: controles.
 	var hint := _make_label(16, HORIZONTAL_ALIGNMENT_LEFT,

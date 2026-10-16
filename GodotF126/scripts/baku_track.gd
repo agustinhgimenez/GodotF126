@@ -33,6 +33,8 @@ const CONTROL_POINTS := [
 
 const START_LINE_POINT := Vector3(-150, 0, 0)
 const SPAWN_POINT := Vector3(-165, 0, 0)
+## Altura del travesaño del pórtico de largada (de ahí cuelga el semáforo).
+const GANTRY_HEIGHT := 7.2
 
 const ASPHALT_COLOR := Color(0.16, 0.16, 0.18)
 const LINE_COLOR := Color(0.95, 0.95, 0.95)
@@ -77,6 +79,12 @@ func get_start_line_transform() -> Transform3D:
 	_ensure_centerline()
 	var i := _nearest_index(START_LINE_POINT)
 	return Transform3D(Basis.looking_at(_tangent(i), Vector3.UP), centerline[i])
+
+
+## Lugar de la grilla para largada detenida: `distance` metros detrás de la línea.
+func get_grid_transform(distance: float) -> Transform3D:
+	var line := get_start_line_transform()
+	return Transform3D(line.basis, line.origin + line.basis.z * distance + Vector3(0, 0.6, 0))
 
 
 # --- Trazado -----------------------------------------------------------------
@@ -298,7 +306,7 @@ func _build_start_line() -> void:
 	for side in [-1.0, 1.0]:
 		_add_box(line, start.origin + right * gantry_offset * side + Vector3(0, 3.5, 0),
 			Vector3(0.6, 7, 0.6), start.basis, gantry_color)
-	_add_box(line, start.origin + Vector3(0, 7.2, 0),
+	_add_box(line, start.origin + Vector3(0, GANTRY_HEIGHT, 0),
 		Vector3(gantry_offset * 2.0 + 0.6, 1.0, 0.8), start.basis, gantry_color)
 
 

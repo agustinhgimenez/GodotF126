@@ -20,7 +20,7 @@ GodotF126 es un videojuego-simulador de Fórmula 1 en tercera persona hecho con 
 3. Apretar **Import & Edit**. La primera vez Godot tarda unos segundos importando.
 
 ## 3. Jugar
-Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) → elegir modo (**Práctica libre** o **Contrarreloj**, con ← → para la cantidad de vueltas) → elegir escudería → elegir piloto → carga la pista. En Contrarreloj, al completar las vueltas aparece el resultado con los tiempos por vuelta y sector. En **Opciones** se elige caja, dirección asistida, cámara inicial, volúmenes y calidad; se guardan solas.
+Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) → elegir modo (**Práctica libre** o **Contrarreloj**, con ← → para la cantidad de vueltas) → elegir escudería → elegir piloto → carga la pista. En Contrarreloj se larga desde la grilla con **semáforo de 5 luces**: hay que acelerar cuando se apagan (acelerar antes es largada en falso, +5 s). Al completar las vueltas aparece el resultado con los tiempos por vuelta y sector. En **Opciones** se elige caja, dirección asistida, cámara inicial, volúmenes y calidad; se guardan solas.
 
 | Tecla | Acción |
 |-------|--------|
@@ -71,6 +71,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 14: opciones en el menú (caja inicial, dirección asistida, cámara inicial, volúmenes general / motor / efectos / música, calidad gráfica, pantalla completa) guardadas en `user://settings.json`. Captura: `informes/capturas/paso14-opciones.png`.
 - ✅ Paso 15: pausa con Esc (todo se congela y el auto se calla) con Continuar / Reiniciar / Opciones / Menú principal / Salir. Capturas: `informes/capturas/paso15-pausa.png`, `paso15-opciones.png`.
 - ✅ Paso 16: modo Contrarreloj (1 a 10 vueltas elegidas en el menú) con pantalla de resultado: tiempo y sectores de cada vuelta, mejores en violeta, tiempo total y récord; Repetir o volver al menú. Capturas: `informes/capturas/paso16-modos.png`, `paso16-resultado.png`.
-- ⏳ Paso 17: semáforo de largada con 5 luces y detección de salto.
+- ✅ Paso 17: largada detenida en Contrarreloj con semáforo de 5 luces (en el pórtico y en el HUD), tiempo de reacción y detección de salto con +5 s de penalización. Capturas: `informes/capturas/paso17-semaforo.png`, `paso17-resultado-salto.png`.
+- ⏳ Paso 18: cámaras extra (T-cam, capot, cámaras de TV fijas en la pista).
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

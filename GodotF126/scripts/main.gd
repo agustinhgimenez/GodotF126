@@ -28,6 +28,8 @@ var selected_team: Dictionary = {}
 var track_name: String = ""
 var mode_name: String = ""
 var results_delay: float = 2.5
+var _standing_start: bool = false
+var _start_data: Dictionary = {}
 
 @onready var track: BakuTrack = $BakuTrack
 @onready var car: CarController = $Car
@@ -35,6 +37,7 @@ var results_delay: float = 2.5
 @onready var lap_timer: LapTimer = $LapTimer
 @onready var pause_menu: PauseMenu = $PauseMenu
 @onready var results_screen: ResultsScreen = $ResultsScreen
+@onready var start_lights: StartLights = $StartLights
 
 
 func _ready() -> void:
@@ -74,6 +77,8 @@ func _ready() -> void:
 	car.was_reset.connect(lap_timer.abort_lap)
 	hud.bind_lap_timer(lap_timer)
 	car.steering_wheel.bind_lap_timer(lap_timer)
+	if _standing_start:
+		_setup_start_lights()
 
 	pause_menu.set_accent(team_color)
 	pause_menu.paused_changed.connect(_on_paused_changed)
@@ -102,10 +107,31 @@ func _setup_mode() -> void:
 		lap_timer.lap_limit = laps
 		mode_name = "%s · %d %s" % [mode_name, laps, "vuelta" if laps == 1 else "vueltas"]
 	hud.set_track_name("%s\n%s" % [track_name, mode_name])
+	_standing_start = bool(mode.get("standing_start", false))
+	var start_data = modes.get("start_lights", {})
+	_start_data = start_data if start_data is Dictionary else {}
+
+
+## Largada detenida (Paso 17): el auto va a la grilla detrás de la línea y el cronómetro
+## arranca cuando se apaga el semáforo, no al cruzar la meta.
+func _setup_start_lights() -> void:
+	car.spawn_transform = track.get_grid_transform(float(_start_data.get("grid_distance", 6.0)))
+	car.reset_to_spawn()
+	start_lights.configure(_start_data)
+	start_lights.lights_out.connect(_on_lights_out)
+	start_lights.reaction_measured.connect(func(seconds: float) -> void: lap_timer.reaction_time = seconds)
+	hud.bind_start_lights(start_lights)
+	start_lights.begin(car, track.get_start_line_transform(), BakuTrack.GANTRY_HEIGHT)
+
+
+func _on_lights_out() -> void:
+	if start_lights.jumped:
+		lap_timer.add_penalty(float(_start_data.get("jump_penalty", 5.0)), "Largada en falso")
+	lap_timer.start_now()
 
 
 func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:
-	if body == car:
+	if body == car and not start_lights.is_active():
 		lap_timer.on_checkpoint(checkpoint)
 
 

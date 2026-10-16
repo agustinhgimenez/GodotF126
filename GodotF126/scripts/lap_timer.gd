@@ -36,6 +36,11 @@ var finished: bool = false
 var lap_history: Array[Dictionary] = []
 ## Récord de la pista antes de empezar la sesión (para saber si se batió).
 var record_before_session: float = -1.0
+## Segundos sumados al total (largada en falso, Paso 17) y motivo.
+var penalty: float = 0.0
+var penalty_reason: String = ""
+## Reacción en la largada detenida (segundos desde el apagado); -1 = no hubo o se saltó.
+var reaction_time: float = -1.0
 
 var _next_checkpoint: int = 0
 var _sector_start: float = 0.0
@@ -70,6 +75,18 @@ func on_checkpoint(checkpoint: int) -> void:
 	if running and checkpoint == _next_checkpoint:
 		_finish_sector(checkpoint - 1)
 		_next_checkpoint = (checkpoint + 1) % SECTOR_COUNT
+
+
+## Largada detenida: la primera vuelta arranca ya (al apagarse el semáforo), con el auto
+## todavía detrás de la línea; el primer cruce de la meta no la reinicia.
+func start_now() -> void:
+	if not running and not finished:
+		_start_lap()
+
+
+func add_penalty(seconds: float, reason: String) -> void:
+	penalty += seconds
+	penalty_reason = reason
 
 
 func abort_lap() -> void:
@@ -127,9 +144,9 @@ func _finish_session() -> void:
 	session_finished.emit()
 
 
-## Suma de las vueltas completas.
+## Suma de las vueltas completas más las penalizaciones.
 func total_time() -> float:
-	var total := 0.0
+	var total := penalty
 	for entry in lap_history:
 		total += float(entry["time"])
 	return total

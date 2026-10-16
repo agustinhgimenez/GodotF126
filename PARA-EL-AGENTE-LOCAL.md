@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 16 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
-- Próximo: **Paso 17 — semáforo de largada** con 5 luces y detección de salto.
+- Pasos 0 a 17 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
+- Próximo: **Paso 18 — cámaras extra** (T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista).
 - El juego arranca en `scenes/menu.tscn`; `scenes/main.tscn` es la carrera. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
@@ -28,7 +28,9 @@ Leé esto antes de tocar el proyecto.
 | `scripts/main.gd` | Escena de carrera: carga JSON, elige piloto (`default_driver_id`), spawnea auto, configura HUD, aplica `Settings` y el modo de `GameState` (`_setup_mode()` fija `lap_timer.lap_limit` en contrarreloj). Esc abre la pausa; Reiniciar = `reload_current_scene()`. Con `session_finished` suelta los controles, bloquea la pausa y tras `results_delay` abre `ResultsScreen` |
 | `scripts/ui/results_screen.gd` | `class_name ResultsScreen` (nodo `ResultsScreen` de `main.tscn`, `process_mode = ALWAYS`, capa 11). `open(timer, subtítulo)` pausa y arma la tabla desde `LapTimer.lap_history` (mejores en violeta), total, mejor vuelta y récord. Señales `repeat_requested`, `menu_requested` |
 | `scripts/menu/mode_select.gd` | `class_name ModeSelect`. Tarjetas de modo desde `data/modes.json`; ←/→ cambian las vueltas en los modos con `lap_options`. `setup(data, modo, vueltas)`, `open()`, `back()`, `set_accent()`; señales `confirmed(mode_id, laps)`, `cancelled` |
-| `data/modes.json` | Modos (`practice`, `time_trial` con `lap_options` / `default_laps`), `default_mode`, `results_delay` |
+| `data/modes.json` | Modos (`practice`, `time_trial` con `lap_options` / `default_laps` / `standing_start`), `default_mode`, `results_delay`, `start_lights` (tiempos del semáforo, salto, penalización) |
+| `scripts/race/start_lights.gd` | `class_name StartLights` (nodo `StartLights` de `main.tscn`). Secuencia de 5 luces, apagado al azar, detección de salto y reacción; arma las lámparas 3D en el pórtico. `configure(data)`, `begin(car, línea, altura_pórtico)`, `is_active()`, `jumped`, `reaction_time`; señales `lights_changed`, `lights_out`, `jump_start`, `reaction_measured`, `finished`. `main.gd` ignora los checkpoints mientras está activo y llama a `LapTimer.start_now()` en `lights_out` |
+| `scripts/ui/start_lights_display.gd` | `class_name StartLightsDisplay`. Semáforo del HUD dibujado en `_draw()`; `RaceHUD.bind_start_lights(lights)` lo muestra y conecta |
 | `scripts/ui/pause_menu.gd` | `class_name PauseMenu` (nodo `PauseMenu` de `main.tscn`, `process_mode = ALWAYS`). Pausa el árbol; `main.gd` escucha `paused_changed` para ocultar el HUD y silenciar el auto. Continuar / Reiniciar / Opciones (`OptionsPanel`) / Menú / Salir. `open()`, `close()`, `is_open()`, `set_accent()`, `set_subtitle()`; señales `paused_changed`, `restart_requested`, `menu_requested` |
 | `scripts/game_state.gd` | Autoload `GameState`: `selected_driver_id` (vacío = `default_driver_id`), `selected_mode` (vacío = `default_mode` de `modes.json`), `lap_count` (0 = `default_laps`), `is_time_trial()`, constantes `MODE_PRACTICE` / `MODE_TIME_TRIAL`. En scripts `-s` de prueba no se puede nombrar directo: usar `root.get_node("GameState")` |
 | `scripts/settings.gd` | Autoload `Settings` (sin `class_name`). Defaults y perfiles en `data/settings.json`, guardado en `user://settings.json`. `get_value`, `set_value` (sanea, aplica, guarda, emite `changed(key)`), `reset_to_defaults`, `apply_to_car(car)`, `shadows_enabled()`, constantes `BUS_ENGINE` / `BUS_FX` / `BUS_MUSIC`. Igual que `GameState`: en scripts `-s` usar `root.get_node("Settings")` y no nombrar clases que dependan de él (p. ej. `OptionsPanel`) |
@@ -43,8 +45,8 @@ Leé esto antes de tocar el proyecto.
 | `scripts/car/car_engine.gd` | `class_name CarEngine` (nodo `Engine` del auto). RPM, curva de torque, limitador con corte, freno motor. `update(wheel_rpm, throttle, clutch_can_slip, in_neutral, delta)`, `get_output_torque()`. Señal `limiter_hit` |
 | `scripts/car/gearbox.gd` | `class_name Gearbox`. Secuencial R (`REVERSE` = −1), N (`NEUTRAL` = 0), 1–8; `manual` o automática. `shift_up/shift_down(speed)`, `toggle_mode()`, `select_gear()`, `get_ratio_for()`, `is_shifting()`, `get_direction()`. Señales `gear_changed`, `shift_denied(reason)`, `mode_changed(manual)` |
 | `data/car.json` | Masa, radio de rueda, tracción, drag, datos de motor y caja |
-| `scripts/baku_track.gd` | `class_name BakuTrack`. Genera la pista y 3 `Area3D` de checkpoint; expone `centerline`, `track_length`, `get_spawn_transform()`, `get_start_line_transform()`. Señal `checkpoint_crossed(checkpoint, body)` |
-| `scripts/lap_timer.gd` | `class_name LapTimer`. Vueltas, sectores, mejor vuelta, récord en `user://records.json`. `lap_limit` (0 = sin límite), `finished`, `lap_history`, `total_time()`, `beat_record()`, señal `session_finished`. `format_time()` estático |
+| `scripts/baku_track.gd` | `class_name BakuTrack`. Genera la pista y 3 `Area3D` de checkpoint; expone `centerline`, `track_length`, `get_spawn_transform()`, `get_start_line_transform()`, `get_grid_transform(distancia)`, `GANTRY_HEIGHT`. Señal `checkpoint_crossed(checkpoint, body)` |
+| `scripts/lap_timer.gd` | `class_name LapTimer`. Vueltas, sectores, mejor vuelta, récord en `user://records.json`. `lap_limit` (0 = sin límite), `finished`, `lap_history`, `total_time()` (incluye `penalty`), `beat_record()`, `start_now()` (largada detenida), `add_penalty(s, motivo)`, `reaction_time`, señal `session_finished`. `format_time()` estático |
 | `scripts/hud.gd` | `class_name RaceHUD`. UI construida por código; crea el `Dashboard`. `bind_car()`, `configure_dashboard(data)`, `show_message()` |
 | `scripts/ui/dashboard.gd` | `class_name Dashboard`. Tablero dibujado en `_draw()`: luces de cambio, marcha, RPM, velocímetro con aguja. `configure(data)`, `bind_car(car)` |
 | `scripts/ui/hud_draw.gd` | `class_name HudDraw` (estático). `shift_light_color()`, `rpm_bar_color()`, `draw_text_centered()` |
@@ -60,11 +62,10 @@ La vibración de cámara está en `CarController._update_shake()`; `add_camera_i
 
 Si se agrega un script con `class_name` nuevo y se prueba sin abrir el editor, correr antes `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --import` para que se registre la clase.
 
-## Sugerencia para el Paso 17
-- **Semáforo de largada** en contrarreloj (y más adelante en carrera): hoy el auto arranca detrás de la línea y el cronómetro empieza al cruzarla (largada lanzada). Para una largada detenida, ubicar el auto sobre la línea (`BakuTrack.get_start_line_transform()`), poner `car.controls_enabled = false` salvo el acelerador (o permitir acelerar en N/1ª sin avanzar) y encender 5 luces rojas de a una por segundo; al apagarse todas (tras una espera aleatoria de 0,2–3 s) soltar el auto y arrancar el cronómetro a mano (agregar a `LapTimer` algo como `start_now()`).
-- **Salto**: si el auto se mueve más de unos centímetros antes del apagado, mostrar "Largada en falso" y sumar una penalización (p. ej. +5 s al total en `ResultsScreen`) o reiniciar la largada.
-- Las luces pueden ser un `Control` dibujado en `_draw()` en el HUD (como `Dashboard`) y además un pórtico 3D sobre la línea. Tiempos (luz por segundo, espera aleatoria, penalización) en `data/modes.json`.
-- Con la sesión en pausa el semáforo no debe avanzar: usar `create_timer(..., false)` o acumular en `_process` (que se congela con `paused`).
+## Sugerencia para el Paso 18
+- Las cámaras del auto están en `CarController.CAMERA_MODES` (posición, pitch, fov, `smooth`). Agregar **T-cam** (arriba del airbox, mirando adelante, pegada al auto) y **capot** (baja, sobre el morro). Revisar `_apply_camera_mode()`: qué se ve en cada una (casco, volante, brazos, espejos) y el volumen del motor (`is_cockpit_view()`), y que `OptionsPanel` ("Cámara inicial") y `Settings` acepten los índices nuevos.
+- **Cámaras de TV fijas**: `Camera3D` puestas por la pista (posiciones en `data/tracks.json` o generadas desde `BakuTrack.centerline`) que miran al auto con `look_at` y cambian a la más cercana. Puede ser un modo más del ciclo con C, manejado desde `main.gd` o un nodo nuevo (`scripts/race/tv_cameras.gd`), porque la cámara no es hija del auto. Se van a reusar para los replays (Paso 51).
+- Ojo: `CockpitDetail` y las vistas de espejo dependen de la cámara activa; con una cámara externa al auto conviene apagar el render de los espejos como en las cámaras exteriores.
 
 ## Verificación sin abrir el editor
 Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.
