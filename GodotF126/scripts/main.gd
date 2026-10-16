@@ -1,5 +1,6 @@
 extends Node3D
 ## Escena principal: carga datos (grilla, pistas, auto), spawnea el auto en Bakú y arma el HUD.
+## Esc abre el menú de pausa (PauseMenu).
 
 const MENU_SCENE := "res://scenes/menu.tscn"
 const TRACK_ID := "baku"
@@ -23,11 +24,13 @@ const FALLBACK_TEAM := {"id": "alpine", "name": "Alpine", "color": "#FF87BC"}
 
 var selected_driver: Dictionary = {}
 var selected_team: Dictionary = {}
+var track_name: String = ""
 
 @onready var track: BakuTrack = $BakuTrack
 @onready var car: CarController = $Car
 @onready var hud: RaceHUD = $HUD
 @onready var lap_timer: LapTimer = $LapTimer
+@onready var pause_menu: PauseMenu = $PauseMenu
 
 
 func _ready() -> void:
@@ -58,7 +61,8 @@ func _ready() -> void:
 		hud.configure_dashboard(dashboard_data)
 		car.steering_wheel.configure(dashboard_data)
 	hud.set_driver_info(selected_driver, selected_team, team_color)
-	hud.set_track_name(str(track_info.get("display_name", track.track_name)))
+	track_name = str(track_info.get("display_name", track.track_name))
+	hud.set_track_name(track_name)
 
 	lap_timer.setup(TRACK_ID)
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
@@ -66,15 +70,41 @@ func _ready() -> void:
 	hud.bind_lap_timer(lap_timer)
 	car.steering_wheel.bind_lap_timer(lap_timer)
 
+	pause_menu.set_accent(team_color)
+	pause_menu.paused_changed.connect(_on_paused_changed)
+	pause_menu.restart_requested.connect(get_tree().reload_current_scene)
+	pause_menu.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
+	Settings.changed.connect(_on_setting_changed)
+
 
 func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:
 	if body == car:
 		lap_timer.on_checkpoint(checkpoint)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		get_tree().change_scene_to_file(MENU_SCENE)
+func _on_paused_changed(paused: bool) -> void:
+	car.engine_audio.set_muted(paused)
+	car.audio_fx.set_muted(paused)
+	hud.visible = not paused
+	if paused:
+		pause_menu.set_subtitle(_pause_subtitle())
+
+
+func _on_setting_changed(_key: String) -> void:
+	Settings.apply_to_car(car, false)
+	$Sun.shadow_enabled = Settings.shadows_enabled()
+
+
+func _pause_subtitle() -> String:
+	var parts: Array[String] = [
+		"#%s %s" % [UiKit.number_text(selected_driver.get("number", "")), str(selected_driver.get("name", ""))],
+		track_name,
+	]
+	if lap_timer.running:
+		parts.append("Vuelta %d · %s" % [lap_timer.lap, LapTimer.format_time(lap_timer.current_time)])
+	if lap_timer.best_lap >= 0.0:
+		parts.append("Mejor %s" % LapTimer.format_time(lap_timer.best_lap))
+	return "  ·  ".join(parts)
 
 
 func _select_driver(grid: Dictionary, driver_id: String) -> void:

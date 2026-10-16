@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 14 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
-- Próximo: **Paso 15 — pausa con Esc** (Continuar / Reiniciar / Menú / Salir).
+- Pasos 0 a 15 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
+- Próximo: **Paso 16 — modo Contrarreloj** (N vueltas y pantalla de resultado con tiempos por vuelta y sectores).
 - El juego arranca en `scenes/menu.tscn`; `scenes/main.tscn` es la carrera. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
@@ -25,7 +25,8 @@ Leé esto antes de tocar el proyecto.
 ## Mapa del código
 | Archivo | Responsabilidad |
 |---|---|
-| `scripts/main.gd` | Escena de carrera: carga JSON, elige piloto (`default_driver_id`), spawnea auto, configura HUD. Esc vuelve al menú |
+| `scripts/main.gd` | Escena de carrera: carga JSON, elige piloto (`default_driver_id`), spawnea auto, configura HUD, aplica `Settings`. Esc abre la pausa; Reiniciar = `reload_current_scene()` |
+| `scripts/ui/pause_menu.gd` | `class_name PauseMenu` (nodo `PauseMenu` de `main.tscn`, `process_mode = ALWAYS`). Pausa el árbol; `main.gd` escucha `paused_changed` para ocultar el HUD y silenciar el auto. Continuar / Reiniciar / Opciones (`OptionsPanel`) / Menú / Salir. `open()`, `close()`, `is_open()`, `set_accent()`, `set_subtitle()`; señales `paused_changed`, `restart_requested`, `menu_requested` |
 | `scripts/game_state.gd` | Autoload `GameState`: `selected_driver_id` (vacío = `default_driver_id`). En scripts `-s` de prueba no se puede nombrar directo: usar `root.get_node("GameState")` |
 | `scripts/settings.gd` | Autoload `Settings` (sin `class_name`). Defaults y perfiles en `data/settings.json`, guardado en `user://settings.json`. `get_value`, `set_value` (sanea, aplica, guarda, emite `changed(key)`), `reset_to_defaults`, `apply_to_car(car)`, `shadows_enabled()`, constantes `BUS_ENGINE` / `BUS_FX` / `BUS_MUSIC`. Igual que `GameState`: en scripts `-s` usar `root.get_node("Settings")` y no nombrar clases que dependan de él (p. ej. `OptionsPanel`) |
 | `scripts/menu/options_panel.gd` | `class_name OptionsPanel`. Panel de opciones del menú (filas ‹ ›, deslizadores de volumen, Restablecer / Volver). `open()`, `set_accent(color)`, `refresh()`; señal `closed` |
@@ -56,10 +57,10 @@ La vibración de cámara está en `CarController._update_shake()`; `add_camera_i
 
 Si se agrega un script con `class_name` nuevo y se prueba sin abrir el editor, correr antes `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --import` para que se registre la clase.
 
-## Sugerencia para el Paso 15
-- Hoy Esc en `main.gd` vuelve directo al menú: cambiarlo para que abra un menú de pausa (`scripts/ui/pause_menu.gd`, `CanvasLayer` con `process_mode = PROCESS_MODE_ALWAYS`) y ponga `get_tree().paused = true`.
-- Botones con `UiKit`: Continuar (o Esc otra vez), Reiniciar (`car.reset_to_spawn()` y reiniciar el `LapTimer`), Opciones (reusar `OptionsPanel`; al cerrar, `Settings.apply_to_car(car)`), Menú y Salir. Despausar antes de cambiar de escena.
-- Silenciar motor y efectos durante la pausa (`EngineAudio.set_muted(true)` o pausar el bus) y que el cronómetro no cuente.
+## Sugerencia para el Paso 16
+- Modo **Contrarreloj**: cantidad de vueltas en `data/` (p. ej. `data/modes.json` con `"time_trial": {"laps": 3}`) y guardada en `GameState` (`selected_mode`, `lap_count`) desde el menú, antes de elegir escudería (o como opción en la selección).
+- En la carrera, al completar la última vuelta (`LapTimer.lap_completed` con `lap == lap_count`), frenar el control del auto y mostrar una pantalla de resultado (`scripts/ui/results_screen.gd`, mismo estilo que `PauseMenu`, también con `process_mode = ALWAYS` si se pausa): tabla de vueltas con los 3 sectores, mejor vuelta y sectores en violeta, tiempo total y récord. Botones Repetir (`reload_current_scene`) y Menú.
+- `LapTimer` hoy guarda sólo la vuelta actual: agregar un historial (`lap_history: Array[Dictionary]` con tiempo y sectores) para armar la tabla.
 
 ## Verificación sin abrir el editor
 Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.

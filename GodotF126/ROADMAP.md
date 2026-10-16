@@ -46,8 +46,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 12 | **Selección de escudería → piloto** con tarjetas (color del equipo, número, bandera) desde `grid_2026.json` | ✅ |
 | 13 | Livery de dos colores por equipo y número del piloto en el auto | ✅ |
 | 14 | Opciones: caja manual / automática, ayudas, cámara por defecto, volumen, calidad gráfica; guardado en `user://settings.json` | ✅ |
-| 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | ⏳ Siguiente |
-| 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | |
+| 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | ✅ |
+| 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | ⏳ Siguiente |
 | 17 | **Semáforo de largada** con 5 luces y detección de salto | |
 | 18 | Cámaras extra: T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista | |
 | 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | |
@@ -267,3 +267,14 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **En la carrera** `main.gd` llama a `Settings.apply_to_car(car)` (caja, dirección, cámara y tamaño de los espejos) y apaga las sombras del sol en calidad baja.
 - **Verificación**: prueba que abre Opciones, pasa a caja automática, cámara cockpit, calidad baja y música al 30 %; comprueba el bus `Music` en −10,5 dB, las sombras apagadas, el archivo `user://settings.json` escrito y releído, que Esc vuelve con el foco en "Opciones", y que en la pista el auto arranca en automática, en cockpit, sin sombras y con espejos de 160×60; también que la dirección directa cambia la respuesta de 8 a 14. Al final restaura el archivo del jugador. Captura: `informes/capturas/paso14-opciones.png`.
 - **Cómo probar**: F5 → Opciones → cambiar la cámara a Cockpit y la caja a Automática → Volver → Jugar → la carrera arranca así; cerrar y volver a abrir el juego: las opciones siguen guardadas.
+
+### Paso 15 — Pausa
+- **Esc en la pista ya no vuelve directo al menú**: abre el menú de pausa (`scripts/ui/pause_menu.gd`, `PauseMenu`, nodo `PauseMenu` en `main.tscn`). Es un `CanvasLayer` con `process_mode = ALWAYS` que pone `get_tree().paused = true`: la física del auto, el cronómetro y las cámaras quedan congelados.
+- **Audio**: el motor y los efectos se silencian (`set_muted`) mientras dura la pausa y retoman al continuar.
+- **Pantalla**: fondo oscurecido, el HUD de carrera se oculta, título "Pausa" con piloto, pista y vuelta en curso (y mejor vuelta si hay) y botones con el color del equipo:
+  - **Continuar** (o Esc otra vez).
+  - **Reiniciar**: recarga la carrera desde la largada (los récords guardados se mantienen).
+  - **Opciones**: el mismo panel del menú (Paso 14). Los cambios se aplican en vivo al auto y al sol, pero **sin cambiar la cámara actual** (`Settings.apply_to_car(car, false)`); "Cámara inicial" vale para la próxima carrera. Esc vuelve a la pausa.
+  - **Menú principal** y **Salir del juego**. Siempre se despausa antes de cambiar de escena.
+- **Verificación**: prueba que acelera hasta 60 km/h, aprieta Esc y comprueba pausa activa, foco en "Continuar", audio pausado y que el auto no se mueve; abre Opciones, pasa a calidad baja y caja automática (sombras apagadas, caja automática, cámara cercana conservada); Esc vuelve con el foco en "Opciones", Esc otra vez continúa (audio y movimiento vuelven); Reiniciar crea una carrera nueva quieta en la largada y Menú vuelve a `menu.tscn` sin pausa. Capturas: `informes/capturas/paso15-pausa.png`, `paso15-opciones.png`.
+- **Cómo probar**: F5 → Jugar → elegir piloto → acelerar → Esc (todo se congela y se calla) → Opciones → Esc → Continuar; probar Reiniciar y Menú principal.
