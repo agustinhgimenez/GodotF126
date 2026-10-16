@@ -54,6 +54,7 @@ var _steer: float = 0.0
 @onready var _helmet: Node3D = $Helmet
 @onready var engine: CarEngine = $Engine
 @onready var gearbox: Gearbox = $Gearbox
+@onready var steering_wheel: SteeringWheel = $SteeringWheel
 
 
 func _ready() -> void:
@@ -113,6 +114,7 @@ func _apply_camera_mode() -> void:
 	_camera.fov = float(mode["fov"])
 	_camera.near = 0.3 if is_chase else 0.1
 	_helmet.visible = is_chase
+	steering_wheel.visible = not is_chase
 
 
 func _physics_process(delta: float) -> void:
@@ -278,6 +280,11 @@ func get_top_speed() -> float:
 
 func get_rpm() -> float:
 	return engine.rpm
+
+
+## Dirección suavizada: −1 (derecha) a 1 (izquierda).
+func get_steer() -> float:
+	return _steer
 
 
 func get_gear_label() -> String:

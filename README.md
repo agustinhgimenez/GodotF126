@@ -58,6 +58,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 3: motor con RPM (ralentí 4.000, limitador 12.500, curva de torque), caja automática provisoria de 8 marchas, marcha y RPM en el HUD. Datos en `GodotF126/data/car.json`.
 - ✅ Paso 4: caja manual de 8 marchas + N + R con levas (E/Q), corte de potencia al cambiar, bloqueo de rebaje que pasaría de vueltas, M alterna manual / automática.
 - ✅ Paso 5: tablero en el HUD con marcha grande, 15 luces de cambio tipo F1 (verde → rojo → azul, parpadeo en el limitador), RPM y velocímetro digital + aguja analógica.
-- ⏳ Paso 6: volante 3D en el cockpit que gira con la dirección y muestra marcha / RPM / velocidad. Después: manos del piloto.
+- ✅ Paso 6: volante 3D en la cámara cockpit que gira ±180° con la dirección, con LEDs de cambio y pantalla (marcha, velocidad, RPM, modo, tiempo de vuelta y delta por sector contra la mejor vuelta).
+- ⏳ Paso 7: manos y brazos del piloto sobre el volante, con los dedos accionando las levas. Después: cockpit detallado (halo, espejos).
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

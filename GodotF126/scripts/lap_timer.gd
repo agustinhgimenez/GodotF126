@@ -21,9 +21,15 @@ var best_lap: float = -1.0
 var record_lap: float = -1.0
 var sector_times: Array[float] = []
 var best_sectors: Array[float] = [-1.0, -1.0, -1.0]
+## Tiempo acumulado al final de cada sector en la mejor vuelta.
+var best_lap_splits: Array[float] = []
+## Diferencia contra la mejor vuelta en el último sector cerrado (NAN si no hay referencia).
+## Negativo = más rápido. El delta continuo en vivo es el Paso 40.
+var split_delta: float = NAN
 
 var _next_checkpoint: int = 0
 var _sector_start: float = 0.0
+var _current_splits: Array[float] = []
 
 
 func setup(id: String) -> void:
@@ -56,6 +62,7 @@ func abort_lap() -> void:
 	running = false
 	current_time = 0.0
 	lap = maxi(lap - 1, 0)
+	split_delta = NAN
 	lap_aborted.emit()
 
 
@@ -65,6 +72,7 @@ func _start_lap() -> void:
 	current_time = 0.0
 	_sector_start = 0.0
 	sector_times.clear()
+	_current_splits.clear()
 	_next_checkpoint = 1
 	lap_started.emit(lap)
 
@@ -73,6 +81,9 @@ func _finish_sector(sector: int) -> void:
 	var time := current_time - _sector_start
 	_sector_start = current_time
 	sector_times.append(time)
+	_current_splits.append(current_time)
+	if sector < best_lap_splits.size():
+		split_delta = current_time - best_lap_splits[sector]
 	var is_best := best_sectors[sector] < 0.0 or time < best_sectors[sector]
 	if is_best:
 		best_sectors[sector] = time
@@ -84,6 +95,7 @@ func _complete_lap() -> void:
 	var is_best := best_lap < 0.0 or last_lap < best_lap
 	if is_best:
 		best_lap = last_lap
+		best_lap_splits = _current_splits.duplicate()
 	var is_record := record_lap < 0.0 or last_lap < record_lap
 	if is_record:
 		record_lap = last_lap

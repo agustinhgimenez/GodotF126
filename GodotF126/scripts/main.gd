@@ -52,6 +52,7 @@ func _ready() -> void:
 	var dashboard_data = car_data.get("dashboard", {})
 	if dashboard_data is Dictionary:
 		hud.configure_dashboard(dashboard_data)
+		car.steering_wheel.configure(dashboard_data)
 	hud.set_driver_info(selected_driver, selected_team, team_color)
 	hud.set_track_name(str(track_info.get("display_name", track.track_name)))
 
@@ -59,6 +60,7 @@ func _ready() -> void:
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)
 	hud.bind_lap_timer(lap_timer)
+	car.steering_wheel.bind_lap_timer(lap_timer)
 
 
 func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:

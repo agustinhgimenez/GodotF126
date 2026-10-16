@@ -3,20 +3,14 @@ extends Control
 ## Tablero del HUD (Paso 5): luces de cambio tipo F1, marcha grande, RPM y
 ## velocímetro digital con aguja analógica. Todo se dibuja en _draw().
 ## Luces: se encienden de izquierda a derecha entre shift_light_start_rpm y el
-## punto de cambio de la caja (verde → rojo → azul); al llegar al punto de cambio
-## quedan todas azules y parpadean en el limitador.
+## punto de cambio de la caja (la lógica de colores está en HudDraw).
 
 const SIZE := Vector2(440, 250)
 const COLOR_PANEL := Color(0.0, 0.0, 0.0, 0.55)
-const COLOR_OFF := Color(0.18, 0.18, 0.2)
-const COLOR_GREEN := Color(0.15, 0.9, 0.3)
-const COLOR_RED := Color(1.0, 0.15, 0.15)
-const COLOR_BLUE := Color(0.25, 0.45, 1.0)
 const COLOR_NEEDLE := Color(1.0, 0.3, 0.1)
 const COLOR_DIM := Color(1.0, 1.0, 1.0, 0.7)
 const DIAL_START_DEG := 135.0
 const DIAL_SWEEP_DEG := 270.0
-const BLINK_HZ := 8.0
 const DENIED_FLASH_MS := 400
 
 @export var shift_light_count: int = 15
@@ -81,33 +75,12 @@ func _draw() -> void:
 
 
 func _draw_shift_lights(rect: Rect2) -> void:
-	var rpm := _car.get_rpm()
-	var shift_rpm := _car.gearbox.shift_up_rpm
-	var progress := clampf(inverse_lerp(shift_light_start_rpm, shift_rpm, rpm), 0.0, 1.0)
-	var lit := ceili(progress * shift_light_count)
-	var all_blue := rpm >= shift_rpm
-	var at_limiter := _car.engine.is_cutting() or rpm >= _car.engine.limiter_rpm - 50.0
-	var blink_off := at_limiter and fmod(Time.get_ticks_msec() / 1000.0 * BLINK_HZ, 1.0) < 0.5
-
 	var spacing := rect.size.x / shift_light_count
 	var radius := minf(spacing * 0.38, rect.size.y * 0.5)
 	for i in shift_light_count:
-		var color := COLOR_OFF
-		if all_blue:
-			color = COLOR_OFF if blink_off else COLOR_BLUE
-		elif i < lit:
-			color = _light_color(i)
+		var color := HudDraw.shift_light_color(i, shift_light_count, _car, shift_light_start_rpm)
 		var center := rect.position + Vector2(spacing * (i + 0.5), rect.size.y * 0.5)
 		draw_circle(center, radius, color)
-
-
-func _light_color(index: int) -> Color:
-	var t := float(index) / shift_light_count
-	if t < 1.0 / 3.0:
-		return COLOR_GREEN
-	if t < 2.0 / 3.0:
-		return COLOR_RED
-	return COLOR_BLUE
 
 
 func _draw_speedometer(center: Vector2, radius: float) -> void:
@@ -136,7 +109,7 @@ func _draw_speedometer(center: Vector2, radius: float) -> void:
 func _draw_gear_panel(rect: Rect2) -> void:
 	var cx := rect.position.x + rect.size.x * 0.5
 	var denied := Time.get_ticks_msec() < _denied_until_ms
-	var gear_color := COLOR_RED if denied else Color.WHITE
+	var gear_color := HudDraw.COLOR_RED if denied else Color.WHITE
 	_draw_text_centered(_car.get_gear_label(), Vector2(cx, rect.position.y + 55), 96, gear_color)
 	_draw_text_centered("MAN" if _car.gearbox.manual else "AUT", Vector2(cx, rect.position.y + 118), 18, COLOR_DIM)
 
@@ -144,18 +117,10 @@ func _draw_gear_panel(rect: Rect2) -> void:
 	_draw_text_centered("%d rpm" % roundi(rpm), Vector2(cx, rect.position.y + 145), 20)
 
 	var bar := Rect2(rect.position.x + 10, rect.position.y + 165, rect.size.x - 20, 12)
-	draw_rect(bar, COLOR_OFF)
-	var fill_color := COLOR_GREEN
-	if rpm >= _car.gearbox.shift_up_rpm:
-		fill_color = COLOR_BLUE
-	elif rpm >= shift_light_start_rpm:
-		fill_color = COLOR_RED
+	draw_rect(bar, HudDraw.COLOR_OFF)
+	var fill_color := HudDraw.rpm_bar_color(_car, shift_light_start_rpm)
 	draw_rect(Rect2(bar.position, Vector2(bar.size.x * _car.engine.get_rpm_ratio(), bar.size.y)), fill_color)
 
 
 func _draw_text_centered(text: String, center: Vector2, font_size: int, color: Color = Color.WHITE) -> void:
-	var text_size := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-	var baseline_offset := (_font.get_ascent(font_size) - _font.get_descent(font_size)) * 0.5
-	var pos := Vector2(center.x - text_size.x * 0.5, center.y + baseline_offset)
-	draw_string_outline(_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 4, Color.BLACK)
-	draw_string(_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+	HudDraw.draw_text_centered(self, _font, text, center, font_size, color)
