@@ -1,9 +1,10 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/car_controller.gd" id="1_car"]
 [ext_resource type="Script" path="res://scripts/car/car_engine.gd" id="2_engine"]
 [ext_resource type="Script" path="res://scripts/car/gearbox.gd" id="3_gearbox"]
 [ext_resource type="Script" path="res://scripts/car/steering_wheel.gd" id="4_wheel"]
+[ext_resource type="Script" path="res://scripts/car/driver_arms.gd" id="5_arms"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_car"]
 size = Vector3(1.9, 0.8, 6)
@@ -105,6 +106,10 @@ surface_material_override/0 = SubResource("Mat_helmet")
 transform = Transform3D(1, 0, 0, 0, 0.9397, 0.342, 0, -0.342, 0.9397, 0, 0.8, -0.95)
 visible = false
 script = ExtResource("4_wheel")
+
+[node name="DriverArms" type="Node3D" parent="."]
+visible = false
+script = ExtResource("5_arms")
 
 [node name="FrontWing" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, -3)

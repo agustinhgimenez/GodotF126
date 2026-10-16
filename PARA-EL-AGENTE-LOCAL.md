@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 6 del [ROADMAP](GodotF126/ROADMAP.md) completos.
-- Próximo: **Paso 7 — manos y brazos del piloto**, luego 8 cockpit detallado, 9 sonido de motor. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
+- Pasos 0 a 7 del [ROADMAP](GodotF126/ROADMAP.md) completos.
+- Próximo: **Paso 8 — cockpit detallado** (halo, visor, espejos, vibración), luego 9 sonido de motor, 10 sonidos de neumáticos. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
 ## Reglas
@@ -35,12 +35,16 @@ Leé esto antes de tocar el proyecto.
 | `scripts/ui/dashboard.gd` | `class_name Dashboard`. Tablero dibujado en `_draw()`: luces de cambio, marcha, RPM, velocímetro con aguja. `configure(data)`, `bind_car(car)` |
 | `scripts/ui/hud_draw.gd` | `class_name HudDraw` (estático). `shift_light_color()`, `rpm_bar_color()`, `draw_text_centered()` |
 | `scripts/ui/wheel_screen.gd` | `class_name WheelScreen`. Pantalla del volante, dentro de un `SubViewport` |
-| `scripts/car/steering_wheel.gd` | `class_name SteeringWheel` (nodo hijo de `Car`). Volante armado por código; nodos `Rim`, `PaddleLeft`, `PaddleRight`, `ShiftLeds`. `configure(data)`, `bind_lap_timer()` |
+| `scripts/car/steering_wheel.gd` | `class_name SteeringWheel` (nodo hijo de `Car`). Volante armado por código; nodos `Rim`, `PaddleLeft`, `PaddleRight`, `ShiftLeds`. `configure(data)`, `bind_lap_timer()`, `get_rim()`, `get_grip_position(side)`, `get_paddle(side)` |
+| `scripts/car/driver_arms.gd` | `class_name DriverArms`. Manos colgadas del aro, brazos con IK de dos huesos, animación de levas con `Tween` al cambiar de marcha |
 
-## Sugerencia para el Paso 7
-- Manos como hijas de `SteeringWheel/Rim` (así siguen el giro sin código extra); brazos desde un hombro fijo en el chasis hasta la mano, recalculados cada frame (look_at + escala en largo).
-- Animar las levas: conectar `gearbox.gear_changed` y comparar con la marcha anterior para saber si fue subida (leva derecha) o bajada (izquierda); rotar `PaddleRight` / `PaddleLeft` y el dedo con un `Tween` corto.
-- Sólo visible en la cámara Cockpit, igual que el volante.
+## Sugerencia para el Paso 8
+- Halo y visor como mallas simples hijas de `Car`, visibles sólo en Cockpit (sumarlas en `_apply_camera_mode()`).
+- Espejos: dos `SubViewport` con `Camera3D` mirando hacia atrás (+Z del auto), textura en `QuadMesh` espejada (escala X negativa o UV invertida). Bajar resolución y `UPDATE_WHEN_VISIBLE` por rendimiento.
+- Vibración: offset aleatorio pequeño en `_update_camera()` proporcional a la velocidad, y más fuerte sobre pianos (cuando existan, Paso 19).
+
+## Verificación sin abrir el editor
+Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.
 
 ## Si la terminal falla en Windows
 Crear/editar archivos con el editor igual. Para verificar, pedirle al usuario que abra Godot y copie los errores de la pestaña *Output* / *Debugger*.

@@ -52,7 +52,9 @@ func bind_lap_timer(timer: LapTimer) -> void:
 
 
 func set_driver_info(driver: Dictionary, team: Dictionary, team_color: Color) -> void:
-	_driver_label.text = "#%s  %s" % [str(driver.get("number", "?")), str(driver.get("name", "Piloto"))]
+	var number = driver.get("number", "?")
+	var number_text := str(int(number)) if number is float else str(number)
+	_driver_label.text = "#%s  %s" % [number_text, str(driver.get("name", "Piloto"))]
 	_team_label.text = str(team.get("name", "Equipo"))
 	_team_stripe.color = team_color
 

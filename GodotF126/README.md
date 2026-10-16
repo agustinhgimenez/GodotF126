@@ -41,6 +41,7 @@ GodotF126/
     car/car_engine.gd  motor: RPM, curva de torque, limitador, freno motor
     car/gearbox.gd     caja secuencial 8 marchas + N + R, manual (levas) o automática
     car/steering_wheel.gd  volante 3D del cockpit: giro, LEDs y pantalla
+    car/driver_arms.gd     manos y brazos del piloto, animación de levas
     baku_track.gd      genera la pista y los checkpoints por código
     lap_timer.gd       vueltas, sectores, mejor vuelta y récord
     hud.gd             tiempos, datos de piloto/pista, mensajes; contiene el tablero
@@ -57,4 +58,4 @@ GodotF126/
 - La pista de Bakú es un **placeholder geométrico**, no el trazado oficial FIA.
 
 ## Estado
-Pasos 0 a 6 completos. Ver [ROADMAP.md](ROADMAP.md). Todavía **no hay ejecutable .exe** (eso es el Paso 59).
+Pasos 0 a 7 completos. Ver [ROADMAP.md](ROADMAP.md). Todavía **no hay ejecutable .exe** (eso es el Paso 59).

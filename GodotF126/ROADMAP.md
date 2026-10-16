@@ -33,8 +33,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 4 | **Caja manual de 8 marchas + N + R** con levas: **E** sube, **Q** baja. Corte de potencia al cambiar, rebote en limitador, bloqueo de rebaje que pasaría de vueltas. **M** alterna manual / automática | ✅ |
 | 5 | **Tablero en el HUD**: marcha grande (R, N, 1–8), RPM en barra con **luces de cambio** tipo F1 (verde → rojo → azul), velocímetro digital + **aguja analógica** | ✅ |
 | 6 | **Volante 3D** en el cockpit: gira con la dirección (±180°), pantalla con marcha / RPM / velocidad / delta, LEDs de cambio arriba | ✅ |
-| 7 | **Manos y brazos del piloto** sobre el volante: siguen el giro; los dedos accionan la leva al cambiar | ⏳ Siguiente |
-| 8 | Cockpit detallado: halo, casco con visor, **espejos retrovisores** con imagen real (`SubViewport`), vibración de cámara con velocidad y pianos | |
+| 7 | **Manos y brazos del piloto** sobre el volante: siguen el giro; los dedos accionan la leva al cambiar | ✅ |
+| 8 | Cockpit detallado: halo, casco con visor, **espejos retrovisores** con imagen real (`SubViewport`), vibración de cámara con velocidad y pianos | ⏳ Siguiente |
 | 9 | **Sonido de motor** generado por código en capas según RPM y acelerador; sonido de cambio, limitador y petardeo al soltar | |
 | 10 | Sonidos de neumáticos (chirrido por deslizamiento), viento por velocidad, golpes contra muros | |
 
@@ -177,3 +177,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Pantalla**: `SubViewport` de 256×128 con `WheelScreen` (`scripts/ui/wheel_screen.gd`), mostrado como textura sin sombreado en un `QuadMesh`. Muestra barra de RPM, marcha grande, velocidad, RPM, modo MAN/AUT, tiempo de vuelta y **delta**.
 - **Delta por sector**: `LapTimer` guarda los parciales de la mejor vuelta (`best_lap_splits`) y al cerrar cada sector calcula `split_delta` = parcial actual − parcial de la mejor vuelta (verde si es negativo). El delta continuo en vivo queda para el Paso 40.
 - **Cómo probar**: F5 → C hasta "Cockpit" → girar con A/D y ver el volante girar; acelerar y mirar LEDs y pantalla; dar dos vueltas y ver el delta en verde o rojo al pasar cada sector.
+
+### Paso 7 — Manos y brazos del piloto
+- Nuevo nodo `DriverArms` en `car.tscn` (`scripts/car/driver_arms.gd`), visible sólo en la cámara Cockpit.
+- **Manos**: guante, pulgar e índice armados con cajas, colgados del aro del volante (`SteeringWheel.get_rim()`), así giran con él sin código extra. `SteeringWheel` ahora expone `get_grip_position(side)` y `get_paddle(side)`.
+- **Brazos**: dos tramos (brazo 0,30 m y antebrazo 0,28 m) desde un hombro fijo en el chasis hasta la muñeca. El codo se calcula cada frame con **cinemática inversa de dos huesos** (ley de cosenos), doblando hacia afuera y abajo. Los tramos están en el grupo `team_paint`, así el buzo toma el color del equipo.
+- **Levas**: al recibir `gear_changed` se compara con la marcha anterior; si subió, el índice derecho tira de la leva derecha, si bajó, el izquierdo de la izquierda (`Tween` de 0,05 s ida y 0,1 s vuelta).
+- `DriverArms` corre con `process_priority = 10`, después de que el volante actualiza su giro, para que los brazos no queden un frame atrasados.
+- Se corrigió el número del piloto en el HUD (se veía "#43.0" porque el JSON lo trae como float).
+- **Verificación**: prueba sin ventana (cámara Cockpit, subir y bajar marcha, posición de los brazos) y captura en `informes/capturas/paso7-cockpit.png`.
+- **Cómo probar**: F5 → C hasta "Cockpit" → girar con A/D (las manos y brazos siguen al volante) → E y Q (se mueven la leva y el dedo de cada lado).

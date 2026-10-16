@@ -55,6 +55,7 @@ var _steer: float = 0.0
 @onready var engine: CarEngine = $Engine
 @onready var gearbox: Gearbox = $Gearbox
 @onready var steering_wheel: SteeringWheel = $SteeringWheel
+@onready var driver_arms: DriverArms = $DriverArms
 
 
 func _ready() -> void:
@@ -115,6 +116,7 @@ func _apply_camera_mode() -> void:
 	_camera.near = 0.3 if is_chase else 0.1
 	_helmet.visible = is_chase
 	steering_wheel.visible = not is_chase
+	driver_arms.visible = not is_chase
 
 
 func _physics_process(delta: float) -> void:

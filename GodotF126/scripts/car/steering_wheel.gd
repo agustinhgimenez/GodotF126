@@ -8,6 +8,8 @@ extends Node3D
 const BODY_SIZE := Vector3(0.24, 0.11, 0.035)
 const GRIP_SIZE := Vector3(0.045, 0.15, 0.055)
 const PADDLE_SIZE := Vector3(0.05, 0.07, 0.006)
+const PADDLE_X := 0.085
+const PADDLE_REST_Z := -0.03
 const SCREEN_SIZE := Vector2(0.1, 0.05)
 const LED_ROW_WIDTH := 0.17
 const LED_SIZE := 0.008
@@ -18,6 +20,8 @@ const LED_SIZE := 0.008
 
 var _car: CarController = null
 var _rim: Node3D
+var _paddle_left: Node3D
+var _paddle_right: Node3D
 var _viewport: SubViewport
 var _screen: WheelScreen
 var _led_root: Node3D
@@ -42,6 +46,20 @@ func configure(data: Dictionary) -> void:
 
 func bind_lap_timer(timer: LapTimer) -> void:
 	_screen.bind_lap_timer(timer)
+
+
+## Nodo que gira con la dirección; lo que se cuelgue de él (las manos) gira igual.
+func get_rim() -> Node3D:
+	return _rim
+
+
+## Centro de cada grip en coordenadas del aro. side: -1 izquierda, 1 derecha.
+func get_grip_position(side: int) -> Vector3:
+	return Vector3(side * (BODY_SIZE.x + GRIP_SIZE.x) * 0.5, -0.01, 0.0)
+
+
+func get_paddle(side: int) -> Node3D:
+	return _paddle_right if side > 0 else _paddle_left
 
 
 func _process(_delta: float) -> void:
@@ -69,13 +87,13 @@ func _build() -> void:
 	var rubber := _material(Color(0.03, 0.03, 0.03), 0.95)
 
 	_add_box(_rim, BODY_SIZE, Vector3.ZERO, carbon)
-	_add_box(_rim, GRIP_SIZE, Vector3(-(BODY_SIZE.x + GRIP_SIZE.x) * 0.5, -0.01, 0.0), rubber)
-	_add_box(_rim, GRIP_SIZE, Vector3((BODY_SIZE.x + GRIP_SIZE.x) * 0.5, -0.01, 0.0), rubber)
+	_add_box(_rim, GRIP_SIZE, get_grip_position(-1), rubber)
+	_add_box(_rim, GRIP_SIZE, get_grip_position(1), rubber)
 	# Levas de cambio detrás de los grips (el Paso 7 las anima).
-	var paddle_left := _add_box(_rim, PADDLE_SIZE, Vector3(-0.085, 0.0, -0.03), carbon)
-	paddle_left.name = "PaddleLeft"
-	var paddle_right := _add_box(_rim, PADDLE_SIZE, Vector3(0.085, 0.0, -0.03), carbon)
-	paddle_right.name = "PaddleRight"
+	_paddle_left = _add_box(_rim, PADDLE_SIZE, Vector3(-PADDLE_X, 0.0, PADDLE_REST_Z), carbon)
+	_paddle_left.name = "PaddleLeft"
+	_paddle_right = _add_box(_rim, PADDLE_SIZE, Vector3(PADDLE_X, 0.0, PADDLE_REST_Z), carbon)
+	_paddle_right.name = "PaddleRight"
 	# Columna de dirección hacia el chasis.
 	_add_box(self, Vector3(0.03, 0.03, 0.25), Vector3(0.0, 0.0, -0.14), carbon)
 

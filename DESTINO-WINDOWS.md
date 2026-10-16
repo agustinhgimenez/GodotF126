@@ -15,7 +15,8 @@ C:\Users\btc\Desktop\GodotF126\GodotF126\project.godot
 ```
 C:\Godot\Godot_v4.7.2-stable_win64.exe
 ```
-Versión **4.7.x stable, Standard** (sin .NET). Es un ejecutable portable: no se instala.
+(En la PC actual está en `C:\Users\btc\Desktop\Godot_v4.7.2-stable_win64.exe`.)
+Versión **4.7.x stable, Standard** (sin .NET). Es un ejecutable portable: no se instala, pero hay que **descomprimirlo**; no abrirlo directo desde el `.zip`, porque WinRAR lo corre desde una carpeta temporal que se borra.
 
 ## Qué genera Godot al abrir el proyecto
 - `GodotF126\.godot\` — caché de importación. Se puede borrar sin perder nada; está en `.gitignore`.

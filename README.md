@@ -48,6 +48,7 @@ También funcionan las flechas del teclado.
 | `GodotF126/ROADMAP.md` | Plan iterativo, pasos 0 a 9 |
 | `PARA-EL-PROFESOR-GodotF126-abstract.md` | Abstract + descripción breve para entregar |
 | `informes/GodotF126-Agustin-Gimenez-formalizacion.md` | Formalización completa del proyecto |
+| `informes/capturas/` | Capturas del juego para informes y presentaciones |
 | `PARA-EL-AGENTE-LOCAL.md` | Instrucciones para seguir desarrollando con un agente de IA |
 | `DESTINO-WINDOWS.md` | Rutas y ubicación de archivos en Windows |
 
@@ -59,6 +60,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 4: caja manual de 8 marchas + N + R con levas (E/Q), corte de potencia al cambiar, bloqueo de rebaje que pasaría de vueltas, M alterna manual / automática.
 - ✅ Paso 5: tablero en el HUD con marcha grande, 15 luces de cambio tipo F1 (verde → rojo → azul, parpadeo en el limitador), RPM y velocímetro digital + aguja analógica.
 - ✅ Paso 6: volante 3D en la cámara cockpit que gira ±180° con la dirección, con LEDs de cambio y pantalla (marcha, velocidad, RPM, modo, tiempo de vuelta y delta por sector contra la mejor vuelta).
-- ⏳ Paso 7: manos y brazos del piloto sobre el volante, con los dedos accionando las levas. Después: cockpit detallado (halo, espejos).
+- ✅ Paso 7: manos y brazos del piloto sobre el volante (siguen el giro; brazos con cinemática inversa de dos tramos), y el índice tira de la leva al cambiar. Captura: `informes/capturas/paso7-cockpit.png`.
+- ⏳ Paso 8: cockpit detallado: halo, casco con visor, espejos retrovisores con imagen real, vibración de cámara. Después: sonido de motor.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).
