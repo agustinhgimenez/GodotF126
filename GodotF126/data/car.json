@@ -21,8 +21,11 @@
     ]
   },
   "gearbox": {
+    "default_mode": "manual",
     "gear_ratios": [9.43, 7.95, 6.70, 5.65, 4.76, 4.02, 3.39, 2.85],
+    "reverse_ratio": 9.0,
     "final_drive": 3.0,
+    "shift_time": 0.08,
     "efficiency": 0.9,
     "shift_up_rpm": 12000,
     "shift_down_rpm": 7000,

@@ -1,9 +1,10 @@
 class_name CarController
 extends CharacterBody3D
-## Física arcade del monoplaza (Paso 1) con motor y caja como componentes (Paso 3).
+## Física arcade del monoplaza (Paso 1) con motor y caja como componentes (Pasos 3 y 4).
 ## El auto avanza sobre su eje -Z. La velocidad "de motor" (forward_speed) se
 ## separa de la velocidad real para poder simular agarre y derrape.
-## La aceleración hacia adelante sale del torque del motor × relación de la marcha.
+## El acelerador empuja según la marcha: adelante en 1–8, atrás en R, nada en N.
+## En caja automática S con el auto quieto pone R, como en el manejo arcade original.
 
 signal was_reset
 signal camera_changed(mode_name: String)
@@ -23,7 +24,7 @@ const CAMERA_MODES := [
 @export var traction_limit: float = 16.0       ## m/s² máximos que el agarre deja acelerar
 @export var aero_drag: float = 0.0012          ## desaceleración = aero_drag × v²
 @export var brake_deceleration: float = 38.0
-@export var reverse_acceleration: float = 8.0
+@export var reverse_acceleration: float = 8.0  ## m/s² máximos en reversa
 @export var rolling_drag: float = 3.0
 
 @export_group("Dirección")
@@ -61,6 +62,8 @@ func _ready() -> void:
 	_camera_pivot.top_level = true
 	_apply_camera_mode()
 	_snap_camera()
+	gearbox.wheel_radius = wheel_radius
+	gearbox.limiter_rpm = engine.limiter_rpm
 	max_speed = get_top_speed()
 
 
@@ -76,12 +79,22 @@ func configure(data: Dictionary) -> void:
 	var gearbox_data = data.get("gearbox", {})
 	if gearbox_data is Dictionary:
 		gearbox.configure(gearbox_data)
+	gearbox.wheel_radius = wheel_radius
+	gearbox.limiter_rpm = engine.limiter_rpm
 	max_speed = get_top_speed()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("change_camera"):
 		cycle_camera()
+	if not controls_enabled:
+		return
+	if event.is_action_pressed("gear_up"):
+		gearbox.shift_up(forward_speed)
+	elif event.is_action_pressed("gear_down"):
+		gearbox.shift_down(forward_speed)
+	elif event.is_action_pressed("toggle_gearbox"):
+		gearbox.toggle_mode()
 
 
 func cycle_camera() -> void:
@@ -117,8 +130,9 @@ func _physics_process(delta: float) -> void:
 		steer_input = Input.get_axis("steer_right", "steer_left")
 		handbrake = Input.is_action_pressed("handbrake")
 
-	_update_powertrain(throttle, delta)
-	_update_speed(throttle, brake, handbrake, delta)
+	var pedals := _map_pedals(throttle, brake)
+	_update_powertrain(pedals.x, delta)
+	_update_speed(pedals.x, pedals.y, handbrake, delta)
 	_update_steering(steer_input, handbrake, delta)
 	_apply_velocity(handbrake, delta)
 	move_and_slide()
@@ -129,26 +143,39 @@ func _physics_process(delta: float) -> void:
 		reset_to_spawn()
 
 
+## Devuelve (acelerador, freno) ya interpretados según la caja.
+## En automática, S con el auto quieto pone R y pasa a ser el acelerador; W vuelve a 1ª.
+func _map_pedals(throttle: float, brake: float) -> Vector2:
+	if gearbox.manual:
+		return Vector2(throttle, brake)
+	if gearbox.gear >= 1 and brake > 0.0 and throttle == 0.0 and forward_speed <= 0.5:
+		gearbox.select_gear(Gearbox.REVERSE)
+	elif gearbox.gear == Gearbox.REVERSE and throttle > 0.0 and brake == 0.0 and forward_speed >= -0.5:
+		gearbox.select_gear(1)
+	if gearbox.gear == Gearbox.REVERSE:
+		return Vector2(brake, throttle)
+	return Vector2(throttle, brake)
+
+
 func _update_powertrain(throttle: float, delta: float) -> void:
-	var engine_throttle := throttle if forward_speed >= 0.0 else 0.0
-	engine.update(_wheel_rpm(), engine_throttle, gearbox.gear == 1, delta)
-	gearbox.update_automatic(engine.rpm, delta)
+	var gear := gearbox.gear
+	engine.update(_wheel_rpm(), throttle, absi(gear) == 1, gear == Gearbox.NEUTRAL, delta)
+	gearbox.update(engine.rpm, delta)
 
 
 func _update_speed(throttle: float, brake: float, handbrake: bool, delta: float) -> void:
-	if throttle > 0.0:
-		if forward_speed < 0.0:
+	var direction := float(gearbox.get_direction())
+	if brake > 0.0:
+		forward_speed = move_toward(forward_speed, 0.0, brake_deceleration * brake * delta)
+	if throttle > 0.0 and direction != 0.0:
+		if forward_speed * direction < -0.1:
+			# Rodando para el lado contrario a la marcha: el acelerador frena (arcade).
 			forward_speed = move_toward(forward_speed, 0.0, brake_deceleration * throttle * delta)
 		else:
-			forward_speed += _drive_acceleration() * delta
-	elif brake > 0.0:
-		if forward_speed > 0.5:
-			forward_speed = move_toward(forward_speed, 0.0, brake_deceleration * brake * delta)
-		else:
-			forward_speed -= reverse_acceleration * brake * delta
-	else:
+			forward_speed += direction * _drive_acceleration() * delta
+	elif brake == 0.0:
 		var coast_decel := rolling_drag
-		if forward_speed > 0.0:
+		if direction != 0.0 and forward_speed * direction > 0.0:
 			coast_decel += engine.get_engine_brake_accel()
 		forward_speed = move_toward(forward_speed, 0.0, coast_decel * delta)
 
@@ -214,9 +241,12 @@ func _wheel_rpm() -> float:
 
 
 func _drive_acceleration() -> float:
+	if gearbox.is_shifting():
+		return 0.0
 	var wheel_torque := engine.get_output_torque() * gearbox.get_total_ratio() * gearbox.efficiency
 	var force := wheel_torque / wheel_radius
-	return minf(force / mass_kg, traction_limit)
+	var limit := traction_limit if gearbox.gear >= 1 else reverse_acceleration
+	return minf(force / mass_kg, limit)
 
 
 func _flat_forward() -> Vector3:
@@ -242,7 +272,7 @@ func get_speed_kmh() -> float:
 
 ## Velocidad (m/s) con el motor en el limitador en la última marcha.
 func get_top_speed() -> float:
-	var top_ratio := gearbox.get_total_ratio(gearbox.get_gear_count())
+	var top_ratio := gearbox.get_ratio_for(gearbox.get_gear_count())
 	return engine.limiter_rpm * TAU / 60.0 / top_ratio * wheel_radius
 
 
@@ -251,9 +281,7 @@ func get_rpm() -> float:
 
 
 func get_gear_label() -> String:
-	if forward_speed < -0.5:
-		return "R"
-	return str(gearbox.gear)
+	return gearbox.get_gear_label()
 
 
 ## Ángulo entre hacia dónde apunta el auto y hacia dónde se mueve (derrape).

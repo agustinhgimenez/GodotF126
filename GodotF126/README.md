@@ -11,9 +11,11 @@ Simulador de Fórmula 1 en tercera persona hecho con **Godot 4.7 + GDScript**. M
 | Tecla | Acción |
 |-------|--------|
 | W / ↑ | Acelerar |
-| S / ↓ | Frenar / marcha atrás |
+| S / ↓ | Frenar (en automática, con el auto quieto: marcha atrás) |
 | A / ← | Girar a la izquierda |
 | D / → | Girar a la derecha |
+| E / Q | Subir / bajar marcha (manual: R ↔ N ↔ 1 … 8) |
+| M | Alternar caja manual / automática |
 | Espacio | Freno de mano (derrape) |
 | C | Cambiar cámara (TV / cercana / cockpit) |
 | R | Volver a la largada (anula la vuelta) |
@@ -37,7 +39,7 @@ GodotF126/
     main.gd            carga datos, spawnea auto, conecta pista/cronómetro/HUD
     car_controller.gd  física arcade y cámaras; usa motor y caja para acelerar
     car/car_engine.gd  motor: RPM, curva de torque, limitador, freno motor
-    car/gearbox.gd     caja de 8 marchas (automática provisoria en el Paso 3)
+    car/gearbox.gd     caja secuencial 8 marchas + N + R, manual (levas) o automática
     baku_track.gd      genera la pista y los checkpoints por código
     lap_timer.gd       vueltas, sectores, mejor vuelta y récord
     hud.gd             velocímetro, marcha y RPM, tiempos, datos de piloto/pista
@@ -51,4 +53,4 @@ GodotF126/
 - La pista de Bakú es un **placeholder geométrico**, no el trazado oficial FIA.
 
 ## Estado
-Pasos 0 a 3 completos. Ver [ROADMAP.md](ROADMAP.md). Todavía **no hay ejecutable .exe** (eso es el Paso 59).
+Pasos 0 a 4 completos. Ver [ROADMAP.md](ROADMAP.md). Todavía **no hay ejecutable .exe** (eso es el Paso 59).

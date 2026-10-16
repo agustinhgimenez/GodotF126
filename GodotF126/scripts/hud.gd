@@ -42,6 +42,8 @@ func bind_car(car: CarController) -> void:
 	_rpm_bar.min_value = car.engine.idle_rpm
 	_rpm_bar.max_value = car.engine.limiter_rpm
 	car.camera_changed.connect(func(mode_name: String) -> void: show_message(mode_name, 1.2))
+	car.gearbox.shift_denied.connect(func(reason: String) -> void: show_message(reason, 1.2, COLOR_SLOWER))
+	car.gearbox.mode_changed.connect(_on_gearbox_mode_changed)
 
 
 func bind_lap_timer(timer: LapTimer) -> void:
@@ -81,7 +83,8 @@ func _process(_delta: float) -> void:
 		_speed_label.text = "%d" % roundi(kmh)
 		_speed_bar.value = kmh
 		var rpm := _car.get_rpm()
-		_gear_label.text = "%s   %d rpm" % [_car.get_gear_label(), roundi(rpm)]
+		var mode := "MAN" if _car.gearbox.manual else "AUT"
+		_gear_label.text = "%s   %s   %d rpm" % [mode, _car.get_gear_label(), roundi(rpm)]
 		_rpm_bar.value = rpm
 		var high := _car.engine.get_rpm_ratio() >= RPM_HIGH_RATIO
 		_rpm_fill.bg_color = COLOR_RPM_HIGH if high else COLOR_RPM_LOW
@@ -96,6 +99,10 @@ func _process(_delta: float) -> void:
 			_lap_label.text = "VUELTA %d" % _timer.lap
 			_time_label.text = LapTimer.format_time(_timer.current_time)
 			_set_color(_time_label, COLOR_NEUTRAL)
+
+
+func _on_gearbox_mode_changed(manual: bool) -> void:
+	show_message("Caja manual (E/Q)" if manual else "Caja automática", 1.5)
 
 
 func _on_lap_started(lap: int) -> void:
@@ -240,8 +247,9 @@ func _build_ui() -> void:
 
 	# Abajo a la izquierda: controles.
 	var hint := _make_label(16, HORIZONTAL_ALIGNMENT_LEFT,
-		"W acelerar · S frenar/atrás · A/D girar · Espacio freno de mano · C cámara · R reiniciar · Esc salir")
-	_place(hint, Vector4(0, 1, 0, 1), Vector4(24, -44, 920, -20))
+		"W acelerar · S frenar · A/D girar · E/Q subir/bajar marcha · M caja man/aut · Espacio freno de mano · C cámara · R reiniciar · Esc salir")
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_place(hint, Vector4(0, 1, 0, 1), Vector4(24, -64, 900, -20))
 	root.add_child(hint)
 
 

@@ -15,6 +15,9 @@ const DEFAULT_KEYS := {
 	"handbrake": [KEY_SPACE],
 	"reset_car": [KEY_R],
 	"change_camera": [KEY_C],
+	"gear_up": [KEY_E],
+	"gear_down": [KEY_Q],
+	"toggle_gearbox": [KEY_M],
 }
 
 const FALLBACK_DRIVER := {"id": "colapinto", "name": "Franco Colapinto", "number": 43, "country": "AR"}

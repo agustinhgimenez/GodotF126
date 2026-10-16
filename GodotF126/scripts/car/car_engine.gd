@@ -51,10 +51,14 @@ func reset() -> void:
 	_cut_timer = 0.0
 
 
-func update(wheel_rpm: float, throttle_input: float, clutch_can_slip: bool, delta: float) -> void:
+## En neutro el motor gira libre: el acelerador lo lleva del ralentí al limitador.
+func update(wheel_rpm: float, throttle_input: float, clutch_can_slip: bool, in_neutral: bool,
+		delta: float) -> void:
 	throttle = clampf(throttle_input, 0.0, 1.0)
 	var target := maxf(wheel_rpm, idle_rpm)
-	if clutch_can_slip and wheel_rpm < launch_rpm:
+	if in_neutral:
+		target = lerpf(idle_rpm, limiter_rpm, throttle)
+	elif clutch_can_slip and wheel_rpm < launch_rpm:
 		target = maxf(wheel_rpm, lerpf(idle_rpm, launch_rpm, throttle))
 	rpm = move_toward(rpm, minf(target, limiter_rpm), rpm_response * delta)
 

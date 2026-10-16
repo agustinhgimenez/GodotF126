@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 3 del [ROADMAP](GodotF126/ROADMAP.md) completos.
-- Próximo: **Paso 4 — caja manual**, luego 5 tablero, 6 volante 3D, 7 manos. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
+- Pasos 0 a 4 del [ROADMAP](GodotF126/ROADMAP.md) completos.
+- Próximo: **Paso 5 — tablero en el HUD**, luego 6 volante 3D, 7 manos. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
 ## Reglas
@@ -26,17 +26,17 @@ Leé esto antes de tocar el proyecto.
 |---|---|
 | `scripts/main.gd` | Carga JSON, elige piloto (`default_driver_id`), spawnea auto, configura HUD |
 | `scripts/car_controller.gd` | `class_name CarController`. Física arcade, 3 cámaras (tecla C), `configure(data)`, `get_speed_kmh()`, `get_rpm()`, `get_gear_label()`, `get_top_speed()`, `reset_to_spawn()`, `set_team_color()`. Señales `was_reset`, `camera_changed`. Accede a los componentes por `engine` y `gearbox` |
-| `scripts/car/car_engine.gd` | `class_name CarEngine` (nodo `Engine` del auto). RPM, curva de torque, limitador con corte, freno motor. `update(wheel_rpm, throttle, clutch_can_slip, delta)`, `get_output_torque()`. Señal `limiter_hit` |
-| `scripts/car/gearbox.gd` | `class_name Gearbox`. 8 relaciones + diferencial, `get_total_ratio()`, `update_automatic()` (provisorio). Señal `gear_changed(gear)` |
+| `scripts/car/car_engine.gd` | `class_name CarEngine` (nodo `Engine` del auto). RPM, curva de torque, limitador con corte, freno motor. `update(wheel_rpm, throttle, clutch_can_slip, in_neutral, delta)`, `get_output_torque()`. Señal `limiter_hit` |
+| `scripts/car/gearbox.gd` | `class_name Gearbox`. Secuencial R (`REVERSE` = −1), N (`NEUTRAL` = 0), 1–8; `manual` o automática. `shift_up/shift_down(speed)`, `toggle_mode()`, `select_gear()`, `get_ratio_for()`, `is_shifting()`, `get_direction()`. Señales `gear_changed`, `shift_denied(reason)`, `mode_changed(manual)` |
 | `data/car.json` | Masa, radio de rueda, tracción, drag, datos de motor y caja |
 | `scripts/baku_track.gd` | `class_name BakuTrack`. Genera la pista y 3 `Area3D` de checkpoint; expone `centerline`, `track_length`, `get_spawn_transform()`, `get_start_line_transform()`. Señal `checkpoint_crossed(checkpoint, body)` |
 | `scripts/lap_timer.gd` | `class_name LapTimer`. Vueltas, sectores, mejor vuelta, récord en `user://records.json`. `format_time()` estático |
 | `scripts/hud.gd` | `class_name RaceHUD`. UI construida por código |
 
-## Sugerencia para el Paso 4
-- Extender `Gearbox` (no el controlador): modo manual, N (gear 0) y R (gear -1), corte de potencia al cambiar, bloqueo de rebaje si `rpm × relación_nueva / relación_actual > limiter_rpm`.
-- Hoy la marcha atrás es arcade (S con el auto quieto) y `get_gear_label()` devuelve "R" mirando `forward_speed`; en el Paso 4 pasa a ser una marcha real.
-- Acciones nuevas en el input map: `gear_up` (E), `gear_down` (Q), `toggle_gearbox` (M). Agregarlas también a `DEFAULT_KEYS` en `main.gd`.
+## Sugerencia para el Paso 5
+- Sacar el tablero de `hud.gd` a un script propio (por ejemplo `scripts/ui/dashboard.gd`) que reciba el auto con `bind_car()`.
+- Datos ya disponibles: `car.get_rpm()`, `car.engine.get_rpm_ratio()`, `car.gearbox.get_gear_label()`, `car.gearbox.shift_up_rpm`, `car.engine.limiter_rpm`, `car.get_speed_kmh()`, `car.max_speed`.
+- Luces de cambio: umbrales en `data/car.json` (no hardcodeados). La aguja analógica se puede dibujar con `_draw()` en un `Control`.
 
 ## Si la terminal falla en Windows
 Crear/editar archivos con el editor igual. Para verificar, pedirle al usuario que abra Godot y copie los errores de la pestaña *Output* / *Debugger*.

@@ -25,8 +25,10 @@ Apretar **F5** (o el botón ▶ arriba a la derecha).
 | Tecla | Acción |
 |-------|--------|
 | **W** | Acelerar |
-| **S** | Frenar / marcha atrás |
+| **S** | Frenar (en caja automática, con el auto quieto: marcha atrás) |
 | **A / D** | Girar izquierda / derecha |
+| **E / Q** | Subir / bajar marcha (caja manual: R, N, 1–8) |
+| M | Alternar caja manual / automática |
 | **Espacio** | Freno de mano |
 | C | Cambiar cámara (TV / cercana / cockpit) |
 | R | Volver a la largada (anula la vuelta) |
@@ -54,6 +56,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 1: auto manejable con WASD, pista de Bakú, HUD.
 - ✅ Paso 2: cronómetro por sectores, mejor vuelta, récord guardado, cambio de cámara.
 - ✅ Paso 3: motor con RPM (ralentí 4.000, limitador 12.500, curva de torque), caja automática provisoria de 8 marchas, marcha y RPM en el HUD. Datos en `GodotF126/data/car.json`.
-- ⏳ Paso 4: caja manual de 8 marchas + N + R con levas (E/Q). Después: tablero con luces de cambio, volante 3D y manos del piloto.
+- ✅ Paso 4: caja manual de 8 marchas + N + R con levas (E/Q), corte de potencia al cambiar, bloqueo de rebaje que pasaría de vueltas, M alterna manual / automática.
+- ⏳ Paso 5: tablero en el HUD con marcha grande, luces de cambio y aguja analógica. Después: volante 3D y manos del piloto.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).
