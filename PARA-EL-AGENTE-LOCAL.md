@@ -8,8 +8,8 @@ Leé esto antes de tocar el proyecto.
 - El usuario juega abriendo `GodotF126/project.godot` en el editor de Godot y apretando F5. No hace falta correr comandos.
 
 ## Estado actual
-- Pasos 0 a 17 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
-- Próximo: **Paso 18 — cámaras extra** (T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista).
+- Pasos 0 a 18 del [ROADMAP](GodotF126/ROADMAP.md) completos (Fases A y B cerradas; Fase C en curso, cierra el hito H1 en el Paso 24).
+- Próximo: **Paso 19 — pianos, zonas de escape y límites de pista** con vuelta invalidada al salirse.
 - El juego arranca en `scenes/menu.tscn`; `scenes/main.tscn` es la carrera. El ROADMAP tiene 60 pasos en 8 fases; seguir el orden.
 - No existe ningún `.exe` todavía. No afirmes lo contrario hasta completar el Paso 59.
 
@@ -30,6 +30,7 @@ Leé esto antes de tocar el proyecto.
 | `scripts/menu/mode_select.gd` | `class_name ModeSelect`. Tarjetas de modo desde `data/modes.json`; ←/→ cambian las vueltas en los modos con `lap_options`. `setup(data, modo, vueltas)`, `open()`, `back()`, `set_accent()`; señales `confirmed(mode_id, laps)`, `cancelled` |
 | `data/modes.json` | Modos (`practice`, `time_trial` con `lap_options` / `default_laps` / `standing_start`), `default_mode`, `results_delay`, `start_lights` (tiempos del semáforo, salto, penalización) |
 | `scripts/race/start_lights.gd` | `class_name StartLights` (nodo `StartLights` de `main.tscn`). Secuencia de 5 luces, apagado al azar, detección de salto y reacción; arma las lámparas 3D en el pórtico. `configure(data)`, `begin(car, línea, altura_pórtico)`, `is_active()`, `jumped`, `reaction_time`; señales `lights_changed`, `lights_out`, `jump_start`, `reaction_measured`, `finished`. `main.gd` ignora los checkpoints mientras está activo y llama a `LapTimer.start_now()` en `lights_out` |
+| `scripts/race/tv_cameras.gd` | `class_name TvCameras` (nodo `TvCameras` de `main.tscn`). Torres de TV por el trazado (datos en `data/tracks.json` → `tv_cameras`), una `Camera3D` que corta a la más cercana, sigue al auto y hace zoom. `configure(data)`, `setup(centerline, car, start_index)`, `set_active(bool)` (conectado a `CarController.camera_mode_applied`), `get_camera()`, `positions`, `current_index`; señal `camera_cut(index)` |
 | `scripts/ui/start_lights_display.gd` | `class_name StartLightsDisplay`. Semáforo del HUD dibujado en `_draw()`; `RaceHUD.bind_start_lights(lights)` lo muestra y conecta |
 | `scripts/ui/pause_menu.gd` | `class_name PauseMenu` (nodo `PauseMenu` de `main.tscn`, `process_mode = ALWAYS`). Pausa el árbol; `main.gd` escucha `paused_changed` para ocultar el HUD y silenciar el auto. Continuar / Reiniciar / Opciones (`OptionsPanel`) / Menú / Salir. `open()`, `close()`, `is_open()`, `set_accent()`, `set_subtitle()`; señales `paused_changed`, `restart_requested`, `menu_requested` |
 | `scripts/game_state.gd` | Autoload `GameState`: `selected_driver_id` (vacío = `default_driver_id`), `selected_mode` (vacío = `default_mode` de `modes.json`), `lap_count` (0 = `default_laps`), `is_time_trial()`, constantes `MODE_PRACTICE` / `MODE_TIME_TRIAL`. En scripts `-s` de prueba no se puede nombrar directo: usar `root.get_node("GameState")` |
@@ -41,7 +42,7 @@ Leé esto antes de tocar el proyecto.
 | `scripts/data_loader.gd` | `class_name DataLoader` (estático). Rutas de `data/*.json`, `load_json(path)`, `find_driver(grid, id)` |
 | `scripts/menu/main_menu.gd` | Menú principal (`scenes/menu.tscn`): plataforma giratoria con el auto en modo exhibición, UI por código, Jugar / Opciones / Salir. Datos en `data/menu.json` |
 | `scripts/audio/menu_music.gd` | `class_name MenuMusic`. Música del menú generada por código (bombo, caja, hi-hat, bajo, arpegio, colchón). `configure(data)`, `play()`, `synthesize(frames)` |
-| `scripts/car_controller.gd` | `class_name CarController`. Física arcade, 3 cámaras (tecla C), `configure(data)`, `set_showcase(enabled)` (auto quieto, mudo y sin cámara para menús), `set_livery(principal, secundario, número)`, `get_speed_kmh()`, `get_rpm()`, `get_gear_label()`, `get_top_speed()`, `reset_to_spawn()`, `set_camera_mode(mode)`. Señales `was_reset`, `camera_changed`. Accede a los componentes por `engine` y `gearbox` |
+| `scripts/car_controller.gd` | `class_name CarController`. Física arcade, 6 cámaras (tecla C; `CAMERA_MODES` con `"view"`: `chase` / `cockpit` / `onboard` / `external`), `is_cockpit_view()`, `is_onboard_view()`, `uses_external_camera()`, señal `camera_mode_applied(external)`, `configure(data)`, `set_showcase(enabled)` (auto quieto, mudo y sin cámara para menús), `set_livery(principal, secundario, número)`, `get_speed_kmh()`, `get_rpm()`, `get_gear_label()`, `get_top_speed()`, `reset_to_spawn()`, `set_camera_mode(mode)`. Señales `was_reset`, `camera_changed`. Accede a los componentes por `engine` y `gearbox` |
 | `scripts/car/car_engine.gd` | `class_name CarEngine` (nodo `Engine` del auto). RPM, curva de torque, limitador con corte, freno motor. `update(wheel_rpm, throttle, clutch_can_slip, in_neutral, delta)`, `get_output_torque()`. Señal `limiter_hit` |
 | `scripts/car/gearbox.gd` | `class_name Gearbox`. Secuencial R (`REVERSE` = −1), N (`NEUTRAL` = 0), 1–8; `manual` o automática. `shift_up/shift_down(speed)`, `toggle_mode()`, `select_gear()`, `get_ratio_for()`, `is_shifting()`, `get_direction()`. Señales `gear_changed`, `shift_denied(reason)`, `mode_changed(manual)` |
 | `data/car.json` | Masa, radio de rueda, tracción, drag, datos de motor y caja |
@@ -62,10 +63,10 @@ La vibración de cámara está en `CarController._update_shake()`; `add_camera_i
 
 Si se agrega un script con `class_name` nuevo y se prueba sin abrir el editor, correr antes `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --import` para que se registre la clase.
 
-## Sugerencia para el Paso 18
-- Las cámaras del auto están en `CarController.CAMERA_MODES` (posición, pitch, fov, `smooth`). Agregar **T-cam** (arriba del airbox, mirando adelante, pegada al auto) y **capot** (baja, sobre el morro). Revisar `_apply_camera_mode()`: qué se ve en cada una (casco, volante, brazos, espejos) y el volumen del motor (`is_cockpit_view()`), y que `OptionsPanel` ("Cámara inicial") y `Settings` acepten los índices nuevos.
-- **Cámaras de TV fijas**: `Camera3D` puestas por la pista (posiciones en `data/tracks.json` o generadas desde `BakuTrack.centerline`) que miran al auto con `look_at` y cambian a la más cercana. Puede ser un modo más del ciclo con C, manejado desde `main.gd` o un nodo nuevo (`scripts/race/tv_cameras.gd`), porque la cámara no es hija del auto. Se van a reusar para los replays (Paso 51).
-- Ojo: `CockpitDetail` y las vistas de espejo dependen de la cámara activa; con una cámara externa al auto conviene apagar el render de los espejos como en las cámaras exteriores.
+## Sugerencia para el Paso 19
+- **Pianos**: en `BakuTrack`, franjas rojas y blancas en el borde interno y externo de las curvas (donde la curvatura del `centerline` supera un umbral), con `SurfaceTool` como el asfalto. Al pisarlos: `car.add_camera_impact()` suave y un ruido de vibración en `CarAudioFx`.
+- **Zonas de escape**: hoy los muros están pegados al asfalto (`wall_gap` = 0,4 m). En algunas curvas abrir una franja de escape (asfalto de otro color o grava que frena más) antes del muro.
+- **Límites de pista**: calcular la distancia lateral del auto al `centerline` (índice más cercano + producto con el vector derecho) y considerar afuera cuando las 4 ruedas pasan el borde (`track_width / 2` + ancho de piano + medio ancho del auto). Al salirse: invalidar la vuelta en `LapTimer` (marca `invalid` en la vuelta actual; no cuenta para mejor vuelta ni récord, se muestra tachada o en gris en el resultado) y aviso en el HUD ("Vuelta invalidada: límites de pista"). Anchos y umbrales en `data/tracks.json`.
 
 ## Verificación sin abrir el editor
 Se puede correr el proyecto sin ventana con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --quit-after 300`, o con un script `-s prueba.gd` que extienda `SceneTree`, instancie `res://scenes/main.tscn` y pruebe cosas (cambiar cámara, cambiar marcha) imprimiendo resultados. Para capturas: mismo script sin `--headless`, `root.get_viewport().get_texture().get_image().save_png(...)`.

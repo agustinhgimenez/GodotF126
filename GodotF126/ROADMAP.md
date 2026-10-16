@@ -49,8 +49,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 15 | Pausa con Esc (Continuar / Reiniciar / Menú / Salir) | ✅ |
 | 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | ✅ |
 | 17 | **Semáforo de largada** con 5 luces y detección de salto | ✅ |
-| 18 | Cámaras extra: T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista | ⏳ Siguiente |
-| 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | |
+| 18 | Cámaras extra: T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista | ✅ |
+| 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | ⏳ Siguiente |
 | 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | |
 | 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | |
 | 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | |
@@ -299,3 +299,15 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Datos** en `data/modes.json` → `"start_lights"`: distancia de grilla, espera inicial, intervalo entre luces, espera al azar mínima y máxima, distancia de salto, penalización, velocidad de reacción y tiempo en pantalla.
 - **Verificación**: prueba que arranca un contrarreloj de 1 vuelta y comprueba el auto a 6,00 m de la línea, la secuencia 1 → 5 luces con el cronómetro quieto, que un checkpoint antes del apagado se ignora, que al apagarse arranca la vuelta 1 sin salto, la reacción medida (0,246 s) y que el primer cruce de meta no reinicia la vuelta; en una segunda largada acelera con 2 luces encendidas y comprueba el salto, +5 s con motivo "Largada en falso" y total = vueltas + 5; en práctica libre no hay semáforo. Restaura `user://records.json` al final. Capturas: `informes/capturas/paso17-semaforo.png`, `paso17-cockpit.png`, `paso17-resultado-reaccion.png`, `paso17-resultado-salto.png`.
 - **Cómo probar**: F5 → Jugar → Contrarreloj → elegir piloto → esperar las 5 luces y acelerar cuando se apagan (ver la reacción) → Esc → Reiniciar y esta vez acelerar antes: "¡LARGADA EN FALSO!" y +5 s en el resultado.
+
+### Paso 18 — Cámaras extra
+- **C recorre 6 cámaras**: TV, cercana, cockpit, **T-cam**, **capot** y **cámaras de pista**. Los índices 0–2 no cambiaron, así que la "Cámara inicial" guardada sigue valiendo; en Opciones se agregaron T-cam, Capot y De pista.
+- `CarController.CAMERA_MODES` pasó de `"smooth"` a `"view"`: `chase` (sigue el giro con retraso), `onboard` (pegada al auto), `cockpit` (pegada, con volante, brazos, espejos y visor) y `external`. Cada cámara pegada tiene su fracción de vibración (`"shake"`: cockpit 1, capot 0,8, T-cam 0,7).
+  - **T-cam**: arriba del airbox, mirando adelante por encima del casco y el halo.
+  - **Capot**: sobre el morro, delante del cockpit; se ven la franja y el alerón delantero.
+  - Nuevos `is_onboard_view()` (cockpit, T-cam y capot: el motor y los efectos suenan "de adentro") y `uses_external_camera()`; señal `camera_mode_applied(external)`.
+- **Cámaras de TV fijas** (`scripts/race/tv_cameras.gd`, `TvCameras`, nodo en `main.tscn`): 10 torres repartidas por el trazado desde la línea de largada, del **lado de afuera de cada curva**, a 11 m del centro y 7 m de alto, cada una con poste, plataforma y cámara (decorado). Una sola `Camera3D` **corta** a la torre más cercana a donde va a estar el auto en 0,8 s (con margen del 80 % y al menos 1,5 s por torre para que no salte), lo sigue con `look_at` suavizado y ajusta el **zoom** para que el auto ocupe siempre unos 18 m de ancho (fov entre 10° y 60°). Señal `camera_cut(index)`; se van a reusar en los replays (Paso 51).
+- **Datos** en `data/tracks.json` → `"tv_cameras"` de cada pista: cantidad, distancia al costado, altura, encuadre, zoom mínimo y máximo, margen de corte, tiempo mínimo, anticipación y suavizado.
+- **Arreglo en `Settings`**: un valor inválido en `user://settings.json` (p. ej. `"camera": null`) hacía fallar `_sanitize` y quedaba guardado; ahora cámara, volúmenes y opciones sí/no vuelven al valor por defecto.
+- **Verificación**: prueba que recorre los 6 modos (cámara activa, volante y casco visibles sólo donde corresponde, sonido de adentro en cockpit/T-cam/capot, torres activas sólo en "Cámaras de pista"), maneja 10 s a fondo hasta 198 km/h con las cámaras de pista y registra los cortes a las torres 1, 2 y 3, vuelve con C a la cámara TV del auto y comprueba que "De pista" como cámara inicial arranca en la torre 0. Capturas: `informes/capturas/paso18-tcam.png`, `paso18-capot.png`, `paso18-pista.png`, `paso18-pista-2.png`.
+- **Cómo probar**: F5 → Jugar → elegir piloto → C varias veces (T-cam, capot, cámaras de pista) → en cámaras de pista acelerar por la recta y ver los cortes y el zoom.

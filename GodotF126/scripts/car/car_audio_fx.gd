@@ -110,7 +110,7 @@ func _process(delta: float) -> void:
 	_impact_timer = maxf(_impact_timer - delta, 0.0)
 	if _playback == null:
 		return
-	_player.volume_db = volume_db + (0.0 if _car.is_cockpit_view() else chase_volume_db)
+	_player.volume_db = volume_db + (0.0 if _car.is_onboard_view() else chase_volume_db)
 	var frames := _playback.get_frames_available()
 	if frames > 0:
 		_playback.push_buffer(synthesize(frames))

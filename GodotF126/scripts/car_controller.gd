@@ -11,11 +11,21 @@ signal camera_changed(mode_name: String)
 ## Choque contra un muro; strength 0–1 según la velocidad perdida (puede repetirse cada frame).
 signal wall_hit(strength: float)
 
-## "smooth" = la cámara sigue el giro del auto con retraso; false = pegada al auto.
+## Cámara del auto (o de la pista) activa: true = cámaras de TV de la pista (Paso 18).
+signal camera_mode_applied(external: bool)
+
+## "view": chase = sigue el giro del auto con retraso; onboard = pegada al auto (T-cam, capot);
+## cockpit = pegada al auto con volante, brazos, espejos y casco; external = cámaras de TV
+## fijas de la pista (las maneja TvCameras, la cámara del auto se apaga).
+## "shake": fracción de la vibración en las cámaras pegadas (las chase usan shake_chase_factor).
+## Los índices 0–2 son los del Paso 2 (quedan guardados en user://settings.json).
 const CAMERA_MODES := [
-	{"name": "Cámara TV", "position": Vector3(0, 2.6, 7.5), "pitch": -12.0, "fov": 70.0, "smooth": true},
-	{"name": "Cámara cercana", "position": Vector3(0, 1.7, 4.8), "pitch": -8.0, "fov": 75.0, "smooth": true},
-	{"name": "Cockpit", "position": Vector3(0, 0.95, -0.55), "pitch": -2.0, "fov": 80.0, "smooth": false},
+	{"name": "Cámara TV", "position": Vector3(0, 2.6, 7.5), "pitch": -12.0, "fov": 70.0, "view": "chase"},
+	{"name": "Cámara cercana", "position": Vector3(0, 1.7, 4.8), "pitch": -8.0, "fov": 75.0, "view": "chase"},
+	{"name": "Cockpit", "position": Vector3(0, 0.95, -0.55), "pitch": -2.0, "fov": 80.0, "view": "cockpit", "shake": 1.0},
+	{"name": "T-cam", "position": Vector3(0, 1.3, 0.75), "pitch": -6.0, "fov": 72.0, "view": "onboard", "shake": 0.7},
+	{"name": "Cámara de capot", "position": Vector3(0, 0.86, -1.95), "pitch": -4.0, "fov": 75.0, "view": "onboard", "shake": 0.8},
+	{"name": "Cámaras de pista", "view": "external"},
 ]
 
 @export_group("Motor")
@@ -66,6 +76,7 @@ var _camera_base: Transform3D = Transform3D.IDENTITY
 var _shake_noise := FastNoiseLite.new()
 var _shake_time: float = 0.0
 var _impact: float = 0.0
+var _showcase: bool = false
 
 @onready var _camera_pivot: Node3D = $CameraPivot
 @onready var _camera: Camera3D = $CameraPivot/Camera3D
@@ -162,6 +173,7 @@ func set_camera_mode(mode: int) -> void:
 
 ## Auto de exhibición para los menús: sin física, sin controles, sin sonido y sin su cámara.
 func set_showcase(enabled: bool) -> void:
+	_showcase = enabled
 	controls_enabled = not enabled
 	set_physics_process(not enabled)
 	set_process_unhandled_input(not enabled)
@@ -170,23 +182,41 @@ func set_showcase(enabled: bool) -> void:
 	_camera.current = not enabled
 
 
+func _camera_view() -> String:
+	return str(CAMERA_MODES[camera_mode]["view"])
+
+
 func is_cockpit_view() -> bool:
-	return not bool(CAMERA_MODES[camera_mode]["smooth"])
+	return _camera_view() == "cockpit"
+
+
+## Cámaras pegadas al auto (cockpit, T-cam, capot): el sonido se oye "de adentro".
+func is_onboard_view() -> bool:
+	return _camera_view() == "cockpit" or _camera_view() == "onboard"
+
+
+func uses_external_camera() -> bool:
+	return _camera_view() == "external"
 
 
 func _apply_camera_mode() -> void:
 	var mode: Dictionary = CAMERA_MODES[camera_mode]
-	var pitch := deg_to_rad(float(mode["pitch"]))
-	var offset: Vector3 = mode["position"]
-	var is_chase := bool(mode["smooth"])
-	_camera_base = Transform3D(Basis(Vector3.RIGHT, pitch), offset)
-	_camera.transform = _camera_base
-	_camera.fov = float(mode["fov"])
-	_camera.near = 0.3 if is_chase else 0.1
-	_helmet.visible = is_chase
-	steering_wheel.visible = not is_chase
-	driver_arms.visible = not is_chase
-	cockpit_detail.set_cockpit_view(not is_chase)
+	var view := _camera_view()
+	var cockpit := view == "cockpit"
+	if view != "external":
+		var pitch := deg_to_rad(float(mode["pitch"]))
+		var offset: Vector3 = mode["position"]
+		_camera_base = Transform3D(Basis(Vector3.RIGHT, pitch), offset)
+		_camera.transform = _camera_base
+		_camera.fov = float(mode["fov"])
+		_camera.near = 0.3 if view == "chase" else 0.1
+	if not _showcase:
+		_camera.current = view != "external"
+	_helmet.visible = not cockpit
+	steering_wheel.visible = cockpit
+	driver_arms.visible = cockpit
+	cockpit_detail.set_cockpit_view(cockpit)
+	camera_mode_applied.emit(view == "external")
 
 
 func _physics_process(delta: float) -> void:
@@ -305,7 +335,7 @@ func _update_camera(delta: float) -> void:
 	var t := _camera_pivot.global_transform
 	t.origin = global_position
 	var target_basis := Basis(Vector3.UP, rotation.y)
-	var weight := clampf(camera_follow * delta, 0.0, 1.0) if CAMERA_MODES[camera_mode]["smooth"] else 1.0
+	var weight := clampf(camera_follow * delta, 0.0, 1.0) if _camera_view() == "chase" else 1.0
 	t.basis = t.basis.slerp(target_basis, weight).orthonormalized()
 	_camera_pivot.global_transform = t
 	_update_shake(delta)
@@ -318,7 +348,7 @@ func _update_shake(delta: float) -> void:
 	_impact = move_toward(_impact, 0.0, shake_impact_decay * delta)
 	var speed_part := pow(clampf(absf(forward_speed) / max_speed, 0.0, 1.0), 2.0)
 	var impact_part := _impact * _impact
-	var factor := shake_chase_factor if CAMERA_MODES[camera_mode]["smooth"] else 1.0
+	var factor := shake_chase_factor if _camera_view() == "chase" else float(CAMERA_MODES[camera_mode].get("shake", 1.0))
 	var amount := (shake_speed_amplitude * speed_part + shake_impact_amplitude * impact_part) * factor
 	var roll_amount := deg_to_rad(shake_max_roll_deg) * minf(speed_part * 0.5 + impact_part, 1.0) * factor
 	var n := _shake_time * shake_frequency

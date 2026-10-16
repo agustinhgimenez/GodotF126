@@ -30,7 +30,7 @@ Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal
 | **E / Q** | Subir / bajar marcha (caja manual: R, N, 1–8) |
 | M | Alternar caja manual / automática |
 | **Espacio** | Freno de mano |
-| C | Cambiar cámara (TV / cercana / cockpit) |
+| C | Cambiar cámara (TV / cercana / cockpit / T-cam / capot / cámaras de pista) |
 | R | Volver a la largada (anula la vuelta) |
 | Esc | Pausa: Continuar / Reiniciar / Opciones / Menú / Salir (en el menú: salir) |
 
@@ -72,6 +72,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 15: pausa con Esc (todo se congela y el auto se calla) con Continuar / Reiniciar / Opciones / Menú principal / Salir. Capturas: `informes/capturas/paso15-pausa.png`, `paso15-opciones.png`.
 - ✅ Paso 16: modo Contrarreloj (1 a 10 vueltas elegidas en el menú) con pantalla de resultado: tiempo y sectores de cada vuelta, mejores en violeta, tiempo total y récord; Repetir o volver al menú. Capturas: `informes/capturas/paso16-modos.png`, `paso16-resultado.png`.
 - ✅ Paso 17: largada detenida en Contrarreloj con semáforo de 5 luces (en el pórtico y en el HUD), tiempo de reacción y detección de salto con +5 s de penalización. Capturas: `informes/capturas/paso17-semaforo.png`, `paso17-resultado-salto.png`.
-- ⏳ Paso 18: cámaras extra (T-cam, capot, cámaras de TV fijas en la pista).
+- ✅ Paso 18: cámaras extra: T-cam sobre el airbox, cámara de capot y 10 cámaras de TV fijas en la pista que cortan a la más cercana y hacen zoom sobre el auto. Capturas: `informes/capturas/paso18-tcam.png`, `paso18-capot.png`, `paso18-pista-2.png`.
+- ⏳ Paso 19: pianos, zonas de escape y límites de pista con vuelta invalidada.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

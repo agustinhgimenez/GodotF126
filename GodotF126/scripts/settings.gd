@@ -125,10 +125,14 @@ func _sanitize(key: String, value):
 		"quality":
 			return value if str(value) in QUALITY_LEVELS else fallback
 		"camera":
+			if not (value is int or value is float):
+				return int(fallback)
 			return clampi(int(value), 0, CarController.CAMERA_MODES.size() - 1)
 		"steering_assist", "fullscreen":
-			return bool(value)
+			return value if value is bool else fallback
 	if key in VOLUME_BUSES:
+		if not (value is int or value is float):
+			return int(fallback)
 		return clampi(int(value), 0, 100)
 	return value
 

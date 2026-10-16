@@ -109,7 +109,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if _playback == null:
 		return
-	_player.volume_db = volume_db + (0.0 if _car.is_cockpit_view() else chase_volume_db)
+	_player.volume_db = volume_db + (0.0 if _car.is_onboard_view() else chase_volume_db)
 	_update_pops(delta)
 	var frames := _playback.get_frames_available()
 	if frames > 0:

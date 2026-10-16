@@ -38,6 +38,7 @@ var _start_data: Dictionary = {}
 @onready var pause_menu: PauseMenu = $PauseMenu
 @onready var results_screen: ResultsScreen = $ResultsScreen
 @onready var start_lights: StartLights = $StartLights
+@onready var tv_cameras: TvCameras = $TvCameras
 
 
 func _ready() -> void:
@@ -50,6 +51,12 @@ func _ready() -> void:
 		driver_id = str(grid.get("default_driver_id", "colapinto"))
 	_select_driver(grid, driver_id)
 	var track_info := _find_track(tracks, TRACK_ID)
+
+	var tv_data = track_info.get("tv_cameras", {})
+	if tv_data is Dictionary:
+		tv_cameras.configure(tv_data)
+	tv_cameras.setup(track.centerline, car, track.checkpoint_indices[0] if not track.checkpoint_indices.is_empty() else 0)
+	car.camera_mode_applied.connect(tv_cameras.set_active)
 
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	car.configure(car_data)
@@ -89,6 +96,8 @@ func _ready() -> void:
 	results_screen.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
 	lap_timer.session_finished.connect(_on_session_finished)
 	Settings.changed.connect(_on_setting_changed)
+	# El auto ya está en su lugar (grilla o largada): elegir la torre de TV desde ahí.
+	tv_cameras.set_active(car.uses_external_camera())
 
 
 ## Modo elegido en el menú (GameState); en contrarreloj fija las vueltas del cronómetro.

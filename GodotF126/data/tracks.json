@@ -12,7 +12,19 @@
       "real_length_km": 6.003,
       "placeholder": true,
       "notes": "Trazado geométrico inspirado en Bakú (recta larga junto al mar + sector cerrado tipo castillo). NO es el layout oficial FIA.",
-      "status": "jugable"
+      "status": "jugable",
+      "tv_cameras": {
+        "count": 10,
+        "side_offset": 11.0,
+        "height": 7.0,
+        "frame_width": 18.0,
+        "fov_min": 10.0,
+        "fov_max": 60.0,
+        "switch_margin": 0.8,
+        "min_hold": 1.5,
+        "look_ahead": 0.8,
+        "look_smoothing": 7.0
+      }
     },
     {
       "id": "segunda_pista",

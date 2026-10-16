@@ -13,7 +13,7 @@ const CONTROL_SIZE := Vector2(250, 36)
 const CHOICES := [
 	["gearbox", "Caja de cambios", ["manual", "automatic"], ["Manual (E/Q)", "Automática"]],
 	["steering_assist", "Dirección asistida", [true, false], ["Sí", "No"]],
-	["camera", "Cámara inicial", [0, 1, 2], ["TV", "Cercana", "Cockpit"]],
+	["camera", "Cámara inicial", [0, 1, 2, 3, 4, 5], ["TV", "Cercana", "Cockpit", "T-cam", "Capot", "De pista"]],
 	["quality", "Calidad gráfica", ["low", "medium", "high"], ["Baja", "Media", "Alta"]],
 	["fullscreen", "Pantalla completa", [false, true], ["No", "Sí"]],
 ]
