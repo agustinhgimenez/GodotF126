@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/car_controller.gd" id="1_car"]
 [ext_resource type="Script" path="res://scripts/car/car_engine.gd" id="2_engine"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/car/steering_wheel.gd" id="4_wheel"]
 [ext_resource type="Script" path="res://scripts/car/driver_arms.gd" id="5_arms"]
 [ext_resource type="Script" path="res://scripts/car/cockpit_detail.gd" id="6_cockpit"]
+[ext_resource type="Script" path="res://scripts/car/engine_audio.gd" id="7_audio"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_car"]
 size = Vector3(1.9, 0.8, 6)
@@ -68,6 +69,9 @@ script = ExtResource("2_engine")
 
 [node name="Gearbox" type="Node" parent="."]
 script = ExtResource("3_gearbox")
+
+[node name="EngineAudio" type="Node" parent="."]
+script = ExtResource("7_audio")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, -0.2)

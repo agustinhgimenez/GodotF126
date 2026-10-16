@@ -50,5 +50,22 @@
       "shift_kick": 0.25,
       "chase_factor": 0.25
     }
+  },
+  "audio": {
+    "volume_db": -6,
+    "chase_volume_db": -4,
+    "mix_rate": 22050,
+    "buffer_length": 0.08,
+    "firings_per_rev": 3,
+    "rasp_amount": 0.6,
+    "mechanical_amount": 0.25,
+    "turbo_volume": 0.05,
+    "turbo_base_hz": 2500,
+    "turbo_range_hz": 4000,
+    "shift_volume": 0.5,
+    "pop_volume": 0.7,
+    "pop_min_rpm_ratio": 0.55,
+    "pop_count_min": 3,
+    "pop_count_max": 6
   }
 }

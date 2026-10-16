@@ -71,6 +71,7 @@ var _impact: float = 0.0
 @onready var steering_wheel: SteeringWheel = $SteeringWheel
 @onready var driver_arms: DriverArms = $DriverArms
 @onready var cockpit_detail: CockpitDetail = $CockpitDetail
+@onready var engine_audio: EngineAudio = $EngineAudio
 
 
 func _ready() -> void:
@@ -107,6 +108,9 @@ func configure(data: Dictionary) -> void:
 		var shake_data = cockpit_data.get("shake", {})
 		if shake_data is Dictionary:
 			_configure_shake(shake_data)
+	var audio_data = data.get("audio", {})
+	if audio_data is Dictionary:
+		engine_audio.configure(audio_data)
 
 
 func _configure_shake(data: Dictionary) -> void:
@@ -138,6 +142,10 @@ func cycle_camera() -> void:
 	_apply_camera_mode()
 	_snap_camera()
 	camera_changed.emit(str(CAMERA_MODES[camera_mode]["name"]))
+
+
+func is_cockpit_view() -> bool:
+	return not bool(CAMERA_MODES[camera_mode]["smooth"])
 
 
 func _apply_camera_mode() -> void:

@@ -35,8 +35,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 6 | **Volante 3D** en el cockpit: gira con la dirección (±180°), pantalla con marcha / RPM / velocidad / delta, LEDs de cambio arriba | ✅ |
 | 7 | **Manos y brazos del piloto** sobre el volante: siguen el giro; los dedos accionan la leva al cambiar | ✅ |
 | 8 | Cockpit detallado: halo, casco con visor, **espejos retrovisores** con imagen real (`SubViewport`), vibración de cámara con velocidad y pianos | ✅ |
-| 9 | **Sonido de motor** generado por código en capas según RPM y acelerador; sonido de cambio, limitador y petardeo al soltar | ⏳ Siguiente |
-| 10 | Sonidos de neumáticos (chirrido por deslizamiento), viento por velocidad, golpes contra muros | |
+| 9 | **Sonido de motor** generado por código en capas según RPM y acelerador; sonido de cambio, limitador y petardeo al soltar | ✅ |
+| 10 | Sonidos de neumáticos (chirrido por deslizamiento), viento por velocidad, golpes contra muros | ⏳ Siguiente |
 
 ## Fase C — Menús y flujo de juego (cierra H1)
 
@@ -197,3 +197,14 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Datos** en `data/car.json` → `"cockpit"`: resolución y fov de los espejos, tinte del visor y parámetros de vibración (`"shake"`).
 - **Verificación**: prueba con script (cámara Cockpit, acelerar, cambiar de marcha, volver a TV) y capturas en `informes/capturas/paso8-cockpit.png`, `paso8-espejo-izq.png` y `paso8-tv.png`.
 - **Cómo probar**: F5 → C hasta "Cockpit" → mirar el halo arriba y los espejos a los costados (acelerar y ver la pista alejarse en ellos) → a alta velocidad la cámara vibra más; al cambiar con E se siente un golpe; chocar un muro sacude fuerte → C a la cámara TV y ver el halo sobre el auto.
+
+### Paso 9 — Sonido de motor
+- Nuevo nodo `EngineAudio` en `car.tscn` (`scripts/car/engine_audio.gd`). No usa archivos de audio: sintetiza cada muestra en GDScript y la empuja a un `AudioStreamGenerator` (22.050 Hz, buffer de 0,08 s) que reproduce un `AudioStreamPlayer`.
+- **Frecuencia**: un V6 de 4 tiempos hace 3 explosiones por vuelta, así que el tono base es `rpm / 60 × 3` (200 Hz en ralentí, 625 Hz en el limitador). RPM y acelerador se interpolan dentro de cada bloque para que el tono no salte.
+- **Capas**: tono (armónicas 1ª, 2ª y una 3ª que crece con el acelerador), combustión (ruido en pulsos justo después de cada explosión, más fuerte con carga), mecánica (media orden que suena siempre), silbido de turbo (acelerador × RPM, con retardo de soplado). Al final una saturación suave `x / (1 + |x|)` que nunca pasa de ±1.
+- **Limitador y cambios**: mientras el motor corta potencia (`CarEngine.is_cutting()` o `Gearbox.is_shifting()`) se apagan las explosiones en 4 ms, así el limitador suena entrecortado y cada cambio tiene su corte sin sonidos aparte. Además, cada `gear_changed` agrega un golpe corto de ruido.
+- **Petardeo**: al soltar el acelerador por encima del 55 % del rango de RPM se programan de 3 a 6 estallidos graves (ruido filtrado) separados entre 40 y 140 ms; se cancelan si se vuelve a acelerar.
+- **Volumen**: −6 dB en Cockpit y 4 dB menos en las cámaras exteriores (`CarController.is_cockpit_view()`).
+- **Datos** en `data/car.json` → `"audio"`: volumen, frecuencia de muestreo, buffer, explosiones por vuelta y la intensidad de cada capa.
+- **Verificación**: prueba sin ventana que maneja (acelerar hasta el limitador, tres cambios, soltar, volver a acelerar) y graba el sonido en `informes/audio/paso9-motor.wav`. La síntesis tarda 0,37 ms por frame en promedio, pico 0,55, sin valores inválidos. Con audio real no hay cortes durante el juego (sólo algunos al cargar la escena).
+- **Cómo probar**: F5 → escuchar el ralentí → W a fondo en 1ª hasta el limitador (suena entrecortado) → E para subir (corte y golpe) → soltar W alto de vueltas (petardeo) → C a la cámara TV (baja el volumen).

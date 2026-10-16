@@ -49,6 +49,7 @@ También funcionan las flechas del teclado.
 | `PARA-EL-PROFESOR-GodotF126-abstract.md` | Abstract + descripción breve para entregar |
 | `informes/GodotF126-Agustin-Gimenez-formalizacion.md` | Formalización completa del proyecto |
 | `informes/capturas/` | Capturas del juego para informes y presentaciones |
+| `informes/audio/` | Muestras de sonido grabadas del juego |
 | `PARA-EL-AGENTE-LOCAL.md` | Instrucciones para seguir desarrollando con un agente de IA |
 | `DESTINO-WINDOWS.md` | Rutas y ubicación de archivos en Windows |
 
@@ -62,6 +63,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 6: volante 3D en la cámara cockpit que gira ±180° con la dirección, con LEDs de cambio y pantalla (marcha, velocidad, RPM, modo, tiempo de vuelta y delta por sector contra la mejor vuelta).
 - ✅ Paso 7: manos y brazos del piloto sobre el volante (siguen el giro; brazos con cinemática inversa de dos tramos), y el índice tira de la leva al cambiar. Captura: `informes/capturas/paso7-cockpit.png`.
 - ✅ Paso 8: cockpit detallado: halo con pilar central, casco con visera y visor, espejos retrovisores con imagen real (`SubViewport`), vibración de cámara con la velocidad y golpes (muros, cambios de marcha). Capturas: `informes/capturas/paso8-cockpit.png` y `paso8-tv.png`.
-- ⏳ Paso 9: sonido de motor generado por código según RPM y acelerador.
+- ✅ Paso 9: sonido de motor sintetizado por código (V6, tono según RPM, combustión según acelerador, turbo), limitador entrecortado, golpe de caja al cambiar y petardeo al soltar. Muestra grabada: `informes/audio/paso9-motor.wav`.
+- ⏳ Paso 10: sonidos de neumáticos, viento y golpes contra muros.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).
