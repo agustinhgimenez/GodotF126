@@ -84,7 +84,7 @@ func _ready() -> void:
 	track_name = str(track_info.get("display_name", track.track_name))
 	hud.set_track_name(track_name)
 
-	lap_timer.setup(TRACK_ID)
+	lap_timer.setup(str(track_info.get("records_key", TRACK_ID)))
 	_setup_mode()
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)

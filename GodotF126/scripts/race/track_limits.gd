@@ -44,7 +44,7 @@ func _physics_process(_delta: float) -> void:
 	var located := _track.locate(_car.global_position, index)
 	index = int(located.x)
 	lateral = located.y
-	var half := _track.half_width()
+	var half := _track.half_width(index)
 
 	var was_off := off_track
 	off_track = absf(lateral) - car_half_width > half

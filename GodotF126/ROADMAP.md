@@ -52,8 +52,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 18 | Cámaras extra: T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista | ✅ |
 | 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | ✅ |
 | 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | ✅ |
-| 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | ⏳ Siguiente |
-| 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | |
+| 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | ✅ |
+| 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | ⏳ Siguiente |
 | 23 | Iluminación de atardecer, sombras, reflejos en el mar | |
 | 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | |
 
@@ -331,3 +331,14 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Datos** en `data/tracks.json` → `"brake_boards"`: distancias, separación mínima, largo mínimo de curva, distancia al muro y medidas del cartel.
 - **Verificación**: prueba que cuenta curvas y carteles, mide sobre el trazado la distancia de cada cartel a su curva (error máximo 1,2 m, el espaciado del `centerline`), comprueba que los 8 quedan del lado de afuera, detrás del muro y a más de 2 m de las torres de TV, y saca capturas llegando a la curva con los tres carteles. Capturas: `informes/capturas/paso20-carteles.png` (cámara TV, cartel de 150), `paso20-cockpit.png` (cartel de 100).
 - **Cómo probar**: F5 → Jugar → elegir piloto → recorrer la recta larga: a la derecha, antes de la curva a la izquierda, aparecen 150, 100 y 50.
+
+### Paso 21 — Bakú mejorado
+- **Trazado aproximado** (sigue siendo un placeholder, **no** el layout oficial FIA), a escala reducida: **2,57 km** contra los 6 km reales. Recta larga junto al mar con curvas suaves a fondo, curva 1 a la izquierda, ángulos rectos de la ciudad (curvas 2 a 6), subida hacia el castillo, **sector del castillo** estrecho y sinuoso alrededor de la ciudad vieja, bajada con curvas de 90° y la curva 16 que vuelve a la costa. 15 curvas detectadas.
+- **Datos**: los puntos de control pasaron de una constante en el script a `data/tracks.json` → `"centerline"`. Cada punto es `[x, z, ancho, altura, escapatoria 0–1, radio de la esquina]`; también la línea de largada (`start`), el spawn, el paso entre puntos (1,4 m) y el suavizado de altura y ancho (20 m).
+- **Esquinas con radio**: `BakuTrack._round_corners()` cambia cada vértice por un arco tangente de su radio (12 m en el castillo, 16–20 m en la ciudad, 400 m en las curvas a fondo de la costa). Reemplaza al suavizado Chaikin anterior, que dejaba radios de 6–8 m: menores que la distancia al muro de adentro, así que el muro se doblaba sobre la pista y frenaba al auto con una pared invisible.
+- **Ancho variable**: `widths[i]` y `half_width(i)`; el castillo mide **7,6 m** (12 m en el resto) y no tiene escapatoria (`runoff_scale` = 0). El asfalto, las líneas, los pianos, la escapatoria, los muros y `TrackLimits` usan el ancho de cada punto.
+- **Elevación suave**: el `centerline` tiene altura; sube de 0 a **12 m** en el castillo y baja hasta la costa (pendiente máxima 3,9 %). Piso nuevo con colisión de muro a muro (`Road`, `ConcavePolygonShape3D`) que sigue la altura; donde la pista va en alto, los muros tienen un **murallón de piedra** hasta el suelo. `locate()` y `_nearest_index()` miden en planta; la curvatura y la orientación de carteles y marcadores usan `_flat_tangent()`.
+- **Escenografía** reubicada para el trazado nuevo: bloques de ciudad en el interior, la ciudad vieja (murallas) dentro de la vuelta del castillo y las Flame Towers en la colina al oeste. 14 torres de TV (antes 10).
+- **Récord nuevo**: los tiempos de la pista vieja no son comparables, así que el récord se guarda con la clave `records_key` = `"baku_v2"` (el viejo queda en `"baku"` sin usarse).
+- **Verificación**: prueba que mide el trazado (1.832 puntos, ancho 7,6–12 m, altura 0–12 m), comprueba que no hay muros sobre otra parte de la pista ni muros interiores doblados (radio mínimo 12 m), que los edificios quedan a más de 10 m de los muros y que un rayo en el punto más alto pega en el asfalto a 12 m. Después un **piloto automático** (sigue el centerline y frena según la curva que viene) da 2 vueltas completas y válidas: 1:42.2 y 1:41.1, 195 km/h de máxima, 29 km/h en el castillo, el auto sube a 12 m siempre apoyado en el piso, sin salidas de pista ni reinicios. La prueba del Paso 20 sobre el trazado nuevo: 20 carteles en 9 curvas, todos bien ubicados. Capturas: `informes/capturas/paso21-trazado.png` (cenital), `paso21-subida.png`, `paso21-castillo.png`, `paso21-castillo-cockpit.png`.
+- **Cómo probar**: F5 → Jugar → elegir piloto → dar una vuelta: después de los ángulos rectos, la subida y el castillo angosto entre muros; con la cámara "De pista" se ve el murallón de piedra.
