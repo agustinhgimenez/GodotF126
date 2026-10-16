@@ -11,6 +11,8 @@ signal sector_completed(sector: int, time: float, is_best: bool)
 signal lap_completed(lap: int, time: float, is_best: bool, is_record: bool)
 signal lap_aborted
 signal session_finished
+## La vuelta en curso dejó de valer (límites de pista, Paso 19).
+signal lap_invalidated(reason: String)
 
 const SECTOR_COUNT := 3
 const RECORDS_PATH := "user://records.json"
@@ -32,8 +34,12 @@ var split_delta: float = NAN
 ## Vueltas a completar; 0 = sin límite (práctica libre).
 var lap_limit: int = 0
 var finished: bool = false
-## Vueltas completas en orden: {"lap", "time", "sectors": Array[float], "is_record"}.
+## Vueltas completas en orden: {"lap", "time", "sectors": Array[float], "is_record", "invalid"}.
 var lap_history: Array[Dictionary] = []
+## Una vuelta inválida se completa y cuenta para el total, pero no para mejor vuelta,
+## mejores sectores ni récord.
+var current_invalid: bool = false
+var invalid_reason: String = ""
 ## Récord de la pista antes de empezar la sesión (para saber si se batió).
 var record_before_session: float = -1.0
 ## Segundos sumados al total (largada en falso, Paso 17) y motivo.
@@ -45,6 +51,7 @@ var reaction_time: float = -1.0
 var _next_checkpoint: int = 0
 var _sector_start: float = 0.0
 var _current_splits: Array[float] = []
+var _best_sectors_at_start: Array[float] = []
 
 
 func setup(id: String) -> void:
@@ -89,6 +96,17 @@ func add_penalty(seconds: float, reason: String) -> void:
 	penalty_reason = reason
 
 
+## Anula la validez de la vuelta en curso (se sigue cronometrando). Los mejores sectores
+## que esta vuelta hubiera marcado se deshacen.
+func invalidate_lap(reason: String) -> void:
+	if not running or current_invalid:
+		return
+	current_invalid = true
+	invalid_reason = reason
+	best_sectors = _best_sectors_at_start.duplicate()
+	lap_invalidated.emit(reason)
+
+
 func abort_lap() -> void:
 	if not running:
 		return
@@ -96,6 +114,9 @@ func abort_lap() -> void:
 	current_time = 0.0
 	lap = maxi(lap - 1, 0)
 	split_delta = NAN
+	if current_invalid:
+		best_sectors = _best_sectors_at_start.duplicate()
+	current_invalid = false
 	lap_aborted.emit()
 
 
@@ -104,6 +125,9 @@ func _start_lap() -> void:
 	lap += 1
 	current_time = 0.0
 	_sector_start = 0.0
+	current_invalid = false
+	invalid_reason = ""
+	_best_sectors_at_start = best_sectors.duplicate()
 	sector_times.clear()
 	_current_splits.clear()
 	_next_checkpoint = 1
@@ -117,7 +141,7 @@ func _finish_sector(sector: int) -> void:
 	_current_splits.append(current_time)
 	if sector < best_lap_splits.size():
 		split_delta = current_time - best_lap_splits[sector]
-	var is_best := best_sectors[sector] < 0.0 or time < best_sectors[sector]
+	var is_best := not current_invalid and (best_sectors[sector] < 0.0 or time < best_sectors[sector])
 	if is_best:
 		best_sectors[sector] = time
 	sector_completed.emit(sector, time, is_best)
@@ -125,15 +149,17 @@ func _finish_sector(sector: int) -> void:
 
 func _complete_lap() -> void:
 	last_lap = current_time
-	var is_best := best_lap < 0.0 or last_lap < best_lap
+	var valid := not current_invalid
+	var is_best := valid and (best_lap < 0.0 or last_lap < best_lap)
 	if is_best:
 		best_lap = last_lap
 		best_lap_splits = _current_splits.duplicate()
-	var is_record := record_lap < 0.0 or last_lap < record_lap
+	var is_record := valid and (record_lap < 0.0 or last_lap < record_lap)
 	if is_record:
 		record_lap = last_lap
 		_save_record()
-	lap_history.append({"lap": lap, "time": last_lap, "sectors": sector_times.duplicate(), "is_record": is_record})
+	lap_history.append({"lap": lap, "time": last_lap, "sectors": sector_times.duplicate(),
+		"is_record": is_record, "invalid": not valid})
 	lap_completed.emit(lap, last_lap, is_best, is_record)
 
 

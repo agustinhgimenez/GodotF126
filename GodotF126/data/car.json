@@ -84,6 +84,8 @@
     "impact_volume": 0.9,
     "impact_min_strength": 0.05,
     "impact_cooldown": 0.15,
-    "scrape_volume": 0.35
+    "scrape_volume": 0.35,
+    "kerb_volume": 0.55,
+    "kerb_ridge_spacing": 0.3
   }
 }

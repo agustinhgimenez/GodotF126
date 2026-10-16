@@ -50,8 +50,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 16 | Modo **Contrarreloj**: N vueltas y después pantalla de resultado con tiempos por vuelta y sectores | ✅ |
 | 17 | **Semáforo de largada** con 5 luces y detección de salto | ✅ |
 | 18 | Cámaras extra: T-cam sobre el airbox, cámara de capot, cámaras de TV fijas en la pista | ✅ |
-| 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | ⏳ Siguiente |
-| 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | |
+| 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | ✅ |
+| 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | ⏳ Siguiente |
 | 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | |
 | 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | |
 | 23 | Iluminación de atardecer, sombras, reflejos en el mar | |
@@ -311,3 +311,15 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Arreglo en `Settings`**: un valor inválido en `user://settings.json` (p. ej. `"camera": null`) hacía fallar `_sanitize` y quedaba guardado; ahora cámara, volúmenes y opciones sí/no vuelven al valor por defecto.
 - **Verificación**: prueba que recorre los 6 modos (cámara activa, volante y casco visibles sólo donde corresponde, sonido de adentro en cockpit/T-cam/capot, torres activas sólo en "Cámaras de pista"), maneja 10 s a fondo hasta 198 km/h con las cámaras de pista y registra los cortes a las torres 1, 2 y 3, vuelve con C a la cámara TV del auto y comprueba que "De pista" como cámara inicial arranca en la torre 0. Capturas: `informes/capturas/paso18-tcam.png`, `paso18-capot.png`, `paso18-pista.png`, `paso18-pista-2.png`.
 - **Cómo probar**: F5 → Jugar → elegir piloto → C varias veces (T-cam, capot, cámaras de pista) → en cámaras de pista acelerar por la recta y ver los cortes y el zoom.
+
+### Paso 19 — Pianos, escapatorias y límites de pista
+- **Curvas detectadas por curvatura**: `BakuTrack._compute_layout()` mide el giro del `centerline` en una ventana de ±8 m; por debajo de 120 m de radio es curva, con su sentido (`turn_sign`: +1 izquierda, −1 derecha). Parámetros en `data/tracks.json` → `"layout"`.
+- **Pianos** rojos y blancos (franjas de 2 m, 1,2 m de ancho, 5 cm de alto, sólo visuales) a los dos lados en cada curva, empezando 10 m antes y terminando 10 m después (`kerb_mask`). Cubren el 45 % del trazado de Bakú, que es casi todo curvas.
+- **Escapatorias**: la franja entre la línea blanca y el muro (gris azulado) mide 1,6 m en las rectas y se abre **9 m más del lado de afuera de cada curva**, con una rampa de 25 m para que el muro no tenga escalones. Los muros, los checkpoints (ahora de muro a muro), el pórtico, los carteles de sector y las torres de TV (`wall_clearance` = 4 m detrás del muro) usan esas distancias (`wall_left`, `wall_right`, `wall_offset(i, lado)`). La prueba comprueba que ningún muro cae sobre otra parte del trazado.
+- **Límites de pista** (`scripts/race/track_limits.gd`, `TrackLimits`, nodo en `main.tscn`): cada frame de física ubica al auto (`BakuTrack.locate()`: índice más cercano, buscando cerca del anterior, y desplazamiento lateral). Si **las cuatro ruedas pasan la línea blanca** del mismo lado (`|lateral| − 1,0 m > 6 m`), invalida la vuelta: `LapTimer.invalidate_lap("Límites de pista")`.
+- **Vuelta inválida** (`LapTimer.current_invalid`, señal `lap_invalidated`): se sigue cronometrando y cuenta para el total y para las vueltas del contrarreloj, pero **no para mejor vuelta, mejores sectores ni récord** (los mejores sectores que hubiera marcado se deshacen). En el historial queda `"invalid": true`.
+  - HUD: "VUELTA INVALIDADA · límites de pista" en rojo, "VUELTA 2 · INVALIDADA" y el tiempo en gris; al cerrarla, "NO VÁLIDA".
+  - Resultado: la fila en gris con `*` y una nota abajo; la mejor vuelta y los sectores en violeta salen sólo de las vueltas válidas.
+- **Al pisar un piano**: vibración de cámara (`add_camera_impact(0,18)` mientras dura) y **retumbe** en `CarAudioFx`, una onda triangular con la frecuencia de las estrías (velocidad / 0,3 m) más ruido sordo. `CarController.kerb_contact` (0–1) lo escribe `TrackLimits`.
+- **Verificación**: prueba que mide el trazado (1.184 puntos, muros de 7,6 a 16,6 m del centro, 0 muros sobre otra parte de la pista), saca una captura cenital de la curva con más escapatoria, comprueba que con dos ruedas afuera la vuelta sigue válida y con cuatro se invalida, que esa vuelta no marca mejor vuelta, sectores ni récord y la siguiente sí, que sobre un piano `kerb_contact` = 1 con retumbe (pico 0,36, sin valores inválidos) y en el centro de la pista 0. Restaura `user://records.json` al final. Capturas: `informes/capturas/paso19-curva-arriba.png`, `paso19-invalidada.png`, `paso19-piano.png`.
+- **Cómo probar**: F5 → Jugar → elegir piloto → en una curva subirse al piano (se siente y se oye) → cortar una curva con las cuatro ruedas por la escapatoria: aviso rojo y vuelta en gris → en Contrarreloj, ver la vuelta con `*` en el resultado.

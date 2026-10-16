@@ -10,7 +10,7 @@ extends Node3D
 signal camera_cut(index: int)
 
 var count: int = 10
-var side_offset: float = 11.0
+var wall_clearance: float = 4.0   ## metros detrás del muro (incluye la escapatoria)
 var height: float = 7.0
 var frame_width: float = 18.0     ## metros de escena que entran a lo ancho alrededor del auto
 var fov_min: float = 10.0
@@ -40,7 +40,7 @@ func _ready() -> void:
 
 func configure(data: Dictionary) -> void:
 	count = int(data.get("count", count))
-	side_offset = float(data.get("side_offset", side_offset))
+	wall_clearance = float(data.get("wall_clearance", wall_clearance))
 	height = float(data.get("height", height))
 	frame_width = float(data.get("frame_width", frame_width))
 	fov_min = float(data.get("fov_min", fov_min))
@@ -52,7 +52,9 @@ func configure(data: Dictionary) -> void:
 
 
 ## Ubica las torres sobre el trazado de la pista (centerline cerrada) y las arma.
-func setup(centerline: PackedVector3Array, car: Node3D, start_index: int = 0) -> void:
+## wall_left / wall_right: distancia del centro al muro en cada índice.
+func setup(centerline: PackedVector3Array, wall_left: PackedFloat32Array, wall_right: PackedFloat32Array,
+		car: Node3D, start_index: int = 0) -> void:
 	_car = car
 	positions = PackedVector3Array()
 	var n := centerline.size()
@@ -68,7 +70,8 @@ func setup(centerline: PackedVector3Array, car: Node3D, start_index: int = 0) ->
 		var after := (centerline[(i + span) % n] - centerline[i]).normalized()
 		var turn := before.cross(after).y   # > 0 dobla a la izquierda
 		var side := 1.0 if turn >= 0.0 else -1.0
-		positions.append(centerline[i] + right * side * side_offset + Vector3(0, height, 0))
+		var wall := wall_right[i] if side > 0.0 else wall_left[i]
+		positions.append(centerline[i] + right * side * (wall + wall_clearance) + Vector3(0, height, 0))
 	_build_towers()
 
 

@@ -11,6 +11,7 @@ signal menu_requested
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_HEADER := Color(0.7, 0.72, 0.78)
 const COLOR_RECORD := Color(1.0, 0.85, 0.2)
+const COLOR_INVALID := Color(0.55, 0.55, 0.6)
 const COLUMN_WIDTHS := [110.0, 150.0, 150.0, 150.0, 170.0]
 
 var accent: Color = Color("#FF87BC")
@@ -78,18 +79,21 @@ func _fill_table(timer: LapTimer) -> void:
 	# Con muchas vueltas la letra se achica para que la tabla no pise el resumen.
 	var row_size := 22 if timer.lap_history.size() <= 5 else 17
 	for entry in timer.lap_history:
+		var invalid := bool(entry.get("invalid", false))
+		var base_color := COLOR_INVALID if invalid else Color.WHITE
 		var column := 0
-		_add_cell(str(entry["lap"]), column, row_size, Color.WHITE)
+		_add_cell(str(entry["lap"]) + (" *" if invalid else ""), column, row_size, base_color)
 		var sectors: Array = entry["sectors"]
 		for i in LapTimer.SECTOR_COUNT:
 			column += 1
 			var sector_time: float = float(sectors[i]) if i < sectors.size() else -1.0
-			var is_best := sector_time >= 0.0 and is_equal_approx(sector_time, best_sectors[i])
+			var is_best := not invalid and sector_time >= 0.0 and is_equal_approx(sector_time, best_sectors[i])
 			_add_cell("%.3f" % sector_time if sector_time >= 0.0 else "--.---", column, row_size,
-				COLOR_BEST if is_best else Color.WHITE)
+				COLOR_BEST if is_best else base_color)
 		var lap_time := float(entry["time"])
+		var is_best_lap := not invalid and is_equal_approx(lap_time, best_lap)
 		_add_cell(LapTimer.format_time(lap_time), column + 1, row_size,
-			COLOR_BEST if is_equal_approx(lap_time, best_lap) else Color.WHITE)
+			COLOR_BEST if is_best_lap else base_color)
 
 
 func _fill_summary(timer: LapTimer) -> void:
@@ -105,6 +109,14 @@ func _fill_summary(timer: LapTimer) -> void:
 	var best := UiKit.make_label("Mejor vuelta   %s" % LapTimer.format_time(_session_best_lap(timer.lap_history)), 22)
 	best.add_theme_color_override("font_color", COLOR_BEST)
 	_summary.add_child(best)
+	var invalid_count := 0
+	for entry in timer.lap_history:
+		if bool(entry.get("invalid", false)):
+			invalid_count += 1
+	if invalid_count > 0:
+		var note := UiKit.make_label("* Vuelta invalidada por límites de pista (no cuenta para mejor vuelta ni récord)", 16)
+		note.add_theme_color_override("font_color", COLOR_INVALID)
+		_summary.add_child(note)
 	var record_text := "Récord de la pista   %s" % LapTimer.format_time(timer.record_lap)
 	if timer.beat_record():
 		record_text += "   ¡NUEVO RÉCORD!"
@@ -116,6 +128,8 @@ func _fill_summary(timer: LapTimer) -> void:
 func _session_best_lap(history: Array[Dictionary]) -> float:
 	var best := -1.0
 	for entry in history:
+		if bool(entry.get("invalid", false)):
+			continue
 		var time := float(entry["time"])
 		if best < 0.0 or time < best:
 			best = time
@@ -127,6 +141,8 @@ func _session_best_sectors(history: Array[Dictionary]) -> Array[float]:
 	best.resize(LapTimer.SECTOR_COUNT)
 	best.fill(-1.0)
 	for entry in history:
+		if bool(entry.get("invalid", false)):
+			continue
 		var sectors: Array = entry["sectors"]
 		for i in mini(sectors.size(), LapTimer.SECTOR_COUNT):
 			var time := float(sectors[i])

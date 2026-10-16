@@ -5,6 +5,8 @@ extends CanvasLayer
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_SLOWER := Color(1.0, 0.85, 0.2)
 const COLOR_NEUTRAL := Color.WHITE
+const COLOR_INVALID := Color(0.6, 0.6, 0.64)
+const COLOR_WARNING := Color(1.0, 0.35, 0.3)
 const LAP_FREEZE_MS := 3000
 
 var _car: CarController = null
@@ -50,6 +52,8 @@ func bind_lap_timer(timer: LapTimer) -> void:
 	timer.lap_completed.connect(_on_lap_completed)
 	timer.lap_aborted.connect(_on_lap_aborted)
 	timer.session_finished.connect(func() -> void: show_message("¡BANDERA A CUADROS!", 3.0, COLOR_BEST))
+	timer.lap_invalidated.connect(func(reason: String) -> void:
+		show_message("VUELTA INVALIDADA · %s" % reason.to_lower(), 2.5, COLOR_WARNING))
 	_reset_sectors()
 	_update_summary()
 
@@ -113,7 +117,9 @@ func _process(_delta: float) -> void:
 		elif now >= _freeze_until_ms:
 			_lap_label.text = _lap_text(_timer.lap)
 			_time_label.text = LapTimer.format_time(_timer.current_time)
-			_set_color(_time_label, COLOR_NEUTRAL)
+			if _timer.current_invalid:
+				_lap_label.text += " · INVALIDADA"
+			_set_color(_time_label, COLOR_INVALID if _timer.current_invalid else COLOR_NEUTRAL)
 
 
 func _lap_text(lap: int) -> String:
@@ -139,14 +145,17 @@ func _on_sector_completed(sector: int, time: float, is_best: bool) -> void:
 		_reset_sectors()
 	var label := _sector_labels[sector]
 	label.text = "S%d  %.3f" % [sector + 1, time]
-	_set_color(label, COLOR_BEST if is_best else COLOR_SLOWER)
+	_set_color(label, COLOR_INVALID if _timer.current_invalid else (COLOR_BEST if is_best else COLOR_SLOWER))
 
 
 func _on_lap_completed(lap: int, time: float, is_best: bool, is_record: bool) -> void:
 	_freeze_until_ms = Time.get_ticks_msec() + LAP_FREEZE_MS
 	_lap_label.text = "VUELTA %d TERMINADA" % lap
 	_time_label.text = LapTimer.format_time(time)
-	_set_color(_time_label, COLOR_BEST if is_best else COLOR_SLOWER)
+	var invalid := not _timer.lap_history.is_empty() and bool(_timer.lap_history.back().get("invalid", false))
+	if invalid:
+		_lap_label.text += " · NO VÁLIDA"
+	_set_color(_time_label, COLOR_INVALID if invalid else (COLOR_BEST if is_best else COLOR_SLOWER))
 	if is_record:
 		show_message("¡NUEVO RÉCORD DE PISTA!", 3.0, COLOR_BEST)
 	elif is_best:

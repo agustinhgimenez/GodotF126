@@ -65,6 +65,8 @@ const CAMERA_MODES := [
 
 var forward_speed: float = 0.0
 var controls_enabled: bool = true
+## 0–1: cuánto está pisando un piano (lo escribe TrackLimits; lo usa CarAudioFx).
+var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
 
 var camera_mode: int = 0
@@ -398,6 +400,7 @@ func reset_to_spawn() -> void:
 	forward_speed = 0.0
 	_steer = 0.0
 	_impact = 0.0
+	kerb_contact = 0.0
 	engine.reset()
 	gearbox.reset()
 	_snap_camera()

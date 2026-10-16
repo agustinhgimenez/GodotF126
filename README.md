@@ -20,7 +20,7 @@ GodotF126 es un videojuego-simulador de Fórmula 1 en tercera persona hecho con 
 3. Apretar **Import & Edit**. La primera vez Godot tarda unos segundos importando.
 
 ## 3. Jugar
-Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) → elegir modo (**Práctica libre** o **Contrarreloj**, con ← → para la cantidad de vueltas) → elegir escudería → elegir piloto → carga la pista. En Contrarreloj se larga desde la grilla con **semáforo de 5 luces**: hay que acelerar cuando se apagan (acelerar antes es largada en falso, +5 s). Al completar las vueltas aparece el resultado con los tiempos por vuelta y sector. En **Opciones** se elige caja, dirección asistida, cámara inicial, volúmenes y calidad; se guardan solas.
+Apretar **F5** (o el botón ▶ arriba a la derecha). Arranca el menú principal: **Jugar** (Enter o clic) → elegir modo (**Práctica libre** o **Contrarreloj**, con ← → para la cantidad de vueltas) → elegir escudería → elegir piloto → carga la pista. En Contrarreloj se larga desde la grilla con **semáforo de 5 luces**: hay que acelerar cuando se apagan (acelerar antes es largada en falso, +5 s). Al completar las vueltas aparece el resultado con los tiempos por vuelta y sector. Salirse de la pista con las cuatro ruedas (pasar la línea blanca) invalida la vuelta: no cuenta para mejor vuelta ni récord. En **Opciones** se elige caja, dirección asistida, cámara inicial, volúmenes y calidad; se guardan solas.
 
 | Tecla | Acción |
 |-------|--------|
@@ -73,6 +73,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 16: modo Contrarreloj (1 a 10 vueltas elegidas en el menú) con pantalla de resultado: tiempo y sectores de cada vuelta, mejores en violeta, tiempo total y récord; Repetir o volver al menú. Capturas: `informes/capturas/paso16-modos.png`, `paso16-resultado.png`.
 - ✅ Paso 17: largada detenida en Contrarreloj con semáforo de 5 luces (en el pórtico y en el HUD), tiempo de reacción y detección de salto con +5 s de penalización. Capturas: `informes/capturas/paso17-semaforo.png`, `paso17-resultado-salto.png`.
 - ✅ Paso 18: cámaras extra: T-cam sobre el airbox, cámara de capot y 10 cámaras de TV fijas en la pista que cortan a la más cercana y hacen zoom sobre el auto. Capturas: `informes/capturas/paso18-tcam.png`, `paso18-capot.png`, `paso18-pista-2.png`.
-- ⏳ Paso 19: pianos, zonas de escape y límites de pista con vuelta invalidada.
+- ✅ Paso 19: pianos rojos y blancos en las curvas (vibran y retumban al pisarlos), escapatorias del lado de afuera y límites de pista: con las cuatro ruedas afuera la vuelta queda invalidada. Capturas: `informes/capturas/paso19-curva-arriba.png`, `paso19-invalidada.png`.
+- ⏳ Paso 20: carteles de frenado 150 / 100 / 50 m antes de cada curva.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

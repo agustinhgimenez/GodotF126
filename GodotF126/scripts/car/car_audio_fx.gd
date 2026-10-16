@@ -7,6 +7,8 @@ extends Node
 ## - Viento: ruido grave filtrado; volumen con el cuadrado de la velocidad y más agudo rápido.
 ## - Muros: golpe grave (tono que baja) + crujido de ruido en cada choque, y roce continuo
 ##   mientras el auto se arrastra contra el muro.
+## - Pianos (Paso 19): retumbe grave cuya frecuencia sale de la velocidad y la separación
+##   entre las estrías del piano, más ruido sordo.
 
 @export var volume_db: float = -8.0
 @export var chase_volume_db: float = -3.0      ## se suma en las cámaras exteriores
@@ -27,6 +29,9 @@ extends Node
 @export var impact_min_strength: float = 0.05
 @export var impact_cooldown: float = 0.15      ## s entre golpes, para no repetirlos cada frame
 @export var scrape_volume: float = 0.35
+@export_group("Pianos")
+@export var kerb_volume: float = 0.55
+@export var kerb_ridge_spacing: float = 0.3    ## m entre estrías: frecuencia = velocidad / separación
 
 var _car: CarController
 var _player: AudioStreamPlayer
@@ -49,6 +54,9 @@ var _thump_freq: float = 90.0
 var _crunch_env: float = 0.0
 var _crunch_low: float = 0.0
 var _impact_timer: float = 0.0
+var _kerb: float = 0.0
+var _kerb_phase: float = 0.0
+var _kerb_low: float = 0.0
 var _noise_state: int = 777
 
 
@@ -75,6 +83,8 @@ func configure(data: Dictionary) -> void:
 	impact_min_strength = float(data.get("impact_min_strength", impact_min_strength))
 	impact_cooldown = float(data.get("impact_cooldown", impact_cooldown))
 	scrape_volume = float(data.get("scrape_volume", scrape_volume))
+	kerb_volume = float(data.get("kerb_volume", kerb_volume))
+	kerb_ridge_spacing = maxf(float(data.get("kerb_ridge_spacing", kerb_ridge_spacing)), 0.05)
 	_start()
 
 
@@ -136,6 +146,8 @@ func synthesize(frames: int) -> PackedVector2Array:
 	var target_squeal := get_squeal_amount()
 	var target_wind := speed_ratio * speed_ratio
 	var target_scrape := clampf(speed / 30.0, 0.0, 1.0) if _car.is_touching_wall() else 0.0
+	var target_kerb := _car.kerb_contact
+	var kerb_step := clampf(speed / kerb_ridge_spacing, 15.0, 320.0) / mix_rate
 
 	var squeal_q_inv := 1.0 / squeal_q
 	var vibrato_step := 6.0 / mix_rate
@@ -150,6 +162,7 @@ func synthesize(frames: int) -> PackedVector2Array:
 		var squeal := lerpf(_squeal, target_squeal, k)
 		var wind := lerpf(_wind, target_wind, k)
 		var scrape := lerpf(_scrape, target_scrape, k)
+		var kerb := lerpf(_kerb, target_kerb, k)
 		_noise_state = (_noise_state * 1103515245 + 12345) & 0x7FFFFFFF
 		var noise := float(_noise_state) / 1073741823.5 - 1.0
 		var s := 0.0
@@ -175,6 +188,14 @@ func synthesize(frames: int) -> PackedVector2Array:
 			_scrape_low += scrape_f * _scrape_band
 			s += _scrape_band * scrape * scrape_volume * (0.6 + 0.4 * absf(noise))
 
+		if kerb > 0.001:
+			_kerb_phase += kerb_step
+			if _kerb_phase >= 1.0:
+				_kerb_phase -= 1.0
+			_kerb_low += (noise - _kerb_low) * 0.08
+			var ridge := 1.0 - 2.0 * absf(_kerb_phase - 0.5)   # triangular: golpe por estría
+			s += (ridge * 1.4 - 0.7 + _kerb_low * 1.2) * kerb * kerb_volume
+
 		if _thump_env > 0.0005:
 			_thump_phase += _thump_freq / mix_rate
 			if _thump_phase >= 1.0:
@@ -193,6 +214,7 @@ func synthesize(frames: int) -> PackedVector2Array:
 	_squeal = target_squeal
 	_wind = target_wind
 	_scrape = target_scrape
+	_kerb = target_kerb
 	return buffer
 
 

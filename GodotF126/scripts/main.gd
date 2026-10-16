@@ -39,6 +39,7 @@ var _start_data: Dictionary = {}
 @onready var results_screen: ResultsScreen = $ResultsScreen
 @onready var start_lights: StartLights = $StartLights
 @onready var tv_cameras: TvCameras = $TvCameras
+@onready var track_limits: TrackLimits = $TrackLimits
 
 
 func _ready() -> void:
@@ -55,7 +56,12 @@ func _ready() -> void:
 	var tv_data = track_info.get("tv_cameras", {})
 	if tv_data is Dictionary:
 		tv_cameras.configure(tv_data)
-	tv_cameras.setup(track.centerline, car, track.checkpoint_indices[0] if not track.checkpoint_indices.is_empty() else 0)
+	tv_cameras.setup(track.centerline, track.wall_left, track.wall_right, car,
+		track.checkpoint_indices[0] if not track.checkpoint_indices.is_empty() else 0)
+	var limits_data = track_info.get("limits", {})
+	if limits_data is Dictionary:
+		track_limits.configure(limits_data)
+	track_limits.setup(track, car, lap_timer)
 	car.camera_mode_applied.connect(tv_cameras.set_active)
 
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)

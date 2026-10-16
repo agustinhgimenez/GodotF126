@@ -4,6 +4,9 @@ extends Node3D
 ## NO es el layout oficial FIA: recta larga junto al mar + sector cerrado
 ## de curvas de 90° y una chicana estrecha tipo "castillo".
 ## Coordenadas en metros sobre el plano XZ (Y hacia arriba).
+## Paso 19: en las curvas (radio menor a corner_radius) hay pianos a los dos lados y
+## escapatoria del lado de afuera, con el muro más lejos. Parámetros en data/tracks.json
+## ("layout"). La línea blanca es el límite de pista.
 
 ## checkpoint 0 = meta; 1..SECTOR_COUNT-1 = fin de cada sector.
 signal checkpoint_crossed(checkpoint: int, body: Node3D)
@@ -38,30 +41,54 @@ const GANTRY_HEIGHT := 7.2
 
 const ASPHALT_COLOR := Color(0.16, 0.16, 0.18)
 const LINE_COLOR := Color(0.95, 0.95, 0.95)
+const RUNOFF_COLOR := Color(0.2, 0.21, 0.24)
+const KERB_RED := Color(0.85, 0.08, 0.08)
+const KERB_WHITE := Color(0.95, 0.95, 0.95)
 const BARRIER_RED := Color(0.85, 0.1, 0.1)
 const BARRIER_WHITE := Color(0.92, 0.92, 0.92)
 
 @export var track_name: String = "Azerbaiyán — Bakú (placeholder)"
 @export var track_width: float = 12.0
 @export var edge_line_width: float = 0.35
-@export var wall_gap: float = 0.4
 @export var wall_height: float = 1.2
 @export var wall_thickness: float = 0.6
 @export var resample_step: float = 22.0
 @export var smooth_iterations: int = 4
 @export var barrier_segment_length: float = 6.0
+@export var track_id: String = "baku"
+
+@export_group("Pianos y escapatorias")
+@export var corner_radius: float = 120.0       ## por debajo de este radio es curva
+@export var curvature_window: float = 8.0      ## m a cada lado para medir la curvatura
+@export var kerb_width: float = 1.2
+@export var kerb_height: float = 0.05          ## sólo visual: los pianos no tienen colisión
+@export var kerb_stripe: float = 2.0
+@export var kerb_extend: float = 10.0          ## m de piano antes y después de la curva
+@export var verge: float = 1.6                 ## del borde de pista al muro en las rectas
+@export var runoff_width: float = 9.0          ## escapatoria extra del lado de afuera
+@export var runoff_ramp: float = 25.0          ## m en que el muro se abre y se cierra
 
 var centerline: PackedVector3Array = PackedVector3Array()
 var track_length: float = 0.0
 var checkpoint_indices: PackedInt32Array = PackedInt32Array()
+## Por índice del centerline: 1 si hay pianos, sentido de la curva (+1 izquierda, −1
+## derecha) y distancia del centro a la cara interna del muro de cada lado.
+var kerb_mask: PackedFloat32Array = PackedFloat32Array()
+var turn_sign: PackedFloat32Array = PackedFloat32Array()
+var wall_left: PackedFloat32Array = PackedFloat32Array()
+var wall_right: PackedFloat32Array = PackedFloat32Array()
 
 var _rights: PackedVector3Array = PackedVector3Array()
 
 
 func _ready() -> void:
+	_load_layout()
 	_ensure_centerline()
+	_compute_layout()
 	_build_ground_and_sea()
+	_build_runoff()
 	_build_asphalt()
+	_build_kerbs()
 	_build_walls()
 	_build_start_line()
 	_build_checkpoints()
@@ -87,7 +114,136 @@ func get_grid_transform(distance: float) -> Transform3D:
 	return Transform3D(line.basis, line.origin + line.basis.z * distance + Vector3(0, 0.6, 0))
 
 
+## Distancia del centro a la cara interna del muro en el índice i (side −1 izq., +1 der.).
+func wall_offset(i: int, side: float) -> float:
+	return wall_right[i] if side > 0.0 else wall_left[i]
+
+
+func half_width() -> float:
+	return track_width * 0.5
+
+
+func has_kerb(i: int) -> bool:
+	return kerb_mask[i] > 0.0
+
+
+## Índice del centerline más cercano a `pos` y desplazamiento lateral (+ derecha).
+## Con `hint` >= 0 busca sólo cerca de ese índice (el auto no salta de lugar).
+func locate(pos: Vector3, hint: int = -1) -> Vector2:
+	var n := centerline.size()
+	var flat := Vector3(pos.x, 0.0, pos.z)
+	var best := 0
+	var best_dist := INF
+	if hint >= 0:
+		for k in range(-40, 41):
+			var i := (hint + k + n) % n
+			var d := centerline[i].distance_squared_to(flat)
+			if d < best_dist:
+				best_dist = d
+				best = i
+	# Sin pista o lejos de la zona buscada (el auto fue movido): búsqueda completa.
+	var limit := half_width() + verge + runoff_width + 5.0
+	if best_dist > limit * limit:
+		best_dist = INF
+		for i in n:
+			var d := centerline[i].distance_squared_to(flat)
+			if d < best_dist:
+				best_dist = d
+				best = i
+	return Vector2(best, (flat - centerline[best]).dot(_rights[best]))
+
+
 # --- Trazado -----------------------------------------------------------------
+
+func _load_layout() -> void:
+	for info in DataLoader.load_json(DataLoader.TRACKS_PATH).get("tracks", []):
+		if str(info.get("id", "")) != track_id:
+			continue
+		var data = info.get("layout", {})
+		if not data is Dictionary:
+			return
+		corner_radius = float(data.get("corner_radius", corner_radius))
+		curvature_window = float(data.get("curvature_window", curvature_window))
+		kerb_width = float(data.get("kerb_width", kerb_width))
+		kerb_height = float(data.get("kerb_height", kerb_height))
+		kerb_stripe = float(data.get("kerb_stripe", kerb_stripe))
+		kerb_extend = float(data.get("kerb_extend", kerb_extend))
+		verge = float(data.get("verge", verge))
+		runoff_width = float(data.get("runoff_width", runoff_width))
+		runoff_ramp = float(data.get("runoff_ramp", runoff_ramp))
+
+
+## Curvatura por índice → dónde hay curva, hacia qué lado, y a qué distancia va el muro.
+func _compute_layout() -> void:
+	var n := centerline.size()
+	var spacing := track_length / n
+	var window := maxi(int(curvature_window / spacing), 1)
+	var curvature := PackedFloat32Array()
+	curvature.resize(n)
+	for i in n:
+		var before := _tangent((i - window + n) % n)
+		var after := _tangent((i + window) % n)
+		curvature[i] = before.signed_angle_to(after, Vector3.UP) / (2.0 * window * spacing)
+
+	var threshold := 1.0 / corner_radius
+	var left_turn := PackedFloat32Array()
+	var right_turn := PackedFloat32Array()
+	left_turn.resize(n)
+	right_turn.resize(n)
+	for i in n:
+		left_turn[i] = 1.0 if curvature[i] > threshold else 0.0
+		right_turn[i] = 1.0 if curvature[i] < -threshold else 0.0
+
+	var extend := int(kerb_extend / spacing)
+	var left_kerb := _moving_max(left_turn, extend)
+	var right_kerb := _moving_max(right_turn, extend)
+	kerb_mask = PackedFloat32Array()
+	turn_sign = PackedFloat32Array()
+	kerb_mask.resize(n)
+	turn_sign.resize(n)
+	for i in n:
+		kerb_mask[i] = maxf(left_kerb[i], right_kerb[i])
+		turn_sign[i] = left_kerb[i] - right_kerb[i]
+
+	# Escapatoria: del lado de afuera (curva a la izquierda → afuera es la derecha).
+	var ramp := int(runoff_ramp / spacing)
+	var open_right := _moving_average(_moving_max(left_turn, extend), ramp)
+	var open_left := _moving_average(_moving_max(right_turn, extend), ramp)
+	var base := track_width * 0.5 + verge
+	wall_left = PackedFloat32Array()
+	wall_right = PackedFloat32Array()
+	wall_left.resize(n)
+	wall_right.resize(n)
+	for i in n:
+		wall_left[i] = base + runoff_width * open_left[i]
+		wall_right[i] = base + runoff_width * open_right[i]
+
+
+func _moving_max(values: PackedFloat32Array, radius: int) -> PackedFloat32Array:
+	var n := values.size()
+	var result := PackedFloat32Array()
+	result.resize(n)
+	for i in n:
+		var m := 0.0
+		for k in range(-radius, radius + 1):
+			m = maxf(m, values[(i + k + n) % n])
+		result[i] = m
+	return result
+
+
+func _moving_average(values: PackedFloat32Array, radius: int) -> PackedFloat32Array:
+	var n := values.size()
+	var result := PackedFloat32Array()
+	result.resize(n)
+	var count := 2 * radius + 1
+	var sum := 0.0
+	for k in range(-radius, radius + 1):
+		sum += values[(k + n) % n]
+	for i in n:
+		result[i] = sum / count
+		sum += values[(i + radius + 1) % n] - values[(i - radius + n) % n]
+	return result
+
 
 func _ensure_centerline() -> void:
 	if not centerline.is_empty():
@@ -236,11 +392,63 @@ func _build_asphalt() -> void:
 	add_child(visual)
 
 
+## Franja entre el borde de pista y el muro: angosta en las rectas, ancha afuera de las curvas.
+func _build_runoff() -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var half := track_width * 0.5
+	var n := centerline.size()
+	for i in n:
+		var j := (i + 1) % n
+		for side in [-1.0, 1.0]:
+			var a := _edge(i, side * half, 0.015)
+			var b := _edge(j, side * half, 0.015)
+			var c := _edge(j, side * wall_offset(j, side), 0.015)
+			var d := _edge(i, side * wall_offset(i, side), 0.015)
+			_add_quad(st, a, b, c, d, Vector3.UP, RUNOFF_COLOR)
+	var visual := MeshInstance3D.new()
+	visual.name = "Runoff"
+	visual.mesh = st.commit()
+	visual.material_override = _make_material(Color.WHITE, true)
+	add_child(visual)
+
+
+## Pianos rojos y blancos a los dos lados en las curvas, apenas elevados y sin colisión.
+func _build_kerbs() -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var half := track_width * 0.5
+	var n := centerline.size()
+	var distance := 0.0
+	for i in n:
+		var j := (i + 1) % n
+		if has_kerb(i) and has_kerb(j):
+			var stripe := int(floor(distance / kerb_stripe)) % 2
+			var color := KERB_RED if stripe == 0 else KERB_WHITE
+			for side in [-1.0, 1.0]:
+				var in_a := _edge(i, side * half, 0.02)
+				var in_b := _edge(j, side * half, 0.02)
+				var top_in_a := _edge(i, side * half, kerb_height)
+				var top_in_b := _edge(j, side * half, kerb_height)
+				var top_out_a := _edge(i, side * (half + kerb_width), kerb_height)
+				var top_out_b := _edge(j, side * (half + kerb_width), kerb_height)
+				var out_a := _edge(i, side * (half + kerb_width), 0.015)
+				var out_b := _edge(j, side * (half + kerb_width), 0.015)
+				var outward: Vector3 = _rights[i] * side
+				_add_quad(st, in_a, in_b, top_in_b, top_in_a, -outward, color)
+				_add_quad(st, top_in_a, top_in_b, top_out_b, top_out_a, Vector3.UP, color)
+				_add_quad(st, top_out_a, top_out_b, out_b, out_a, outward, color)
+		distance += centerline[i].distance_to(centerline[j])
+	var visual := MeshInstance3D.new()
+	visual.name = "Kerbs"
+	visual.mesh = st.commit()
+	visual.material_override = _make_material(Color.WHITE, true)
+	add_child(visual)
+
+
 func _build_walls() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var inner_offset := track_width * 0.5 + wall_gap
-	var outer_offset := inner_offset + wall_thickness
 	var n := centerline.size()
 	var distance := 0.0
 	for i in n:
@@ -248,10 +456,10 @@ func _build_walls() -> void:
 		var stripe := int(floor(distance / barrier_segment_length)) % 2
 		var color := BARRIER_RED if stripe == 0 else BARRIER_WHITE
 		for side in [-1.0, 1.0]:
-			var in_a := _edge(i, side * inner_offset, 0.0)
-			var in_b := _edge(j, side * inner_offset, 0.0)
-			var out_a := _edge(i, side * outer_offset, 0.0)
-			var out_b := _edge(j, side * outer_offset, 0.0)
+			var in_a := _edge(i, side * wall_offset(i, side), 0.0)
+			var in_b := _edge(j, side * wall_offset(j, side), 0.0)
+			var out_a := _edge(i, side * (wall_offset(i, side) + wall_thickness), 0.0)
+			var out_b := _edge(j, side * (wall_offset(j, side) + wall_thickness), 0.0)
 			var up := Vector3(0, wall_height, 0)
 			var outward: Vector3 = _rights[i] * side
 			_add_quad(st, in_a, in_b, in_b + up, in_a + up, -outward, color)
@@ -301,7 +509,8 @@ func _build_start_line() -> void:
 			line.add_child(square)
 
 	# Pórtico de largada.
-	var gantry_offset := track_width * 0.5 + wall_gap + wall_thickness + 1.0
+	var start_i := _nearest_index(START_LINE_POINT)
+	var gantry_offset := maxf(wall_left[start_i], wall_right[start_i]) + wall_thickness + 1.0
 	var gantry_color := Color(0.1, 0.12, 0.2)
 	for side in [-1.0, 1.0]:
 		_add_box(line, start.origin + right * gantry_offset * side + Vector3(0, 3.5, 0),
@@ -328,9 +537,10 @@ func _build_checkpoints() -> void:
 		area.monitorable = false
 		var shape := CollisionShape3D.new()
 		var box := BoxShape3D.new()
-		box.size = Vector3(track_width + wall_gap * 2.0, 4.0, 1.5)
+		# Cubre de muro a muro, incluida la escapatoria.
+		box.size = Vector3(wall_left[i] + wall_right[i], 4.0, 1.5)
 		shape.shape = box
-		shape.position = Vector3(0, 2, 0)
+		shape.position = Vector3((wall_right[i] - wall_left[i]) * 0.5, 2, 0)
 		area.add_child(shape)
 		area.transform = Transform3D(Basis.looking_at(_tangent(i), Vector3.UP), centerline[i])
 		area.body_entered.connect(_on_checkpoint_body_entered.bind(k))
@@ -341,9 +551,8 @@ func _build_checkpoints() -> void:
 
 func _add_sector_marker(parent: Node3D, i: int, text: String) -> void:
 	var orientation := Basis.looking_at(_tangent(i), Vector3.UP)
-	var offset := track_width * 0.5 + wall_gap + wall_thickness + 0.6
 	for side in [-1.0, 1.0]:
-		var base := _edge(i, side * offset, 0.0)
+		var base := _edge(i, side * (wall_offset(i, side) + wall_thickness + 0.6), 0.0)
 		_add_box(parent, base + Vector3(0, 1.5, 0), Vector3(0.3, 3.0, 0.3), orientation, Color(1, 0.8, 0.1))
 		var label := Label3D.new()
 		label.text = text

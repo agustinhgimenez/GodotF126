@@ -13,9 +13,26 @@
       "placeholder": true,
       "notes": "Trazado geométrico inspirado en Bakú (recta larga junto al mar + sector cerrado tipo castillo). NO es el layout oficial FIA.",
       "status": "jugable",
+      "layout": {
+        "corner_radius": 120.0,
+        "curvature_window": 8.0,
+        "kerb_width": 1.2,
+        "kerb_height": 0.05,
+        "kerb_stripe": 2.0,
+        "kerb_extend": 10.0,
+        "verge": 1.6,
+        "runoff_width": 9.0,
+        "runoff_ramp": 25.0
+      },
+      "limits": {
+        "car_half_width": 1.0,
+        "wheel_track": 0.85,
+        "kerb_shake": 0.18,
+        "kerb_min_speed": 5.0
+      },
       "tv_cameras": {
         "count": 10,
-        "side_offset": 11.0,
+        "wall_clearance": 4.0,
         "height": 7.0,
         "frame_width": 18.0,
         "fov_min": 10.0,
