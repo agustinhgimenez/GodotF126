@@ -76,6 +76,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 19: pianos rojos y blancos en las curvas (vibran y retumban al pisarlos), escapatorias del lado de afuera y límites de pista: con las cuatro ruedas afuera la vuelta queda invalidada. Capturas: `informes/capturas/paso19-curva-arriba.png`, `paso19-invalidada.png`.
 - ✅ Paso 20: carteles de frenado 150 / 100 / 50 m antes de cada curva, del lado de afuera y detrás del muro (sólo donde la recta previa alcanza). Capturas: `informes/capturas/paso20-carteles.png`, `paso20-cockpit.png`.
 - ✅ Paso 21: Bakú mejorado (aproximado, no es el layout oficial FIA): 2,6 km con recta junto al mar, ángulos rectos de la ciudad, subida de 12 m al sector del castillo de 7,6 m de ancho y bajada. Trazado en `data/tracks.json`. Capturas: `informes/capturas/paso21-trazado.png`, `paso21-subida.png`, `paso21-castillo-cockpit.png`.
-- ⏳ Paso 22: ciudad — tribunas, edificios, barreras con publicidad, LOD para rendimiento.
+- ✅ Paso 22: ciudad generada desde el trazado — 389 edificios, 3 tribunas con techo y 267 paneles de publicidad genérica en los muros, con LOD (ventanas y textos se dejan de dibujar de lejos). Capturas: `informes/capturas/paso22-tribunas.png`, `paso22-publicidad.png`, `paso22-arriba.png`.
+- ⏳ Paso 23: iluminación de atardecer, sombras, reflejos en el mar.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

@@ -57,6 +57,54 @@
         "runoff_width": 9.0,
         "runoff_ramp": 25.0
       },
+      "city": {
+        "enabled": true,
+        "buildings": {
+          "spacing": 30.0,
+          "rows": 2,
+          "setback": 6.0,
+          "row_gap": 4.0,
+          "width": [14, 26],
+          "depth": [12, 22],
+          "height": [10, 42],
+          "min_clearance": 3.0,
+          "floor_height": 3.5,
+          "seed": 2026,
+          "sea_edge": 30.0,
+          "fill_spacing": 45.0,
+          "fill_margin": 120.0,
+          "fill_setback": 14.0,
+          "palette": ["#d1bd99", "#c2ad8c", "#e0d6c2", "#a69a8c", "#b8a07a", "#7f93a8"],
+          "window_color": "#2e333f"
+        },
+        "lod": {
+          "chunk_size": 160.0,
+          "detail_distance": 320.0,
+          "far_distance": 1600.0,
+          "ad_label_distance": 220.0
+        },
+        "grandstands": {
+          "gap": 3.0,
+          "rows": 10,
+          "row_depth": 0.9,
+          "row_rise": 0.5,
+          "roof_height": 3.5,
+          "colors": ["#1f4da6", "#e6e6eb"],
+          "list": [
+            {"name": "Principal", "from": -220, "to": 30, "side": 1},
+            {"name": "Ciudad", "from": 45, "to": 165, "side": -1},
+            {"name": "Curva 1", "from": 185, "to": 255, "side": 1}
+          ]
+        },
+        "ads": {
+          "length": 10.0,
+          "gap": 2.0,
+          "bottom": 0.15,
+          "height": 0.9,
+          "texts": ["BAKU CITY CIRCUIT", "F126 SIMULATOR", "CASPIAN SEA", "GODOT 4.7", "MATERIA 350", "OLD CITY", "AZERBAIJAN GP"],
+          "colors": ["#14286e", "#b31a1a", "#0f6b3a", "#1a1a1f", "#c75a0a"]
+        }
+      },
       "brake_boards": {
         "distances": [150, 100, 50],
         "min_gap": 8.0,

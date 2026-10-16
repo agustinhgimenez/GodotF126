@@ -57,7 +57,8 @@ func _ready() -> void:
 	if tv_data is Dictionary:
 		tv_cameras.configure(tv_data)
 	tv_cameras.setup(track.centerline, track.wall_left, track.wall_right, car,
-		track.checkpoint_indices[0] if not track.checkpoint_indices.is_empty() else 0)
+		track.checkpoint_indices[0] if not track.checkpoint_indices.is_empty() else 0,
+		track.is_grandstand)
 	var limits_data = track_info.get("limits", {})
 	if limits_data is Dictionary:
 		track_limits.configure(limits_data)

@@ -60,6 +60,7 @@ const STONE_COLOR := Color(0.72, 0.62, 0.46)
 @export var track_id: String = "baku"
 @export var start_point: Vector3 = Vector3(-150, 0, 0)
 @export var spawn_point: Vector3 = Vector3(-165, 0, 0)
+@export var city_enabled: bool = true            ## Paso 22: edificios, tribunas y publicidad
 
 @export_group("Pianos y escapatorias")
 @export var corner_radius: float = 120.0       ## por debajo de este radio es curva
@@ -101,6 +102,9 @@ var brake_boards: Array[Dictionary] = []
 var widths: PackedFloat32Array = PackedFloat32Array()
 var runoff_scale: PackedFloat32Array = PackedFloat32Array()
 var max_width: float = 0.0
+## Paso 22: ciudad generada (nodo "City"); null si city_enabled es false.
+var city: CityBuilder
+var city_data: Dictionary = {}
 
 ## Puntos de control: [x, z, ancho, altura, escapatoria, radio de la esquina].
 var _control: Array[PackedFloat32Array] = []
@@ -191,6 +195,43 @@ func elevation(i: int) -> float:
 	return centerline[i].y
 
 
+## Punto a `offset` m del centro (+ derecha) y `height` m sobre el asfalto en el índice i.
+func edge_point(i: int, offset: float, height: float) -> Vector3:
+	return _edge(i, offset, height)
+
+
+func flat_tangent(i: int) -> Vector3:
+	return _flat_tangent(i)
+
+
+## Derecha en planta (sentido de carrera) en el índice i.
+func right_vector(i: int) -> Vector3:
+	return _rights[i]
+
+
+func start_index() -> int:
+	return _nearest_index(start_point)
+
+
+## Índice a `distance` m de `from` siguiendo el trazado (negativo = hacia atrás).
+func index_at_distance(from: int, distance: float) -> int:
+	if distance >= 0.0:
+		return _index_after_distance(from, distance)
+	var n := centerline.size()
+	var travelled := 0.0
+	var i := from
+	while travelled < -distance:
+		var prev := (i - 1 + n) % n
+		travelled += centerline[i].distance_to(centerline[prev])
+		i = prev
+	return i
+
+
+## Hay tribuna detrás del muro de ese lado (las torres de TV la esquivan).
+func is_grandstand(i: int, side: float) -> bool:
+	return city != null and city.is_grandstand(i, side)
+
+
 # --- Trazado -----------------------------------------------------------------
 
 func _load_layout() -> void:
@@ -201,6 +242,10 @@ func _load_layout() -> void:
 		var line = info.get("centerline", {})
 		if line is Dictionary:
 			_load_centerline(line)
+		var city_info = info.get("city", {})
+		if city_info is Dictionary:
+			city_data = city_info
+			city_enabled = city_enabled and bool(city_info.get("enabled", true))
 		var boards = info.get("brake_boards", {})
 		if boards is Dictionary:
 			var distances = boards.get("distances", [])
@@ -843,22 +888,19 @@ func _build_scenery() -> void:
 	scenery.name = "Scenery"
 	add_child(scenery)
 
-	# Bloques de ciudad en el interior del circuito (el Paso 22 trae la ciudad de verdad).
-	var heights: Array[float] = [22.0, 35.0, 18.0, 42.0, 26.0]
-	var xs: Array[float] = [-380.0, -280.0, -180.0, -80.0, 20.0]
-	for k in xs.size():
-		var h := heights[k]
-		_add_box(scenery, Vector3(xs[k], h * 0.5, -210), Vector3(50, h, 160),
-			Basis.IDENTITY, Color(0.78, 0.72, 0.6))
+	# Lo que ocupa lugar para la ciudad generada: (x, z, radio).
+	var obstacles: Array[Vector3] = []
 
 	# Ciudad vieja (Icherisheher): murallas dentro de la vuelta del castillo.
 	_add_box(scenery, Vector3(-180, 10, -455), Vector3(140, 20, 50),
 		Basis.IDENTITY, STONE_COLOR)
+	obstacles.append(Vector3(-180, -455, 75))
 
 	# Placeholder de las Flame Towers, en la colina al oeste.
 	var tower_color := Color(0.25, 0.4, 0.65)
 	var tower_positions := [Vector3(-620, 0, -450), Vector3(-570, 0, -480), Vector3(-520, 0, -450)]
 	for p in tower_positions:
+		obstacles.append(Vector3(p.x, p.z, 20))
 		var tower := MeshInstance3D.new()
 		var mesh := CylinderMesh.new()
 		mesh.top_radius = 4.0
@@ -868,6 +910,13 @@ func _build_scenery() -> void:
 		tower.position = p + Vector3(0, 75, 0)
 		tower.material_override = _make_material(tower_color)
 		scenery.add_child(tower)
+
+	if city_enabled:
+		city = CityBuilder.new()
+		city.name = "City"
+		add_child(city)
+		city.configure(city_data)
+		city.build(self, obstacles)
 
 
 # --- Utilidades --------------------------------------------------------------

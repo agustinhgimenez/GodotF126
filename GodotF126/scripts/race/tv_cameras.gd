@@ -53,8 +53,9 @@ func configure(data: Dictionary) -> void:
 
 ## Ubica las torres sobre el trazado de la pista (centerline cerrada) y las arma.
 ## wall_left / wall_right: distancia del centro al muro en cada índice.
+## blocked(i, lado) -> bool: ese lado está ocupado (p. ej. una tribuna); la torre va al otro.
 func setup(centerline: PackedVector3Array, wall_left: PackedFloat32Array, wall_right: PackedFloat32Array,
-		car: Node3D, start_index: int = 0) -> void:
+		car: Node3D, start_index: int = 0, blocked: Callable = Callable()) -> void:
 	_car = car
 	positions = PackedVector3Array()
 	var n := centerline.size()
@@ -70,6 +71,8 @@ func setup(centerline: PackedVector3Array, wall_left: PackedFloat32Array, wall_r
 		var after := (centerline[(i + span) % n] - centerline[i]).normalized()
 		var turn := before.cross(after).y   # > 0 dobla a la izquierda
 		var side := 1.0 if turn >= 0.0 else -1.0
+		if blocked.is_valid() and blocked.call(i, side):
+			side = -side
 		var wall := wall_right[i] if side > 0.0 else wall_left[i]
 		positions.append(centerline[i] + right * side * (wall + wall_clearance) + Vector3(0, height, 0))
 	_build_towers()

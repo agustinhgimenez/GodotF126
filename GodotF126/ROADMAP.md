@@ -53,8 +53,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 19 | Pianos y zonas de escape; **límites de pista** con vuelta invalidada al salirse | ✅ |
 | 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | ✅ |
 | 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | ✅ |
-| 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | ⏳ Siguiente |
-| 23 | Iluminación de atardecer, sombras, reflejos en el mar | |
+| 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | ✅ |
+| 23 | Iluminación de atardecer, sombras, reflejos en el mar | ⏳ Siguiente |
 | 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | |
 
 ## Fase D — Física de simulador (H2)
@@ -342,3 +342,20 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Récord nuevo**: los tiempos de la pista vieja no son comparables, así que el récord se guarda con la clave `records_key` = `"baku_v2"` (el viejo queda en `"baku"` sin usarse).
 - **Verificación**: prueba que mide el trazado (1.832 puntos, ancho 7,6–12 m, altura 0–12 m), comprueba que no hay muros sobre otra parte de la pista ni muros interiores doblados (radio mínimo 12 m), que los edificios quedan a más de 10 m de los muros y que un rayo en el punto más alto pega en el asfalto a 12 m. Después un **piloto automático** (sigue el centerline y frena según la curva que viene) da 2 vueltas completas y válidas: 1:42.2 y 1:41.1, 195 km/h de máxima, 29 km/h en el castillo, el auto sube a 12 m siempre apoyado en el piso, sin salidas de pista ni reinicios. La prueba del Paso 20 sobre el trazado nuevo: 20 carteles en 9 curvas, todos bien ubicados. Capturas: `informes/capturas/paso21-trazado.png` (cenital), `paso21-subida.png`, `paso21-castillo.png`, `paso21-castillo-cockpit.png`.
 - **Cómo probar**: F5 → Jugar → elegir piloto → dar una vuelta: después de los ángulos rectos, la subida y el castillo angosto entre muros; con la cámara "De pista" se ve el murallón de piedra.
+
+### Paso 22 — Ciudad
+- **`CityBuilder`** (`scripts/track/city_builder.gd`, nodo `City` dentro de la pista): arma la ciudad desde el `centerline` con datos de `data/tracks.json` → `"city"` (se apaga con `"enabled": false` o `BakuTrack.city_enabled`).
+- **Edificios**: dos filas detrás de los muros cada ~30 m de los dos lados, orientadas con la pista, más una **grilla de manzanas** cada 45 m que rellena el interior y alrededor del circuito. Tamaño, alto (10–42 m) y color (piedra arenisca y algo de vidrio) al azar con semilla fija, así la ciudad es siempre la misma. Se descarta el edificio que queda a menos de 3 m del muro (14 m en la grilla) de cualquier parte de la pista, sobre el mar, sobre una tribuna, sobre la ciudad vieja, las Flame Towers u otro edificio; para medir rápido hay un índice espacial del `centerline` en celdas de 40 m. Cerca del castillo arrancan en el suelo y suman la altura de la pista. En Bakú quedan **389 edificios**. Reemplazan a los 5 bloques del Paso 21.
+- **Tribunas** (3, en `"grandstands"` con tramo en metros desde la línea y lado): principal del lado del mar antes de la largada, otra del lado de la ciudad después y otra afuera de la curva 1. 10 escalones azules y blancos que siguen la forma del muro (y la escapatoria), pared trasera hasta el suelo, techo en voladizo y columnas. Las **torres de TV** las esquivan: `TvCameras.setup()` recibe `BakuTrack.is_grandstand` y si el lado está ocupado pone la torre del otro lado.
+- **Publicidad**: **267 paneles** de 10 m en la cara interna de los muros, sólo donde el muro corre paralelo a la pista (sin piano ni escapatoria), con colores y textos genéricos (`"BAKU CITY CIRCUIT"`, `"F126 SIMULATOR"`, `"GODOT 4.7"`…; sin marcas reales). Un solo mesh para todos los paneles y un `Label3D` por panel.
+- **LOD / rendimiento**: los edificios van en `MultiMeshInstance3D` agrupados en zonas de 160 m (40 zonas: una llamada de dibujo por zona en vez de una por edificio). Las cajas se ven hasta 1.600 m; las franjas de ventanas y los tanques de las terrazas sólo hasta 320 m, y los textos de publicidad hasta 220 m (`visibility_range_end`). Medido con ventana, sin vsync, 120 cuadros por vista:
+
+| Vista | Sin ciudad | Ciudad sin LOD | Ciudad con LOD |
+|---|---|---|---|
+| Recta principal | 9,7 ms · 175 llamadas | 10,1 ms · 295 | 11,5 ms · 250 |
+| Castillo | 8,5 ms · 241 | 9,9 ms · 308 | 10,6 ms · 304 |
+| Cenital (todo el circuito) | 8,9 ms · 197 | 13,0 ms · 546 | 9,4 ms · 239 |
+
+  A ras de pista casi todo queda dentro de la distancia de detalle, así que la ciudad cuesta 1–2 ms y el LOD no cambia mucho (las diferencias de ±1 ms son ruido de la medición); en las vistas largas el LOD corta las llamadas de dibujo a menos de la mitad. La escena carga en ~0,75 s con la ciudad (0,34 s sin).
+- **Verificación**: prueba que cuenta edificios, zonas, tribunas y paneles; mide las 4 esquinas y los bordes de cada edificio con `locate()` (ninguno toca la pista; el más cercano queda a 3,7 m del muro); comprueba que ninguna torre de TV queda en una tribuna ni dentro de un edificio y ningún cartel de frenado dentro de un edificio; mide el rendimiento de la tabla. Se volvieron a correr la vuelta con piloto automático del Paso 21 (mismos tiempos, sin salidas) y la prueba de carteles del Paso 20 (20 carteles bien ubicados). Capturas: `informes/capturas/paso22-tribunas.png`, `paso22-publicidad.png`, `paso22-ciudad.png`, `paso22-arriba.png`.
+- **Cómo probar**: F5 → Jugar → elegir piloto → en la recta, la tribuna del lado del mar y la publicidad en los muros; la ciudad alrededor de todo el circuito.
