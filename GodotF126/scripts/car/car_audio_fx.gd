@@ -3,7 +3,8 @@ extends Node
 ## Sonidos del auto que no son el motor (Paso 10), sintetizados por código con un
 ## AudioStreamGenerator, igual que EngineAudio.
 ## - Neumáticos: chirrido = ruido por un filtro pasabanda angosto (casi un tono) con un
-##   poco de vibrato; crece con el ángulo de derrape y con el freno de mano.
+##   poco de vibrato; crece con el ángulo de derrape, con las ruedas bloqueadas o
+##   patinando (Paso 26) y con el freno de mano.
 ## - Viento: ruido grave filtrado; volumen con el cuadrado de la velocidad y más agudo rápido.
 ## - Muros: golpe grave (tono que baja) + crujido de ruido en cada choque, y roce continuo
 ##   mientras el auto se arrastra contra el muro.
@@ -19,6 +20,8 @@ extends Node
 @export var squeal_start_deg: float = 3.0      ## derrape donde empieza a chirriar
 @export var squeal_full_deg: float = 12.0      ## derrape con chirrido a pleno
 @export var squeal_handbrake: float = 0.8      ## chirrido extra con freno de mano, a velocidad
+@export var squeal_start_slip: float = 0.15    ## deslizamiento longitudinal (κ) donde empieza
+@export var squeal_full_slip: float = 0.5      ## κ con chirrido a pleno (rueda bloqueada o patinando)
 @export var squeal_base_hz: float = 950.0
 @export var squeal_range_hz: float = 450.0
 @export var squeal_q: float = 14.0
@@ -75,6 +78,8 @@ func configure(data: Dictionary) -> void:
 	squeal_start_deg = float(data.get("squeal_start_deg", squeal_start_deg))
 	squeal_full_deg = maxf(float(data.get("squeal_full_deg", squeal_full_deg)), squeal_start_deg + 0.1)
 	squeal_handbrake = float(data.get("squeal_handbrake", squeal_handbrake))
+	squeal_start_slip = float(data.get("squeal_start_slip", squeal_start_slip))
+	squeal_full_slip = maxf(float(data.get("squeal_full_slip", squeal_full_slip)), squeal_start_slip + 0.01)
 	squeal_base_hz = float(data.get("squeal_base_hz", squeal_base_hz))
 	squeal_range_hz = float(data.get("squeal_range_hz", squeal_range_hz))
 	squeal_q = maxf(float(data.get("squeal_q", squeal_q)), 0.5)
@@ -130,7 +135,8 @@ func _process(delta: float) -> void:
 func get_squeal_amount() -> float:
 	var speed := _car.get_speed_kmh() / 3.6
 	var slip := inverse_lerp(squeal_start_deg, squeal_full_deg, _car.get_slip_angle_deg())
-	var amount := clampf(slip, 0.0, 1.0) * clampf(speed / 8.0, 0.0, 1.0)
+	var wheel_slip := inverse_lerp(squeal_start_slip, squeal_full_slip, _car.get_wheel_slip())
+	var amount := clampf(maxf(slip, wheel_slip), 0.0, 1.0) * clampf(speed / 8.0, 0.0, 1.0)
 	if _car.is_handbrake_on():
 		amount = maxf(amount, squeal_handbrake * clampf(speed / 15.0, 0.0, 1.0))
 	return amount

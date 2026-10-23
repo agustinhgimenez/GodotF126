@@ -9,8 +9,17 @@
     "rolling_resistance": 0.25,
     "reverse_acceleration": 8.0,
     "suspension": { "front_axle_z": -1.8, "rear_axle_z": 1.6, "half_track": 0.85, "travel": 0.12, "stiffness": 70000, "damping": 3800 },
-    "tyres": { "mu": 2.3, "rear_grip_factor": 1.08, "slip_peak_deg": 6, "slip_floor": 5, "handbrake_lateral_factor": 0.4 },
+    "tyres": {
+      "mu": 2.3,
+      "rear_grip_factor": 1.08,
+      "load_sensitivity": 0.1,
+      "wheel_inertia": 1.2,
+      "slip_floor": 5,
+      "lateral": { "B": 15, "C": 1.45, "E": -0.5 },
+      "longitudinal": { "B": 15.5, "C": 1.5, "E": -0.3 }
+    },
     "brakes": { "force": 30000, "front_share": 0.58 },
+    "limiters": { "brake": true, "traction": true },
     "steering": { "max_deg": 22, "min_deg": 3 }
   },
   "engine": {
@@ -86,6 +95,8 @@
     "squeal_start_deg": 3,
     "squeal_full_deg": 12,
     "squeal_handbrake": 0.8,
+    "squeal_start_slip": 0.15,
+    "squeal_full_slip": 0.5,
     "squeal_base_hz": 950,
     "squeal_range_hz": 450,
     "squeal_q": 14,

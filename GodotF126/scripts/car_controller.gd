@@ -2,8 +2,10 @@ class_name CarController
 extends RigidBody3D
 ## Monoplaza con modelo de 4 ruedas (Paso 25): cuerpo rígido con masa, centro de masa e
 ## inercia; cada rueda (CarWheel) es un rayo con resorte y amortiguador, y su neumático
-## empuja en el punto de contacto. Motor y caja son componentes (Pasos 3 y 4): el par llega a
-## las ruedas traseras según la marcha (adelante en 1–8, atrás en R, nada en N).
+## (TyreModel, Pacejka, Paso 26) empuja en el punto de contacto según la deriva y el
+## deslizamiento. Motor y caja son componentes (Pasos 3 y 4): el par llega a las ruedas
+## traseras según la marcha (adelante en 1–8, atrás en R, nada en N) y las RPM salen del
+## giro de esas ruedas.
 ## El auto avanza sobre su eje -Z. En caja automática S con el auto quieto pone R.
 
 signal was_reset
@@ -27,14 +29,18 @@ const CAMERA_MODES := [
 	{"name": "Cámara de capot", "position": Vector3(0, 0.86, -1.95), "pitch": -4.0, "fov": 75.0, "view": "onboard", "shake": 0.8},
 	{"name": "Cámaras de pista", "view": "external"},
 ]
+## Par del freno de mano en las traseras: × lo que puede agarrar la rueda (siempre bloquea).
+const MAX_HANDBRAKE_FACTOR := 3.0
+## Sub-pasos de los neumáticos por cuadro de física: la curva de Pacejka es rígida y a 60 Hz
+## el auto oscilaría a baja velocidad.
+const TYRE_SUBSTEPS := 8
 ## Nodo de la rueda, lado (−1 izq., +1 der.), delantera.
 const WHEEL_NODES := [["WheelFL", -1.0, true], ["WheelFR", 1.0, true], ["WheelRL", -1.0, false], ["WheelRR", 1.0, false]]
 ## Bloque "chassis" de data/car.json: grupo → {clave del JSON: propiedad}.
 const CHASSIS_KEYS := {
 	"suspension": {"front_axle_z": "front_axle_z", "rear_axle_z": "rear_axle_z", "half_track": "half_track",
 		"travel": "suspension_travel", "stiffness": "spring_stiffness", "damping": "damper"},
-	"tyres": {"mu": "tyre_mu", "rear_grip_factor": "rear_grip_factor", "slip_peak_deg": "slip_peak_deg",
-		"slip_floor": "slip_floor", "handbrake_lateral_factor": "handbrake_lateral_factor"},
+	"tyres": {"mu": "tyre_mu", "rear_grip_factor": "rear_grip_factor"},
 	"brakes": {"force": "brake_force", "front_share": "brake_front_share"},
 	"steering": {"max_deg": "max_steer_deg", "min_deg": "min_steer_deg"},
 }
@@ -66,11 +72,12 @@ const CHASSIS_KEYS := {
 @export_group("Neumáticos y frenos")
 @export var tyre_mu: float = 2.3               ## incluye una carga aerodinámica promedio hasta el Paso 28
 @export var rear_grip_factor: float = 1.08
-@export var slip_peak_deg: float = 6.0
-@export var slip_floor: float = 5.0            ## m/s mínimos para medir la deriva (estable a baja velocidad)
-@export var handbrake_lateral_factor: float = 0.4
-@export var brake_force: float = 30000.0       ## N totales con el freno a fondo
+@export var brake_force: float = 30000.0       ## N totales con el freno a fondo (en el piso, sin bloquear)
 @export var brake_front_share: float = 0.58
+## Provisorios hasta el ABS (Paso 30) y el control de tracción (Paso 31): no dejan que las
+## ruedas pasen del deslizamiento de pico al frenar o al acelerar.
+@export var brake_limiter: bool = true
+@export var traction_limiter: bool = true
 
 @export_group("Cámara")
 @export var camera_follow: float = 6.0
@@ -92,6 +99,7 @@ var controls_enabled: bool = true
 var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
 var wheels: Array[CarWheel] = []
+var tyre := TyreModel.new()
 
 var camera_mode: int = 0
 
@@ -176,6 +184,13 @@ func _configure_chassis(data: Dictionary) -> void:
 		for key in keys:
 			if values.has(key):
 				set(keys[key], float(values[key]))
+	var tyre_data = data.get("tyres", {})
+	if tyre_data is Dictionary:
+		tyre.configure(tyre_data)
+	var limiters = data.get("limiters", {})
+	if limiters is Dictionary:
+		brake_limiter = bool(limiters.get("brake", brake_limiter))
+		traction_limiter = bool(limiters.get("traction", traction_limiter))
 
 
 func _configure_shake(data: Dictionary) -> void:
@@ -358,50 +373,76 @@ func _update_steering(steer_input: float, delta: float) -> void:
 	_steer = lerpf(_steer, steer_input, clampf(steer_response * delta, 0.0, 1.0))
 	var speed := absf(forward_speed)
 	var wheelbase := rear_axle_z - front_axle_z
-	var limit := atan(wheelbase * tyre_mu * _gravity() / maxf(speed * speed, 0.01)) + deg_to_rad(slip_peak_deg)
+	var limit := atan(wheelbase * tyre_mu * _gravity() / maxf(speed * speed, 0.01)) + tyre.slip_angle_peak
 	limit = clampf(limit * steer_limit, deg_to_rad(min_steer_deg), deg_to_rad(max_steer_deg))
 	for wheel in wheels:
 		wheel.steer_angle = _steer * limit if wheel.front else 0.0
 
 
-## Suspensión y neumático de cada rueda: tracción atrás, frenos repartidos entre los ejes,
-## rodadura y freno motor; con freno de mano las traseras se bloquean y agarran menos de costado.
+## Suspensión y neumático de cada rueda. Pares sobre cada rueda: el motor en las traseras
+## (mitad cada una), los frenos repartidos entre los ejes, rodadura y freno motor; con freno
+## de mano las traseras se bloquean (y al patinar casi no agarran de costado).
+## Los neumáticos se calculan en TYRE_SUBSTEPS sub-pasos: en cada uno se predice cómo cambian
+## la velocidad y el giro del auto con esas fuerzas, y al cuerpo se le aplica el promedio.
 func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: float) -> void:
 	var space := get_world_3d().direct_space_state
 	var center := global_transform * center_of_mass
 	var corner_mass := mass * 0.25
-	var slip_peak := deg_to_rad(slip_peak_deg)
-	var drive := _drive_force(throttle)
+	var drive_torque := _drive_force(throttle) * wheel_radius * 0.5
 	var engine_brake := 0.0
 	var direction := float(gearbox.get_direction())
 	if throttle == 0.0 and direction != 0.0 and forward_speed * direction > 0.0:
-		engine_brake = engine.get_engine_brake_accel() * mass
+		engine_brake = engine.get_engine_brake_accel() * mass * wheel_radius * 0.5
+	var grounded: Array[CarWheel] = []
+	var torques: Array[Vector3] = []
 	for wheel in wheels:
 		wheel.update_suspension(self, space, suspension_travel, wheel_radius, spring_stiffness, damper, delta)
-		if not wheel.in_contact:
-			continue
-		var offset := wheel.contact_point - global_position
-		apply_force(wheel.up * wheel.wheel_load, offset)
-		var point_velocity := linear_velocity + angular_velocity.cross(wheel.contact_point - center)
-		wheel.measure(global_transform.basis, point_velocity, slip_floor)
 		var mu := tyre_mu * (1.0 if wheel.front else rear_grip_factor)
-		var lateral_mu := mu
 		var share := brake_front_share if wheel.front else 1.0 - brake_front_share
-		var resistance := brake_force * brake * share * 0.5 + rolling_resistance * corner_mass
-		var push := 0.0
+		var brake_torque := (brake_force * brake * share * 0.5 + rolling_resistance * corner_mass) * wheel_radius
+		var torque := 0.0
+		var locked := false
 		if not wheel.front:
-			push = drive * 0.5
-			resistance += engine_brake * 0.5
+			torque = drive_torque
+			brake_torque += engine_brake
 			if handbrake:
-				resistance = mu * wheel.wheel_load
-				lateral_mu *= handbrake_lateral_factor
-		var request := push + _oppose(wheel.long_speed, resistance, corner_mass, delta)
-		apply_force(wheel.tyre_force(request, mu, lateral_mu, slip_peak), offset)
+				brake_torque += mu * wheel.static_load * MAX_HANDBRAKE_FACTOR * wheel_radius
+				locked = true
+		if not wheel.in_contact:
+			wheel.update_free_spin(tyre.wheel_inertia, torque, brake_torque, delta)
+			continue
+		apply_force(wheel.up * wheel.wheel_load, wheel.contact_point - global_position)
+		grounded.append(wheel)
+		# (μ, par del motor, par de frenado); el freno de mano no pasa por el limitador.
+		torques.append(Vector3(mu, torque, brake_torque if not locked else -brake_torque))
+	if grounded.is_empty():
+		return
 
-
-## Fuerza contraria a la velocidad, sin pasarse: a baja velocidad frena justo hasta 0.
-static func _oppose(speed: float, amount: float, corner_mass: float, delta: float) -> float:
-	return -signf(speed) * minf(amount, absf(speed) * corner_mass / delta)
+	var basis_now := global_transform.basis
+	var inverse_inertia := PhysicsServer3D.body_get_direct_state(get_rid()).inverse_inertia_tensor
+	var velocity := linear_velocity
+	var spin := angular_velocity
+	var h := delta / TYRE_SUBSTEPS
+	var total_force := Vector3.ZERO
+	var total_torque := Vector3.ZERO
+	for step in TYRE_SUBSTEPS:
+		var step_force := Vector3.ZERO
+		var step_torque := Vector3.ZERO
+		for i in grounded.size():
+			var wheel := grounded[i]
+			var arm := wheel.contact_point - center
+			wheel.measure(basis_now, velocity + spin.cross(arm), tyre.slip_floor)
+			var t := torques[i]
+			var force := wheel.update_tyre(tyre, t.x, t.y, absf(t.z), wheel_radius,
+				traction_limiter, brake_limiter and t.z >= 0.0, h)
+			step_force += force
+			step_torque += arm.cross(force)
+		velocity += step_force / mass * h
+		spin += inverse_inertia * step_torque * h
+		total_force += step_force
+		total_torque += step_torque
+	apply_central_force(total_force / TYRE_SUBSTEPS)
+	apply_torque(total_torque / TYRE_SUBSTEPS)
 
 
 ## N de empuje entre las dos ruedas traseras (negativo en R).
@@ -424,7 +465,8 @@ func _update_wheel_meshes() -> void:
 		if wheel.mesh == null:
 			continue
 		var hub := wheel.mount - Vector3(0, minf(wheel.length, suspension_travel * 2.0), 0)
-		wheel.mesh.transform = Transform3D(Basis(Vector3.UP, wheel.steer_angle) * wheel.mesh_basis, hub)
+		var turn := Basis(Vector3.UP, wheel.steer_angle) * Basis(Vector3.RIGHT, -wheel.spin_angle)
+		wheel.mesh.transform = Transform3D(turn * wheel.mesh_basis, hub)
 
 
 func _update_camera(delta: float) -> void:
@@ -469,9 +511,16 @@ func _snap_camera() -> void:
 	_camera_pivot.global_transform = Transform3D(pivot_basis, global_position)
 
 
-## RPM que impone la velocidad de las ruedas a través de la marcha actual.
+## RPM que impone el giro de las ruedas traseras a través de la marcha actual (si patinan,
+## suben las RPM).
 func _wheel_rpm() -> float:
-	var wheel_rad_per_s := absf(forward_speed) / wheel_radius
+	var spin := 0.0
+	var count := 0
+	for wheel in wheels:
+		if not wheel.front:
+			spin += absf(wheel.spin)
+			count += 1
+	var wheel_rad_per_s := spin / count if count > 0 else absf(forward_speed) / wheel_radius
 	return wheel_rad_per_s * gearbox.get_total_ratio() * 60.0 / TAU
 
 
@@ -539,6 +588,16 @@ func is_grounded() -> bool:
 		if wheel.in_contact:
 			return true
 	return false
+
+
+## Mayor deslizamiento longitudinal |κ| de las ruedas apoyadas (1 = bloqueada o girando el
+## doble de rápido que el piso).
+func get_wheel_slip() -> float:
+	var slip := 0.0
+	for wheel in wheels:
+		if wheel.in_contact and absf(wheel.long_speed) > 1.0:
+			slip = maxf(slip, absf(wheel.slip_ratio))
+	return slip
 
 
 ## Ángulo entre hacia dónde apunta el auto y hacia dónde se mueve (derrape).

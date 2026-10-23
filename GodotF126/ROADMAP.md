@@ -62,8 +62,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Paso | Contenido | Estado |
 |---|---|---|
 | 25 | Modelo por **4 ruedas**: suspensión por raycast (resorte + amortiguador) en lugar del arcade | ✅ |
-| 26 | **Neumáticos**: curva tipo Pacejka simplificada, ángulo de deriva y deslizamiento longitudinal por rueda | ⏳ Siguiente |
-| 27 | Transferencia de peso en frenada, aceleración y curva | |
+| 26 | **Neumáticos**: curva tipo Pacejka simplificada, ángulo de deriva y deslizamiento longitudinal por rueda | ✅ |
+| 27 | Transferencia de peso en frenada, aceleración y curva | ⏳ Siguiente |
 | 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | |
 | 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | |
 | 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | |
@@ -402,7 +402,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 ### Paso 25 — Modelo por 4 ruedas con suspensión por raycast
 - **El auto pasa a ser un cuerpo rígido** (`CarController` ahora extiende `RigidBody3D` en vez de `CharacterBody3D`): 800 kg, centro de masa 30 cm sobre el piso y un poco detrás del centro (45 % del peso adelante), inercia propia (cabeceo 1000, giro 1100, rolido 300 kg·m²), sin amortiguación lineal falsa y con detección continua de colisiones para que no atraviese los muros. La caja de colisión subió 10 cm: al piso lo tocan las ruedas, no la carrocería.
 - **Cada rueda es un rayo** (`CarWheel`, `scripts/car/car_wheel.gd`) desde su anclaje hacia abajo. La compresión da la fuerza del **resorte** (70.000 N/m, con precarga igual a la carga estática de esa rueda: con el auto quieto la suspensión queda en el medio de su recorrido de ±12 cm y el auto a su altura de diseño) más la del **amortiguador** (3.800 N·s/m), aplicadas en el punto de contacto. Tope de carga (6 × la estática) para que un borde no lo dispare.
-- **Neumático simple por rueda** (provisorio hasta el Paso 26): fuerza lateral proporcional al ángulo de deriva hasta 6° y constante después; tracción en las traseras con el par del motor y la caja; frenos repartidos 58/42; rodadura y freno motor; todo dentro del **círculo de fricción** (μ = 2,3, que por ahora incluye una carga aerodinámica promedio). Con freno de mano las traseras se bloquean y agarran 40 % de costado.
+- **Neumático simple por rueda** (reemplazado en el Paso 26): fuerza lateral proporcional al ángulo de deriva hasta 6° y constante después; tracción en las traseras con el par del motor y la caja; frenos repartidos 58/42; rodadura y freno motor; todo dentro del **círculo de fricción** (μ = 2,3, que por ahora incluye una carga aerodinámica promedio). Con freno de mano las traseras se bloquean y agarran 40 % de costado.
 - **Dirección**: giran las ruedas delanteras. El ángulo máximo baja con la velocidad hasta el que da el máximo agarre (22° a baja velocidad, ~7,5° a 200 km/h) para que se pueda manejar con teclado; "Dirección asistida: No" deja girar 1,6 veces más (`steer_limit` en `data/settings.json`).
 - Las **ruedas del modelo** suben y bajan con la suspensión y las delanteras giran. El auto **cabecea y rola** solo, por cómo caen las fuerzas: es la transferencia de peso que se va a ajustar en el Paso 27. Las cámaras pegadas (cockpit, T-cam, capot) siguen al chasis; las de persecución sólo el giro.
 - **Motor de física: Jolt** (`physics/3d/physics_engine` en `project.godot`, viene con Godot 4.7). Con el de Godot, un choque a 200 km/h en ángulo contra los muros (mallas finas) hacía saltar el auto por encima del muro; con Jolt roza y sigue.
@@ -422,3 +422,28 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   Además: el auto del menú no se mueve, la largada detenida no marca salto en falso mientras el auto se asienta, el recorrido menú → carga → carrera del Paso 24 sigue igual y el benchmark da los mismos tiempos (la física nueva no se nota). Capturas: `informes/capturas/paso25-ruedas.png` (ruedas giradas en el castillo), `paso25-frenada.png`.
 - **Cómo probar**: F5 → Jugar → en la cámara "Cercana" o "De pista" se ve el auto cabecear al frenar y rolar en las curvas; con freno de mano en una curva lenta se cruza; contra un muro roza en vez de pegarse.
+
+### Paso 26 — Neumáticos con curva de Pacejka
+- **"Fórmula mágica" de Pacejka simplificada** (`TyreModel`, `scripts/car/tyre_model.gd`): `F = D · sin(C · atan(B·x − E·(B·x − atan(B·x))))` con D = μ × carga. Hay una curva **lateral** (x = ángulo de deriva) y una **longitudinal** (x = deslizamiento κ). B, C y E están en `"chassis" → "tyres"` de `data/car.json`; el pico de cada curva se calcula de ellos: **6,1° de deriva** (como el neumático provisorio del Paso 25) y **κ = 0,10**. Pasado el pico la fuerza baja: deslizando de costado queda 79 % del pico y con la rueda bloqueada 76 %. Ver `informes/capturas/paso26-curvas.png`.
+- **Cada rueda gira por su cuenta** (`CarWheel.spin`, inercia 1,2 kg·m²): el motor (traseras, mitad cada una) y los frenos le aplican par, y el neumático la frena o la arrastra. El **deslizamiento longitudinal** es κ = (ω·r − v) / v: positivo cuando patina acelerando, −1 cuando está bloqueada. Las **RPM del motor salen del giro de las traseras**, así que si patinan suben las RPM.
+- **Deriva y deslizamiento combinados**: cada uno se divide por su pico, la curva se evalúa con el largo del vector y la fuerza se reparte en su dirección. El total nunca pasa de μ × carga, y frenar o acelerar a fondo deja menos agarre de costado: con las delanteras bloqueadas el auto deja de doblar.
+- **Sensibilidad a la carga**: el μ baja 10 % por cada carga estática de más (una rueda con el doble de peso agarra 1,8 veces, no 2). Por eso, con la rueda de adentro casi descargada, en curva da un poco menos que antes (1,8–1,9 g en vez de 2,1).
+- **Cálculo estable a 60 Hz**: la curva de Pacejka es unas dos veces más rígida que la recta del Paso 25 y el auto oscilaba de un cuadro al otro a baja velocidad (quieto en la largada se iba deslizando). Ahora los neumáticos se calculan en **8 sub-pasos por cuadro**: en cada uno se predice cómo cambian la velocidad y el giro del auto con esas fuerzas (masa y tensor de inercia) y al cuerpo se le aplica el promedio. El giro de cada rueda se integra en forma implícita (con la pendiente de la curva) para que no oscile. Cuesta ~0,6 ms de CPU por auto y por cuadro de física.
+- **Limitadores provisorios** (`"limiters"` en `car.json`, activados): con teclado el freno y el acelerador van de 0 a 1 de golpe, así que las ruedas se bloquearían en cada frenada y patinarían en cada salida de curva. Hasta el ABS (Paso 30) y el control de tracción (Paso 31) no dejan que κ pase del pico. El freno de mano no pasa por el limitador: bloquea las traseras (κ = −1) y el auto se cruza solo porque una rueda bloqueada casi no agarra de costado (salió el `handbrake_lateral_factor` del Paso 25).
+- El **chirrido** también suena con las ruedas bloqueadas o patinando (`squeal_start_slip` / `squeal_full_slip` en `"audio_fx"`). Las ruedas del modelo giran con su velocidad.
+- **Verificación** (física a 60 Hz):
+
+| Prueba | Resultado |
+|---|---|
+| Quieto | cargas 1.764 / 1.764 / 2.156 / 2.156 N, velocidad 0 (sin los sub-pasos se iba deslizando) |
+| Rodando a 150 km/h sin pedales | ω·r = v en las delanteras; las traseras 1,5 % más lentas por el freno motor |
+| 0–100 km/h | 2,15 s con limitador (κ ≈ 0,09) · 2,52 s sin limitador (las traseras patinan, κ hasta 28 parado, chirrido a pleno) |
+| Frenada 195 → 0 km/h | 59 m en 2,3 s con limitador · 75 m en 2,9 s sin limitador (delanteras bloqueadas, κ = −1) |
+| Frenar a fondo en curva a 115 km/h (1 s) | con limitador sigue doblando (8°) · sin limitador sigue derecho (−2°) |
+| Curva a 60 / 120 km/h, volante a fondo | 1,82 / 1,91 g laterales |
+| Freno de mano | traseras κ = −1, el auto se cruza (90°) |
+| Choques contra el muro a 200 km/h | iguales al Paso 25 (roza y sigue a 159 km/h / se frena) |
+| Vuelta con piloto automático (Paso 21) | 2 vueltas válidas: **1:39.6 y 1:38.4** (Paso 25: 1:38.7 / 1:37.6), sin salidas, golpes ni reinicios |
+
+  El benchmark del Paso 24 no cambió (en esta corrida recomendó "Alta"; los tiempos varían entre corridas).
+- **Cómo probar**: F5 → Jugar. Con los limitadores igual que antes; para sentir el neumático, poner `"limiters": { "brake": false, "traction": false }` en `data/car.json`: arrancando a fondo en 1ª las traseras patinan y chirrían, y frenando a fondo a alta velocidad las delanteras se bloquean y el auto no dobla.

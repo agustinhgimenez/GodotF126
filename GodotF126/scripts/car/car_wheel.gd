@@ -1,10 +1,11 @@
 class_name CarWheel
 extends RefCounted
-## Una rueda del modelo de 4 ruedas (Paso 25): suspensión por rayo y neumático simple.
+## Una rueda del modelo de 4 ruedas: suspensión por rayo (Paso 25) y neumático (Paso 26).
 ## La suspensión es un resorte con precarga (la carga estática de esa rueda) más un
 ## amortiguador: con el auto quieto la rueda queda en `travel` y el auto a su altura de
-## diseño, sin importar la rigidez. El neumático da fuerza lateral según el ángulo de deriva
-## (lineal hasta `slip_peak`, después constante) y todo queda dentro del círculo de fricción.
+## diseño, sin importar la rigidez. La rueda tiene su propio giro (`spin`): el motor y los
+## frenos le aplican par, el neumático (TyreModel) la frena o la arrastra, y la diferencia
+## entre su velocidad y la del piso es el deslizamiento longitudinal.
 
 ## Tope de carga (× la estática): un rayo que salta de golpe (borde de un muro, piano) no
 ## dispara al auto por el aire.
@@ -36,6 +37,12 @@ var long_speed: float = 0.0
 var lat_speed: float = 0.0
 ## rad; positivo = la rueda se desliza hacia su derecha.
 var slip_angle: float = 0.0
+## rad/s de la rueda (positivo = rodando hacia adelante).
+var spin: float = 0.0
+## Ángulo acumulado del giro (para el modelo).
+var spin_angle: float = 0.0
+## κ = (ω·r − v) / v: positivo patina acelerando, −1 bloqueada.
+var slip_ratio: float = 0.0
 ## (longitudinal, lateral) en N que el neumático le hizo al auto en el último cuadro.
 var force: Vector2 = Vector2.ZERO
 
@@ -57,6 +64,8 @@ func reset(travel: float) -> void:
 	wheel_load = 0.0
 	force = Vector2.ZERO
 	slip_angle = 0.0
+	slip_ratio = 0.0
+	spin = 0.0
 
 
 ## Tira el rayo (sin pegarle al propio auto) y calcula la carga.
@@ -97,13 +106,42 @@ func measure(body_basis: Basis, velocity: Vector3, slip_floor: float) -> void:
 	slip_angle = atan2(lat_speed, maxf(absf(long_speed), slip_floor))
 
 
-## Fuerza del neumático (N, en el mundo) con el pedido longitudinal `long_request`.
-## mu: coeficiente de agarre; lateral_mu: el de costado (menos con freno de mano).
-func tyre_force(long_request: float, mu: float, lateral_mu: float, slip_peak: float) -> Vector3:
-	var lateral := -lateral_mu * wheel_load * clampf(slip_angle / slip_peak, -1.0, 1.0)
-	var total := Vector2(long_request, lateral)
-	var limit := mu * wheel_load
-	if total.length() > limit:
-		total = total.normalized() * limit
-	force = total
-	return forward * total.x + right * total.y
+## Integra el giro de la rueda y devuelve la fuerza del neumático (N, en el mundo).
+## drive_torque: N·m del motor (con signo); brake_torque: N·m que se oponen al giro (frenos,
+## freno motor, rodadura). limit_drive / limit_brake: no dejan pasar κ del pico (provisorio
+## hasta los Pasos 30 y 31). La rueda se integra en forma implícita (con la pendiente de la
+## curva): una rueda liviana contra un neumático rígido oscilaría.
+func update_tyre(tyre: TyreModel, mu: float, drive_torque: float, brake_torque: float, radius: float,
+		limit_drive: bool, limit_brake: bool, delta: float) -> Vector3:
+	var grip := mu * tyre.load_factor(wheel_load, static_load) * wheel_load
+	var v_ref := maxf(absf(long_speed), tyre.slip_floor)
+	slip_ratio = (spin * radius - long_speed) / v_ref
+	var now := tyre.forces(slip_ratio, slip_angle, grip)
+	var ahead := tyre.forces(slip_ratio + 0.01, slip_angle, grip)
+	var slope := maxf((ahead.x - now.x) / 0.01, 0.0) * radius * radius / v_ref
+	var inertia := tyre.wheel_inertia + slope * delta
+	spin += (drive_torque - now.x * radius) * delta / inertia
+	spin = move_toward(spin, 0.0, brake_torque * delta / inertia)
+
+	var rolling := long_speed / radius
+	var max_slip := tyre.slip_ratio_peak * v_ref / radius
+	if limit_drive and drive_torque > 0.0:
+		spin = minf(spin, rolling + max_slip)
+	elif limit_drive and drive_torque < 0.0:
+		spin = maxf(spin, rolling - max_slip)
+	if limit_brake and brake_torque > 0.0:
+		spin = maxf(spin, rolling - max_slip) if rolling > 0.0 else minf(spin, rolling + max_slip)
+
+	slip_ratio = (spin * radius - long_speed) / v_ref
+	var result := tyre.forces(slip_ratio, slip_angle, grip)
+	force = result
+	spin_angle = wrapf(spin_angle + spin * delta, 0.0, TAU)
+	return forward * result.x + right * result.y
+
+
+## Rueda en el aire: sólo los pares del motor y los frenos.
+func update_free_spin(inertia: float, drive_torque: float, brake_torque: float, delta: float) -> void:
+	spin += drive_torque * delta / inertia
+	spin = move_toward(spin, 0.0, brake_torque * delta / inertia)
+	slip_ratio = 0.0
+	spin_angle = wrapf(spin_angle + spin * delta, 0.0, TAU)
