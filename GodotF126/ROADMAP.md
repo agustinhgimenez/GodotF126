@@ -54,8 +54,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 20 | Carteles de frenado 150 / 100 / 50 m antes de cada curva | ✅ |
 | 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | ✅ |
 | 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | ✅ |
-| 23 | Iluminación de atardecer, sombras, reflejos en el mar | ⏳ Siguiente |
-| 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | |
+| 23 | Iluminación de atardecer, sombras, reflejos en el mar | ✅ |
+| 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | ⏳ Siguiente |
 
 ## Fase D — Física de simulador (H2)
 
@@ -359,3 +359,21 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   A ras de pista casi todo queda dentro de la distancia de detalle, así que la ciudad cuesta 1–2 ms y el LOD no cambia mucho (las diferencias de ±1 ms son ruido de la medición); en las vistas largas el LOD corta las llamadas de dibujo a menos de la mitad. La escena carga en ~0,75 s con la ciudad (0,34 s sin).
 - **Verificación**: prueba que cuenta edificios, zonas, tribunas y paneles; mide las 4 esquinas y los bordes de cada edificio con `locate()` (ninguno toca la pista; el más cercano queda a 3,7 m del muro); comprueba que ninguna torre de TV queda en una tribuna ni dentro de un edificio y ningún cartel de frenado dentro de un edificio; mide el rendimiento de la tabla. Se volvieron a correr la vuelta con piloto automático del Paso 21 (mismos tiempos, sin salidas) y la prueba de carteles del Paso 20 (20 carteles bien ubicados). Capturas: `informes/capturas/paso22-tribunas.png`, `paso22-publicidad.png`, `paso22-ciudad.png`, `paso22-arriba.png`.
 - **Cómo probar**: F5 → Jugar → elegir piloto → en la recta, la tribuna del lado del mar y la publicidad en los muros; la ciudad alrededor de todo el circuito.
+
+### Paso 23 — Iluminación
+- **Presets de luz** en `data/lighting.json`: `"sunset"` (atardecer, por defecto) y `"day"`. Cada uno define sol (color, energía, elevación y rumbo), cielo procedural (colores de arriba, horizonte y suelo, tamaño del disco solar), luz ambiente, tonemap (ACES, exposición, blanco), niebla con dispersión del sol y perspectiva aérea, glow, colores y olas del mar y color del suelo. El rumbo es de brújula: 0 = −Z, 90 = +X, 180 = +Z (el mar). Al atardecer el sol queda a 11° sobre el horizonte, anaranjado, hacia el oeste-suroeste, y las sombras largas de los edificios cruzan la pista.
+- **`LightingRig`** (`scripts/lighting_rig.gd`, estático): `get_preset(id)`, `sun_direction(rumbo, elevación)`, `apply(environment, sol, preset, calidad, mar, suelo)` y `apply_quality(...)`. `main.gd` lo aplica al cargar y cada vez que cambia una opción. Se fue la imagen **lavada** de los pasos anteriores (tonemap Filmic + ambiente fuerte → ACES con menos ambiente y suelo más oscuro).
+- **Sombras según la calidad** (`data/settings.json`, perfiles): baja sin sombras; media a 250 m con 2 cortes (PSSM); alta a 400 m con 4 cortes.
+- **Mar** con shader propio (`shaders/sea.gdshader`): plano liso, las olas son 5 ondas que se mueven y sólo cambian la normal. El reflejo del cielo y el camino de luz del sol salen del PBR de Godot (rugosidad baja). Cada onda se apaga cuando un píxel cubre más que su longitud y la rugosidad sube con la distancia (si no, desde arriba o de lejos aparecen rayas de moiré). Más claro cerca de la costa. Suelo y mar pasan a 8 km para que no se vea el borde en el horizonte. **Sin SSR**: el proyecto usa el renderer `gl_compatibility` (para las PC del laboratorio) y ahí los reflejos en pantalla no existen.
+- **Opción nueva** "Hora de la carrera" (Atardecer / Día) en Opciones, en el menú y en la pausa; se guarda en `time_of_day`. Para que entre la fila nueva, las filas del panel quedan 2 px más juntas.
+- **Rendimiento** al atardecer (con ventana, sin vsync, 120 cuadros por vista, misma sesión):
+
+| Vista | Baja | Media | Alta |
+|---|---|---|---|
+| Recta principal | 4,9 ms · 164 llamadas | 5,2 ms · 318 | 9,7 ms · 499 |
+| Castillo | 3,1 ms · 99 | 5,2 ms · 229 | 8,5 ms · 325 |
+| Cenital | 3,9 ms · 239 | 5,2 ms · 239 | 9,5 ms · 239 |
+
+  Las sombras con 4 cortes y el MSAA ×4 de "Alta" casi duplican el costo, pero quedan por encima de 100 FPS. Los tiempos absolutos varían entre sesiones (en el Paso 22 la misma recta dio 11 ms), así que conviene comparar sólo dentro de una misma corrida.
+- **Verificación**: prueba que aplica los dos presets y revisa dirección y color del sol, sombras, tonemap y niebla; mide la tabla; saca capturas. Se volvió a correr la vuelta con piloto automático del Paso 21 (1:42.2 y 1:41.1, sin salidas). Capturas: `informes/capturas/paso23-costa.png` (sol sobre el mar), `paso23-recta.png`, `paso23-castillo.png`, `paso23-ciudad-atardecer.png`, `paso23-ciudad-dia.png`, `paso23-opciones.png`, `paso23-menu-opciones.png`.
+- **Cómo probar**: F5 → Jugar → elegir piloto → en la recta del mar, el sol bajo y el reflejo en el agua; Esc → Opciones → "Hora de la carrera" cambia a Día al instante.

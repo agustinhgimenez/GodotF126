@@ -15,6 +15,7 @@ const CHOICES := [
 	["steering_assist", "Dirección asistida", [true, false], ["Sí", "No"]],
 	["camera", "Cámara inicial", [0, 1, 2, 3, 4, 5], ["TV", "Cercana", "Cockpit", "T-cam", "Capot", "De pista"]],
 	["quality", "Calidad gráfica", ["low", "medium", "high"], ["Baja", "Media", "Alta"]],
+	["time_of_day", "Hora de la carrera", ["sunset", "day"], ["Atardecer", "Día"]],
 	["fullscreen", "Pantalla completa", [false, true], ["No", "Sí"]],
 ]
 const VOLUMES := [
@@ -34,7 +35,7 @@ var _buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	add_theme_constant_override("separation", 6)
+	add_theme_constant_override("separation", 4)
 	add_child(UiKit.make_label("Opciones", 26))
 	for choice in CHOICES.slice(0, 3):
 		_add_choice(choice)

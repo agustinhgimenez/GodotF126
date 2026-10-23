@@ -68,7 +68,7 @@ func _ready() -> void:
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	car.configure(car_data)
 	Settings.apply_to_car(car)
-	$Sun.shadow_enabled = Settings.shadows_enabled()
+	_apply_lighting()
 	car.spawn_transform = track.get_spawn_transform()
 	car.reset_to_spawn()
 
@@ -174,9 +174,19 @@ func _on_paused_changed(paused: bool) -> void:
 		pause_menu.set_subtitle(_pause_subtitle())
 
 
-func _on_setting_changed(_key: String) -> void:
+func _on_setting_changed(key: String) -> void:
 	Settings.apply_to_car(car, false)
-	$Sun.shadow_enabled = Settings.shadows_enabled()
+	if key == "time_of_day" or key.is_empty():
+		_apply_lighting()
+	else:
+		LightingRig.apply_quality($WorldEnvironment.environment, $Sun, Settings.quality())
+
+
+## Paso 23: preset de luz según la opción "Hora" y sombras / reflejos según la calidad.
+func _apply_lighting() -> void:
+	LightingRig.apply($WorldEnvironment.environment, $Sun,
+		LightingRig.get_preset(str(Settings.get_value("time_of_day"))), Settings.quality(),
+		track.get_sea(), track.get_ground_visual())
 
 
 func _pause_subtitle() -> String:

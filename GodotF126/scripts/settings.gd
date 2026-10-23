@@ -19,6 +19,7 @@ const VOLUME_BUSES := {
 }
 const GEARBOX_MODES := ["manual", "automatic"]
 const QUALITY_LEVELS := ["low", "medium", "high"]
+const TIMES_OF_DAY := ["sunset", "day"]
 const MSAA_MODES := {0: Viewport.MSAA_DISABLED, 2: Viewport.MSAA_2X, 4: Viewport.MSAA_4X, 8: Viewport.MSAA_8X}
 
 var values: Dictionary = {}
@@ -124,6 +125,8 @@ func _sanitize(key: String, value):
 			return value if str(value) in GEARBOX_MODES else fallback
 		"quality":
 			return value if str(value) in QUALITY_LEVELS else fallback
+		"time_of_day":
+			return value if str(value) in TIMES_OF_DAY else fallback
 		"camera":
 			if not (value is int or value is float):
 				return int(fallback)

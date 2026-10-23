@@ -9,6 +9,7 @@
     "fx_volume": 100,
     "music_volume": 70,
     "quality": "medium",
+    "time_of_day": "sunset",
     "fullscreen": false
   },
   "steering": {
@@ -16,8 +17,8 @@
     "direct": { "steer_response": 14.0, "high_speed_steer_factor": 0.5 }
   },
   "quality_profiles": {
-    "low": { "shadows": false, "msaa": 0, "mirror_scale": 0.5 },
-    "medium": { "shadows": true, "msaa": 0, "mirror_scale": 1.0 },
-    "high": { "shadows": true, "msaa": 4, "mirror_scale": 1.5 }
+    "low": { "shadows": false, "msaa": 0, "mirror_scale": 0.5, "shadow_distance": 0, "shadow_splits": 1 },
+    "medium": { "shadows": true, "msaa": 0, "mirror_scale": 1.0, "shadow_distance": 250, "shadow_splits": 2 },
+    "high": { "shadows": true, "msaa": 4, "mirror_scale": 1.5, "shadow_distance": 400, "shadow_splits": 4 }
   }
 }

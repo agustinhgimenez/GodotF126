@@ -1,0 +1,44 @@
+{
+  "description": "Iluminación de la carrera (Paso 23). Cada preset define sol, cielo, luz ambiente, tonemap, neblina, brillo y mar. azimuth: de dónde viene el sol en grados de brújula (0 norte = -Z, 90 este = +X, 180 sur = +Z, donde está el mar; 270 oeste). elevation: altura del sol sobre el horizonte en grados.",
+  "default_preset": "sunset",
+  "presets": {
+    "sunset": {
+      "name": "Atardecer",
+      "sun": { "color": "#ffa864", "energy": 1.9, "elevation": 11.0, "azimuth": 240.0, "shadow_blur": 1.5 },
+      "sky": {
+        "top_color": "#2a3c6b",
+        "horizon_color": "#f2995e",
+        "ground_horizon_color": "#c47f5a",
+        "ground_bottom_color": "#3b3a40",
+        "curve": 0.12,
+        "energy": 1.0,
+        "sun_angle_max": 25.0
+      },
+      "ambient": { "sky_contribution": 0.55, "energy": 0.6 },
+      "tonemap": { "mode": "aces", "exposure": 1.0, "white": 6.0 },
+      "fog": { "density": 0.0006, "color": "#e09a70", "energy": 1.0, "sun_scatter": 0.35, "aerial_perspective": 0.4, "sky_affect": 0.25 },
+      "glow": { "intensity": 0.5, "bloom": 0.04, "hdr_threshold": 1.0 },
+      "sea": { "deep_color": "#0e2333", "shallow_color": "#1d4152", "roughness": 0.04, "wave_strength": 0.12, "wave_scale": 0.8, "wave_speed": 0.7 },
+      "ground_color": "#8a7a62"
+    },
+    "day": {
+      "name": "Día",
+      "sun": { "color": "#fff3e0", "energy": 1.3, "elevation": 55.0, "azimuth": 200.0, "shadow_blur": 1.0 },
+      "sky": {
+        "top_color": "#3a6cc2",
+        "horizon_color": "#bcd0e6",
+        "ground_horizon_color": "#bcd0e6",
+        "ground_bottom_color": "#4a4a50",
+        "curve": 0.15,
+        "energy": 1.0,
+        "sun_angle_max": 30.0
+      },
+      "ambient": { "sky_contribution": 0.5, "energy": 0.55 },
+      "tonemap": { "mode": "aces", "exposure": 0.95, "white": 6.0 },
+      "fog": { "density": 0.0003, "color": "#c5d4e4", "energy": 1.0, "sun_scatter": 0.1, "aerial_perspective": 0.3, "sky_affect": 0.15 },
+      "glow": { "intensity": 0.3, "bloom": 0.02, "hdr_threshold": 1.2 },
+      "sea": { "deep_color": "#12395a", "shallow_color": "#1f5f80", "roughness": 0.06, "wave_strength": 0.12, "wave_scale": 0.8, "wave_speed": 0.7 },
+      "ground_color": "#9c8f78"
+    }
+  }
+}

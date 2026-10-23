@@ -47,6 +47,9 @@ const KERB_WHITE := Color(0.95, 0.95, 0.95)
 const BARRIER_RED := Color(0.85, 0.1, 0.1)
 const BARRIER_WHITE := Color(0.92, 0.92, 0.92)
 const STONE_COLOR := Color(0.72, 0.62, 0.46)
+const SEA_SHADER := "res://shaders/sea.gdshader"
+## Lado del suelo (y ancho del mar): con la neblina, el borde no se ve desde la pista.
+const GROUND_SIZE := 8000.0
 
 @export var track_name: String = "Azerbaiyán — Bakú (placeholder)"
 @export var track_width: float = 12.0          ## ancho por defecto de los puntos sin ancho propio
@@ -536,31 +539,40 @@ func _build_ground_and_sea() -> void:
 
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(3000, 2, 3000)
+	box.size = Vector3(GROUND_SIZE, 2, GROUND_SIZE)
 	shape.shape = box
 	shape.position = Vector3(0, -1, 0)
 	ground.add_child(shape)
 
 	var ground_mesh := PlaneMesh.new()
-	ground_mesh.size = Vector2(3000, 3000)
+	ground_mesh.size = Vector2(GROUND_SIZE, GROUND_SIZE)
 	var ground_visual := MeshInstance3D.new()
+	ground_visual.name = "GroundVisual"
 	ground_visual.mesh = ground_mesh
 	ground_visual.position = Vector3(0, -0.01, 0)
 	ground_visual.material_override = _make_material(Color(0.62, 0.58, 0.5))
 	ground.add_child(ground_visual)
 
-	# Mar Caspio al sur de la recta principal.
+	# Mar Caspio al sur de la recta principal: shader de agua (colores según la luz, Paso 23).
 	var sea_mesh := PlaneMesh.new()
-	sea_mesh.size = Vector2(3000, 1400)
+	# Arranca en Z = 40 (la costa) y llega hasta el horizonte.
+	sea_mesh.size = Vector2(GROUND_SIZE, GROUND_SIZE * 0.5)
 	var sea := MeshInstance3D.new()
 	sea.name = "CaspianSea"
 	sea.mesh = sea_mesh
-	sea.position = Vector3(0, 0.0, 740)
-	var sea_material := _make_material(Color(0.1, 0.35, 0.55))
-	sea_material.roughness = 0.2
-	sea_material.metallic = 0.3
-	sea.material_override = sea_material
+	sea.position = Vector3(0, 0.0, 40.0 + GROUND_SIZE * 0.25)
+	var water := ShaderMaterial.new()
+	water.shader = load(SEA_SHADER)
+	sea.material_override = water
 	add_child(sea)
+
+
+func get_sea() -> MeshInstance3D:
+	return get_node_or_null("CaspianSea") as MeshInstance3D
+
+
+func get_ground_visual() -> MeshInstance3D:
+	return get_node_or_null("Ground/GroundVisual") as MeshInstance3D
 
 
 func _build_asphalt() -> void:
