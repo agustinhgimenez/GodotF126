@@ -57,12 +57,12 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 23 | Iluminación de atardecer, sombras, reflejos en el mar | ✅ |
 | 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | ✅ |
 
-## Fase D — Física de simulador (H2)
+## Fase D — Física de simulador (H2) ⏳
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 25 | Modelo por **4 ruedas**: suspensión por raycast (resorte + amortiguador) en lugar del arcade | ⏳ Siguiente |
-| 26 | **Neumáticos**: curva tipo Pacejka simplificada, ángulo de deriva y deslizamiento longitudinal por rueda | |
+| 25 | Modelo por **4 ruedas**: suspensión por raycast (resorte + amortiguador) en lugar del arcade | ✅ |
+| 26 | **Neumáticos**: curva tipo Pacejka simplificada, ángulo de deriva y deslizamiento longitudinal por rueda | ⏳ Siguiente |
 | 27 | Transferencia de peso en frenada, aceleración y curva | |
 | 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | |
 | 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | |
@@ -398,3 +398,27 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Cómo probar**: F5 → Controles (en el menú) → Jugar → modo → piloto → la pantalla de carga espera Enter la primera vez; en carrera, Esc → Controles. Para ver el tutorial de nuevo, borrar `tutorial_seen` de `user://settings.json`.
 
 **Hito H1 alcanzado**: menú con auto 3D y música → modo → escudería y piloto → carga con tutorial → carrera en Bakú con caja manual, cockpit con volante y manos, sonido sintetizado, cronómetro por sectores, límites de pista, semáforo, cámaras de TV, ciudad e iluminación de atardecer → resultado → menú.
+
+### Paso 25 — Modelo por 4 ruedas con suspensión por raycast
+- **El auto pasa a ser un cuerpo rígido** (`CarController` ahora extiende `RigidBody3D` en vez de `CharacterBody3D`): 800 kg, centro de masa 30 cm sobre el piso y un poco detrás del centro (45 % del peso adelante), inercia propia (cabeceo 1000, giro 1100, rolido 300 kg·m²), sin amortiguación lineal falsa y con detección continua de colisiones para que no atraviese los muros. La caja de colisión subió 10 cm: al piso lo tocan las ruedas, no la carrocería.
+- **Cada rueda es un rayo** (`CarWheel`, `scripts/car/car_wheel.gd`) desde su anclaje hacia abajo. La compresión da la fuerza del **resorte** (70.000 N/m, con precarga igual a la carga estática de esa rueda: con el auto quieto la suspensión queda en el medio de su recorrido de ±12 cm y el auto a su altura de diseño) más la del **amortiguador** (3.800 N·s/m), aplicadas en el punto de contacto. Tope de carga (6 × la estática) para que un borde no lo dispare.
+- **Neumático simple por rueda** (provisorio hasta el Paso 26): fuerza lateral proporcional al ángulo de deriva hasta 6° y constante después; tracción en las traseras con el par del motor y la caja; frenos repartidos 58/42; rodadura y freno motor; todo dentro del **círculo de fricción** (μ = 2,3, que por ahora incluye una carga aerodinámica promedio). Con freno de mano las traseras se bloquean y agarran 40 % de costado.
+- **Dirección**: giran las ruedas delanteras. El ángulo máximo baja con la velocidad hasta el que da el máximo agarre (22° a baja velocidad, ~7,5° a 200 km/h) para que se pueda manejar con teclado; "Dirección asistida: No" deja girar 1,6 veces más (`steer_limit` en `data/settings.json`).
+- Las **ruedas del modelo** suben y bajan con la suspensión y las delanteras giran. El auto **cabecea y rola** solo, por cómo caen las fuerzas: es la transferencia de peso que se va a ajustar en el Paso 27. Las cámaras pegadas (cockpit, T-cam, capot) siguen al chasis; las de persecución sólo el giro.
+- **Motor de física: Jolt** (`physics/3d/physics_engine` en `project.godot`, viene con Godot 4.7). Con el de Godot, un choque a 200 km/h en ángulo contra los muros (mallas finas) hacía saltar el auto por encima del muro; con Jolt roza y sigue.
+- Golpes contra muros: velocidad perdida contra la normal de cada contacto (`_integrate_forces`), la usan la vibración y el sonido como antes. En el menú el auto queda congelado (`freeze`).
+- Parámetros en el bloque nuevo `"chassis"` de `data/car.json` (centro de masa, inercia, suspensión, neumáticos, frenos, dirección); salió `traction_limit`.
+- **Verificación** (prueba con física a 60 Hz):
+
+| Prueba | Resultado |
+|---|---|
+| Quieto | cargas 1.764 / 1.764 / 2.156 / 2.156 N = el peso (45 % adelante), altura de diseño |
+| 0–100 km/h | 2,05 s (72 % del peso atrás, la trompa sube 0,2°); 198 km/h en 400 m |
+| Frenada 198 → 0 km/h | 60 m en 2,3 s (24 m/s² promedio); 66 % del peso adelante, la trompa baja 0,4° |
+| Curva a 60 / 120 km/h, volante a fondo | 2,06 / 2,15 g laterales, rolido 1,4°, ruedas de adentro casi descargadas |
+| Freno de mano en curva | el auto se cruza (91°) |
+| Choque a 20° / de frente a 200 km/h | roza el muro y sigue a 157 km/h sin despegarse / se frena contra el muro; golpes detectados |
+| Vuelta con piloto automático (Paso 21) | 2 vueltas válidas: **1:38.7 y 1:37.6** (antes 1:42.2 / 1:41.1), sin salidas, golpes ni reinicios, siempre apoyado (±6 cm) |
+
+  Además: el auto del menú no se mueve, la largada detenida no marca salto en falso mientras el auto se asienta, el recorrido menú → carga → carrera del Paso 24 sigue igual y el benchmark da los mismos tiempos (la física nueva no se nota). Capturas: `informes/capturas/paso25-ruedas.png` (ruedas giradas en el castillo), `paso25-frenada.png`.
+- **Cómo probar**: F5 → Jugar → en la cámara "Cercana" o "De pista" se ve el auto cabecear al frenar y rolar en las curvas; con freno de mano en una curva lenta se cruza; contra un muro roza en vez de pegarse.

@@ -108,8 +108,8 @@ func _process(delta: float) -> void:
 
 func _predicted() -> Vector3:
 	var velocity := Vector3.ZERO
-	if _car is CharacterBody3D:
-		velocity = (_car as CharacterBody3D).velocity
+	if _car is RigidBody3D:
+		velocity = (_car as RigidBody3D).linear_velocity
 	return _car.global_position + velocity * look_ahead
 
 

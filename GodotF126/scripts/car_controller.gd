@@ -1,10 +1,10 @@
 class_name CarController
-extends CharacterBody3D
-## Física arcade del monoplaza (Paso 1) con motor y caja como componentes (Pasos 3 y 4).
-## El auto avanza sobre su eje -Z. La velocidad "de motor" (forward_speed) se
-## separa de la velocidad real para poder simular agarre y derrape.
-## El acelerador empuja según la marcha: adelante en 1–8, atrás en R, nada en N.
-## En caja automática S con el auto quieto pone R, como en el manejo arcade original.
+extends RigidBody3D
+## Monoplaza con modelo de 4 ruedas (Paso 25): cuerpo rígido con masa, centro de masa e
+## inercia; cada rueda (CarWheel) es un rayo con resorte y amortiguador, y su neumático
+## empuja en el punto de contacto. Motor y caja son componentes (Pasos 3 y 4): el par llega a
+## las ruedas traseras según la marcha (adelante en 1–8, atrás en R, nada en N).
+## El auto avanza sobre su eje -Z. En caja automática S con el auto quieto pone R.
 
 signal was_reset
 signal camera_changed(mode_name: String)
@@ -27,28 +27,50 @@ const CAMERA_MODES := [
 	{"name": "Cámara de capot", "position": Vector3(0, 0.86, -1.95), "pitch": -4.0, "fov": 75.0, "view": "onboard", "shake": 0.8},
 	{"name": "Cámaras de pista", "view": "external"},
 ]
+## Nodo de la rueda, lado (−1 izq., +1 der.), delantera.
+const WHEEL_NODES := [["WheelFL", -1.0, true], ["WheelFR", 1.0, true], ["WheelRL", -1.0, false], ["WheelRR", 1.0, false]]
+## Bloque "chassis" de data/car.json: grupo → {clave del JSON: propiedad}.
+const CHASSIS_KEYS := {
+	"suspension": {"front_axle_z": "front_axle_z", "rear_axle_z": "rear_axle_z", "half_track": "half_track",
+		"travel": "suspension_travel", "stiffness": "spring_stiffness", "damping": "damper"},
+	"tyres": {"mu": "tyre_mu", "rear_grip_factor": "rear_grip_factor", "slip_peak_deg": "slip_peak_deg",
+		"slip_floor": "slip_floor", "handbrake_lateral_factor": "handbrake_lateral_factor"},
+	"brakes": {"force": "brake_force", "front_share": "brake_front_share"},
+	"steering": {"max_deg": "max_steer_deg", "min_deg": "min_steer_deg"},
+}
 
 @export_group("Motor")
 @export var max_speed: float = 55.0            ## m/s; se recalcula en configure() desde la última marcha
 @export var max_reverse_speed: float = 12.0
 @export var mass_kg: float = 800.0
 @export var wheel_radius: float = 0.36
-@export var traction_limit: float = 16.0       ## m/s² máximos que el agarre deja acelerar
 @export var aero_drag: float = 0.0012          ## desaceleración = aero_drag × v²
-@export var brake_deceleration: float = 38.0
 @export var reverse_acceleration: float = 8.0  ## m/s² máximos en reversa
-@export var rolling_drag: float = 3.0
+@export var rolling_resistance: float = 0.25   ## m/s² de rodadura
 
 @export_group("Dirección")
-@export var max_steer_rate: float = 2.4        ## rad/s a baja velocidad
-@export var high_speed_steer_factor: float = 0.35
+@export var max_steer_deg: float = 22.0        ## giro de las ruedas a baja velocidad
+@export var min_steer_deg: float = 3.0
+## Multiplica el giro máximo según la velocidad (1 = cerca del máximo agarre; Settings).
+@export var steer_limit: float = 1.0
 @export var steer_response: float = 8.0
 
-@export_group("Agarre")
-@export var grip: float = 9.0
-@export var handbrake_grip: float = 1.2
-@export var handbrake_deceleration: float = 14.0
-@export var gravity: float = 25.0
+@export_group("Suspensión")
+@export var front_axle_z: float = -1.8
+@export var rear_axle_z: float = 1.6
+@export var half_track: float = 0.85
+@export var suspension_travel: float = 0.12   ## m de recorrido para cada lado del reposo
+@export var spring_stiffness: float = 70000.0 ## N/m
+@export var damper: float = 3800.0            ## N·s/m
+
+@export_group("Neumáticos y frenos")
+@export var tyre_mu: float = 2.3               ## incluye una carga aerodinámica promedio hasta el Paso 28
+@export var rear_grip_factor: float = 1.08
+@export var slip_peak_deg: float = 6.0
+@export var slip_floor: float = 5.0            ## m/s mínimos para medir la deriva (estable a baja velocidad)
+@export var handbrake_lateral_factor: float = 0.4
+@export var brake_force: float = 30000.0       ## N totales con el freno a fondo
+@export var brake_front_share: float = 0.58
 
 @export_group("Cámara")
 @export var camera_follow: float = 6.0
@@ -63,17 +85,20 @@ const CAMERA_MODES := [
 @export var shake_shift_kick: float = 0.25         ## golpe al cambiar de marcha
 @export var shake_chase_factor: float = 0.25       ## fracción que llega a las cámaras exteriores
 
+## m/s a lo largo del auto (negativo = marcha atrás); lo leen la caja, el motor y el audio.
 var forward_speed: float = 0.0
 var controls_enabled: bool = true
 ## 0–1: cuánto está pisando un piano (lo escribe TrackLimits; lo usa CarAudioFx).
 var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
+var wheels: Array[CarWheel] = []
 
 var camera_mode: int = 0
 
 var _steer: float = 0.0
 var _handbrake: bool = false
 var _touching_wall: bool = false
+var _last_velocity: Vector3 = Vector3.ZERO
 var _camera_base: Transform3D = Transform3D.IDENTITY
 var _shake_noise := FastNoiseLite.new()
 var _shake_time: float = 0.0
@@ -95,7 +120,6 @@ var _showcase: bool = false
 
 func _ready() -> void:
 	spawn_transform = global_transform
-	floor_snap_length = 0.5
 	_shake_noise.frequency = 1.0
 	gearbox.gear_changed.connect(_on_gear_changed)
 	_camera_pivot.top_level = true
@@ -104,14 +128,17 @@ func _ready() -> void:
 	gearbox.wheel_radius = wheel_radius
 	gearbox.limiter_rpm = engine.limiter_rpm
 	max_speed = get_top_speed()
+	_build_wheels()
 
 
 ## Carga los datos de data/car.json. Lo que falte queda con el valor del inspector.
 func configure(data: Dictionary) -> void:
 	mass_kg = float(data.get("mass_kg", mass_kg))
 	wheel_radius = float(data.get("wheel_radius", wheel_radius))
-	traction_limit = float(data.get("traction_limit", traction_limit))
 	aero_drag = float(data.get("aero_drag", aero_drag))
+	var chassis_data = data.get("chassis", {})
+	if chassis_data is Dictionary:
+		_configure_chassis(chassis_data)
 	var engine_data = data.get("engine", {})
 	if engine_data is Dictionary:
 		engine.configure(engine_data)
@@ -133,6 +160,22 @@ func configure(data: Dictionary) -> void:
 	var audio_fx_data = data.get("audio_fx", {})
 	if audio_fx_data is Dictionary:
 		audio_fx.configure(audio_fx_data)
+	_build_wheels()
+
+
+func _configure_chassis(data: Dictionary) -> void:
+	center_of_mass = _vec3(data.get("center_of_mass", []), center_of_mass)
+	inertia = _vec3(data.get("inertia", []), inertia)
+	rolling_resistance = float(data.get("rolling_resistance", rolling_resistance))
+	reverse_acceleration = float(data.get("reverse_acceleration", reverse_acceleration))
+	for group in CHASSIS_KEYS:
+		var values = data.get(group, {})
+		if not values is Dictionary:
+			continue
+		var keys: Dictionary = CHASSIS_KEYS[group]
+		for key in keys:
+			if values.has(key):
+				set(keys[key], float(values[key]))
 
 
 func _configure_shake(data: Dictionary) -> void:
@@ -144,6 +187,24 @@ func _configure_shake(data: Dictionary) -> void:
 	shake_wall_speed = float(data.get("wall_speed", shake_wall_speed))
 	shake_shift_kick = float(data.get("shift_kick", shake_shift_kick))
 	shake_chase_factor = float(data.get("chase_factor", shake_chase_factor))
+
+
+## Arma las 4 ruedas y reparte el peso entre los ejes según el centro de masa.
+func _build_wheels() -> void:
+	mass = mass_kg
+	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
+	var wheelbase := rear_axle_z - front_axle_z
+	var front_share := clampf((rear_axle_z - center_of_mass.z) / wheelbase, 0.1, 0.9)
+	var weight := mass * _gravity()
+	wheels.clear()
+	for spec in WHEEL_NODES:
+		var is_front: bool = spec[2]
+		var mount := Vector3(float(spec[1]) * half_track, wheel_radius + suspension_travel,
+			front_axle_z if is_front else rear_axle_z)
+		var wheel := CarWheel.new(mount, is_front, get_node_or_null(str(spec[0])) as Node3D)
+		wheel.static_load = weight * (front_share if is_front else 1.0 - front_share) * 0.5
+		wheel.reset(suspension_travel)
+		wheels.append(wheel)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -173,10 +234,12 @@ func set_camera_mode(mode: int) -> void:
 	_snap_camera()
 
 
-## Auto de exhibición para los menús: sin física, sin controles, sin sonido y sin su cámara.
+## Auto de exhibición para los menús: congelado, sin controles, sin sonido y sin su cámara.
 func set_showcase(enabled: bool) -> void:
 	_showcase = enabled
 	controls_enabled = not enabled
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	freeze = enabled
 	set_physics_process(not enabled)
 	set_process_unhandled_input(not enabled)
 	engine_audio.set_muted(enabled)
@@ -236,18 +299,37 @@ func _physics_process(delta: float) -> void:
 		steer_input = Input.get_axis("steer_right", "steer_left")
 		handbrake = Input.is_action_pressed("handbrake")
 	_handbrake = handbrake
+	forward_speed = linear_velocity.dot(_flat_forward())
 
 	var pedals := _map_pedals(throttle, brake)
 	_update_powertrain(pedals.x, delta)
-	_update_speed(pedals.x, pedals.y, handbrake, delta)
-	_update_steering(steer_input, handbrake, delta)
-	_apply_velocity(handbrake, delta)
-	move_and_slide()
-	_handle_wall_hits()
+	_update_steering(steer_input, delta)
+	_apply_wheel_forces(pedals.x, pedals.y, handbrake, delta)
+	apply_central_force(-linear_velocity * linear_velocity.length() * aero_drag * mass)
+	_update_wheel_meshes()
 	_update_camera(delta)
 
 	if global_position.y < -20.0:
 		reset_to_spawn()
+
+
+## Golpes contra muros: velocidad perdida contra la normal de cada contacto casi vertical
+## desde el paso anterior.
+func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	var touching := false
+	var strongest := 0.0
+	var lost := _last_velocity - state.linear_velocity
+	for i in state.get_contact_count():
+		var normal := state.get_contact_local_normal(i)
+		if absf(normal.y) < 0.5:
+			touching = true
+			strongest = maxf(strongest, absf(lost.dot(normal)))
+	_last_velocity = state.linear_velocity
+	_touching_wall = touching
+	if strongest > 1.0:
+		var strength := strongest / shake_wall_speed
+		add_camera_impact(strength)
+		wall_hit.emit(clampf(strength, 0.0, 1.0))
 
 
 ## Devuelve (acelerador, freno) ya interpretados según la caja.
@@ -270,81 +352,94 @@ func _update_powertrain(throttle: float, delta: float) -> void:
 	gearbox.update(engine.rpm, delta)
 
 
-func _update_speed(throttle: float, brake: float, handbrake: bool, delta: float) -> void:
-	var direction := float(gearbox.get_direction())
-	if brake > 0.0:
-		forward_speed = move_toward(forward_speed, 0.0, brake_deceleration * brake * delta)
-	if throttle > 0.0 and direction != 0.0:
-		if forward_speed * direction < -0.1:
-			# Rodando para el lado contrario a la marcha: el acelerador frena (arcade).
-			forward_speed = move_toward(forward_speed, 0.0, brake_deceleration * throttle * delta)
-		else:
-			forward_speed += direction * _drive_acceleration() * delta
-	elif brake == 0.0:
-		var coast_decel := rolling_drag
-		if direction != 0.0 and forward_speed * direction > 0.0:
-			coast_decel += engine.get_engine_brake_accel()
-		forward_speed = move_toward(forward_speed, 0.0, coast_decel * delta)
-
-	forward_speed = move_toward(forward_speed, 0.0, aero_drag * forward_speed * forward_speed * delta)
-
-	if handbrake:
-		forward_speed = move_toward(forward_speed, 0.0, handbrake_deceleration * delta)
-
-	forward_speed = clampf(forward_speed, -max_reverse_speed, max_speed)
-
-
-func _update_steering(steer_input: float, handbrake: bool, delta: float) -> void:
+## El giro máximo de las ruedas baja con la velocidad: el que da el máximo agarre en una
+## curva (distancia entre ejes / radio) más el ángulo de deriva de pico.
+func _update_steering(steer_input: float, delta: float) -> void:
 	_steer = lerpf(_steer, steer_input, clampf(steer_response * delta, 0.0, 1.0))
-	var speed_ratio := clampf(absf(forward_speed) / max_speed, 0.0, 1.0)
-	var low_speed_factor := clampf(absf(forward_speed) / 6.0, 0.0, 1.0)
-	var rate := max_steer_rate * lerpf(1.0, high_speed_steer_factor, speed_ratio) * low_speed_factor
-	if handbrake:
-		rate *= 1.4
-	var direction := 1.0 if forward_speed >= 0.0 else -1.0
-	rotate_y(_steer * rate * direction * delta)
+	var speed := absf(forward_speed)
+	var wheelbase := rear_axle_z - front_axle_z
+	var limit := atan(wheelbase * tyre_mu * _gravity() / maxf(speed * speed, 0.01)) + deg_to_rad(slip_peak_deg)
+	limit = clampf(limit * steer_limit, deg_to_rad(min_steer_deg), deg_to_rad(max_steer_deg))
+	for wheel in wheels:
+		wheel.steer_angle = _steer * limit if wheel.front else 0.0
 
 
-func _apply_velocity(handbrake: bool, delta: float) -> void:
-	var forward := _flat_forward()
-	var desired := forward * forward_speed
-	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
-	var current_grip := handbrake_grip if handbrake else grip
-	horizontal = horizontal.lerp(desired, clampf(current_grip * delta, 0.0, 1.0))
-	velocity.x = horizontal.x
-	velocity.z = horizontal.z
-	if is_on_floor():
-		velocity.y = 0.0
-	else:
-		velocity.y -= gravity * delta
+## Suspensión y neumático de cada rueda: tracción atrás, frenos repartidos entre los ejes,
+## rodadura y freno motor; con freno de mano las traseras se bloquean y agarran menos de costado.
+func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: float) -> void:
+	var space := get_world_3d().direct_space_state
+	var center := global_transform * center_of_mass
+	var corner_mass := mass * 0.25
+	var slip_peak := deg_to_rad(slip_peak_deg)
+	var drive := _drive_force(throttle)
+	var engine_brake := 0.0
+	var direction := float(gearbox.get_direction())
+	if throttle == 0.0 and direction != 0.0 and forward_speed * direction > 0.0:
+		engine_brake = engine.get_engine_brake_accel() * mass
+	for wheel in wheels:
+		wheel.update_suspension(self, space, suspension_travel, wheel_radius, spring_stiffness, damper, delta)
+		if not wheel.in_contact:
+			continue
+		var offset := wheel.contact_point - global_position
+		apply_force(wheel.up * wheel.wheel_load, offset)
+		var point_velocity := linear_velocity + angular_velocity.cross(wheel.contact_point - center)
+		wheel.measure(global_transform.basis, point_velocity, slip_floor)
+		var mu := tyre_mu * (1.0 if wheel.front else rear_grip_factor)
+		var lateral_mu := mu
+		var share := brake_front_share if wheel.front else 1.0 - brake_front_share
+		var resistance := brake_force * brake * share * 0.5 + rolling_resistance * corner_mass
+		var push := 0.0
+		if not wheel.front:
+			push = drive * 0.5
+			resistance += engine_brake * 0.5
+			if handbrake:
+				resistance = mu * wheel.wheel_load
+				lateral_mu *= handbrake_lateral_factor
+		var request := push + _oppose(wheel.long_speed, resistance, corner_mass, delta)
+		apply_force(wheel.tyre_force(request, mu, lateral_mu, slip_peak), offset)
 
 
-func _handle_wall_hits() -> void:
-	_touching_wall = false
-	for i in get_slide_collision_count():
-		var collision := get_slide_collision(i)
-		if absf(collision.get_normal().y) < 0.5:
-			_touching_wall = true
-			var actual := velocity.dot(_flat_forward())
-			if absf(forward_speed) > absf(actual):
-				var strength := (absf(forward_speed) - absf(actual)) / shake_wall_speed
-				add_camera_impact(strength)
-				wall_hit.emit(clampf(strength, 0.0, 1.0))
-				forward_speed = lerpf(forward_speed, actual, 0.5)
+## Fuerza contraria a la velocidad, sin pasarse: a baja velocidad frena justo hasta 0.
+static func _oppose(speed: float, amount: float, corner_mass: float, delta: float) -> float:
+	return -signf(speed) * minf(amount, absf(speed) * corner_mass / delta)
+
+
+## N de empuje entre las dos ruedas traseras (negativo en R).
+func _drive_force(throttle: float) -> float:
+	var direction := float(gearbox.get_direction())
+	if throttle <= 0.0 or direction == 0.0 or gearbox.is_shifting():
+		return 0.0
+	if direction < 0.0 and forward_speed < -max_reverse_speed:
+		return 0.0
+	var wheel_torque := engine.get_output_torque() * gearbox.get_total_ratio() * gearbox.efficiency
+	var force := wheel_torque / wheel_radius
+	if direction < 0.0:
+		force = minf(force, reverse_acceleration * mass)
+	return force * direction
+
+
+## Las ruedas siguen la suspensión y las delanteras giran con la dirección.
+func _update_wheel_meshes() -> void:
+	for wheel in wheels:
+		if wheel.mesh == null:
+			continue
+		var hub := wheel.mount - Vector3(0, minf(wheel.length, suspension_travel * 2.0), 0)
+		wheel.mesh.transform = Transform3D(Basis(Vector3.UP, wheel.steer_angle) * wheel.mesh_basis, hub)
 
 
 func _update_camera(delta: float) -> void:
 	var t := _camera_pivot.global_transform
 	t.origin = global_position
-	var target_basis := Basis(Vector3.UP, rotation.y)
-	var weight := clampf(camera_follow * delta, 0.0, 1.0) if _camera_view() == "chase" else 1.0
-	t.basis = t.basis.slerp(target_basis, weight).orthonormalized()
+	if _camera_view() == "chase":
+		var weight := clampf(camera_follow * delta, 0.0, 1.0)
+		t.basis = t.basis.slerp(Basis(Vector3.UP, rotation.y), weight).orthonormalized()
+	else:
+		t.basis = global_transform.basis.orthonormalized()
 	_camera_pivot.global_transform = t
 	_update_shake(delta)
 
 
-## Vibración: crece con el cuadrado de la velocidad y suma los golpes (muros, cambios;
-## los pianos del Paso 19 también van a llamar a add_camera_impact()).
+## Vibración: crece con el cuadrado de la velocidad y suma los golpes (muros, cambios, pianos).
 func _update_shake(delta: float) -> void:
 	_shake_time += delta
 	_impact = move_toward(_impact, 0.0, shake_impact_decay * delta)
@@ -370,7 +465,8 @@ func _on_gear_changed(_gear: int) -> void:
 
 
 func _snap_camera() -> void:
-	_camera_pivot.global_transform = Transform3D(Basis(Vector3.UP, rotation.y), global_position)
+	var pivot_basis := Basis(Vector3.UP, rotation.y) if _camera_view() == "chase" else global_transform.basis.orthonormalized()
+	_camera_pivot.global_transform = Transform3D(pivot_basis, global_position)
 
 
 ## RPM que impone la velocidad de las ruedas a través de la marcha actual.
@@ -379,28 +475,27 @@ func _wheel_rpm() -> float:
 	return wheel_rad_per_s * gearbox.get_total_ratio() * 60.0 / TAU
 
 
-func _drive_acceleration() -> float:
-	if gearbox.is_shifting():
-		return 0.0
-	var wheel_torque := engine.get_output_torque() * gearbox.get_total_ratio() * gearbox.efficiency
-	var force := wheel_torque / wheel_radius
-	var limit := traction_limit if gearbox.gear >= 1 else reverse_acceleration
-	return minf(force / mass_kg, limit)
-
-
 func _flat_forward() -> Vector3:
 	var forward := -global_transform.basis.z
 	forward.y = 0.0
 	return forward.normalized()
 
 
+func _gravity() -> float:
+	return float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)) * gravity_scale
+
+
 func reset_to_spawn() -> void:
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	_last_velocity = Vector3.ZERO
 	global_transform = spawn_transform
-	velocity = Vector3.ZERO
 	forward_speed = 0.0
 	_steer = 0.0
 	_impact = 0.0
 	kerb_contact = 0.0
+	for wheel in wheels:
+		wheel.reset(suspension_travel)
 	engine.reset()
 	gearbox.reset()
 	_snap_camera()
@@ -408,7 +503,7 @@ func reset_to_spawn() -> void:
 
 
 func get_speed_kmh() -> float:
-	return Vector2(velocity.x, velocity.z).length() * 3.6
+	return Vector2(linear_velocity.x, linear_velocity.z).length() * 3.6
 
 
 ## Velocidad (m/s) con el motor en el limitador en la última marcha.
@@ -438,9 +533,17 @@ func is_touching_wall() -> bool:
 	return _touching_wall
 
 
+## Alguna rueda apoyada en el piso.
+func is_grounded() -> bool:
+	for wheel in wheels:
+		if wheel.in_contact:
+			return true
+	return false
+
+
 ## Ángulo entre hacia dónde apunta el auto y hacia dónde se mueve (derrape).
 func get_slip_angle_deg() -> float:
-	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
+	var horizontal := Vector3(linear_velocity.x, 0.0, linear_velocity.z)
 	if horizontal.length() < 3.0:
 		return 0.0
 	var forward := _flat_forward()
@@ -452,3 +555,9 @@ func get_slip_angle_deg() -> float:
 ## Colores del equipo y número del piloto (vacío = sin número).
 func set_livery(primary: Color, secondary: Color, number: String) -> void:
 	livery.apply(primary, secondary, number)
+
+
+func _vec3(value, fallback: Vector3) -> Vector3:
+	if value is Array and value.size() == 3:
+		return Vector3(float(value[0]), float(value[1]), float(value[2]))
+	return fallback

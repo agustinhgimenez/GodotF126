@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://scripts/car_controller.gd" id="1_car"]
 [ext_resource type="Script" path="res://scripts/car/car_engine.gd" id="2_engine"]
@@ -11,7 +11,11 @@
 [ext_resource type="Script" path="res://scripts/car/car_livery.gd" id="9_livery"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_car"]
-size = Vector3(1.9, 0.8, 6)
+size = Vector3(1.9, 0.7, 6)
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_car"]
+friction = 0.2
+bounce = 0.05
 
 [sub_resource type="StandardMaterial3D" id="Mat_team"]
 albedo_color = Color(1, 0.53, 0.74, 1)
@@ -63,7 +67,19 @@ top_radius = 0.36
 bottom_radius = 0.36
 height = 0.38
 
-[node name="Car" type="CharacterBody3D"]
+[node name="Car" type="RigidBody3D"]
+mass = 800.0
+physics_material_override = SubResource("PhysicsMaterial_car")
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, 0.3, 0.07)
+inertia = Vector3(1000, 1100, 300)
+can_sleep = false
+continuous_cd = true
+contact_monitor = true
+max_contacts_reported = 8
+linear_damp_mode = 1
+angular_damp_mode = 1
+angular_damp = 0.2
 script = ExtResource("1_car")
 
 [node name="Engine" type="Node" parent="."]
@@ -79,7 +95,7 @@ script = ExtResource("7_audio")
 script = ExtResource("8_audio_fx")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, -0.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, -0.2)
 shape = SubResource("BoxShape3D_car")
 
 [node name="BodyMesh" type="MeshInstance3D" parent="." groups=["team_paint"]]

@@ -137,7 +137,8 @@ func _set_view(race: Node, view: String) -> void:
 func _place_car(track: BakuTrack, car: CarController, index: int) -> void:
 	car.global_transform = Transform3D(Basis.looking_at(track.flat_tangent(index), Vector3.UP),
 		track.centerline[index] + Vector3(0, 0.6, 0))
-	car.velocity = Vector3.ZERO
+	car.linear_velocity = Vector3.ZERO
+	car.angular_velocity = Vector3.ZERO
 	car.set_camera_mode(0)
 
 

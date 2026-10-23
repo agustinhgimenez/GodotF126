@@ -79,6 +79,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 22: ciudad generada desde el trazado — 389 edificios, 3 tribunas con techo y 267 paneles de publicidad genérica en los muros, con LOD (ventanas y textos se dejan de dibujar de lejos). Capturas: `informes/capturas/paso22-tribunas.png`, `paso22-publicidad.png`, `paso22-arriba.png`.
 - ✅ Paso 23: iluminación de atardecer (presets en `data/lighting.json`, opción "Hora de la carrera": Atardecer / Día), sombras según la calidad gráfica y mar con shader propio que refleja el cielo y el sol. Capturas: `informes/capturas/paso23-costa.png`, `paso23-ciudad-atardecer.png`, `paso23-ciudad-dia.png`.
 - ✅ Paso 24: pulido de H1 — tutorial de controles (botón "Controles" en menú y pausa, teclas leídas del input map), pantalla de carga con barra, consejos y controles (la primera vez espera Enter) y prueba de rendimiento para la PC del laboratorio (`scenes/benchmark.tscn`, recomienda calidad e informa en `user://benchmark.txt`). Capturas: `informes/capturas/paso24-carga.png`, `paso24-menu-controles.png`. **Hito H1 (demo de cursada) alcanzado.**
-- ⏳ Paso 25: modelo por 4 ruedas con suspensión por raycast (empieza la Fase D, física de simulador).
+- ✅ Paso 25: modelo por 4 ruedas — el auto es un cuerpo rígido (`RigidBody3D`, motor de física Jolt) con suspensión por rayo en cada rueda (resorte + amortiguador), neumático simple por rueda con círculo de fricción, tracción trasera y frenos repartidos; cabecea y rola solo. Vuelta con piloto automático: 1:37.6. Capturas: `informes/capturas/paso25-ruedas.png`, `paso25-frenada.png`.
+- ⏳ Paso 26: neumáticos con curva tipo Pacejka y deslizamiento longitudinal por rueda.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

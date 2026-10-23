@@ -1,9 +1,18 @@
 {
-  "description": "Datos del monoplaza. Valores aproximados y escalados para manejo arcade; no son datos oficiales.",
+  "description": "Datos del monoplaza. Valores aproximados para un modelo de 4 ruedas jugable; no son datos oficiales.",
   "mass_kg": 800,
   "wheel_radius": 0.36,
-  "traction_limit": 16.0,
   "aero_drag": 0.0012,
+  "chassis": {
+    "center_of_mass": [0, 0.3, 0.07],
+    "inertia": [1000, 1100, 300],
+    "rolling_resistance": 0.25,
+    "reverse_acceleration": 8.0,
+    "suspension": { "front_axle_z": -1.8, "rear_axle_z": 1.6, "half_track": 0.85, "travel": 0.12, "stiffness": 70000, "damping": 3800 },
+    "tyres": { "mu": 2.3, "rear_grip_factor": 1.08, "slip_peak_deg": 6, "slip_floor": 5, "handbrake_lateral_factor": 0.4 },
+    "brakes": { "force": 30000, "front_share": 0.58 },
+    "steering": { "max_deg": 22, "min_deg": 3 }
+  },
   "engine": {
     "idle_rpm": 4000,
     "limiter_rpm": 12500,

@@ -14,8 +14,8 @@
     "tutorial_seen": false
   },
   "steering": {
-    "assisted": { "steer_response": 8.0, "high_speed_steer_factor": 0.35 },
-    "direct": { "steer_response": 14.0, "high_speed_steer_factor": 0.5 }
+    "assisted": { "steer_response": 8.0, "steer_limit": 1.0 },
+    "direct": { "steer_response": 14.0, "steer_limit": 1.6 }
   },
   "quality_profiles": {
     "low": { "shadows": false, "msaa": 0, "mirror_scale": 0.5, "shadow_distance": 0, "shadow_splits": 1 },

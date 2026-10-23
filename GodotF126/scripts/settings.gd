@@ -115,7 +115,7 @@ func apply_to_car(car: CarController, include_camera: bool = true) -> void:
 	var profile = steering.get("assisted" if bool(get_value("steering_assist")) else "direct", {})
 	if profile is Dictionary:
 		car.steer_response = float(profile.get("steer_response", car.steer_response))
-		car.high_speed_steer_factor = float(profile.get("high_speed_steer_factor", car.high_speed_steer_factor))
+		car.steer_limit = float(profile.get("steer_limit", car.steer_limit))
 	if include_camera:
 		car.set_camera_mode(int(get_value("camera")))
 	car.cockpit_detail.set_resolution_scale(float(quality().get("mirror_scale", 1.0)))
