@@ -48,8 +48,11 @@ func set_value(key: String, value) -> void:
 	changed.emit(key)
 
 
+## No vuelve a mostrar el tutorial: tutorial_seen no es una opción del jugador.
 func reset_to_defaults() -> void:
+	var seen = get_value("tutorial_seen")
 	values = _data.get("defaults", {}).duplicate()
+	values["tutorial_seen"] = seen
 	apply_global()
 	save_settings()
 	changed.emit("")
@@ -131,7 +134,7 @@ func _sanitize(key: String, value):
 			if not (value is int or value is float):
 				return int(fallback)
 			return clampi(int(value), 0, CarController.CAMERA_MODES.size() - 1)
-		"steering_assist", "fullscreen":
+		"steering_assist", "fullscreen", "tutorial_seen":
 			return value if value is bool else fallback
 	if key in VOLUME_BUSES:
 		if not (value is int or value is float):

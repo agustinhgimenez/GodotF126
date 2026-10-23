@@ -273,7 +273,7 @@ func _build_ui() -> void:
 
 	# Abajo a la izquierda: controles.
 	var hint := _make_label(16, HORIZONTAL_ALIGNMENT_LEFT,
-		"W acelerar · S frenar · A/D girar · E/Q subir/bajar marcha · M caja man/aut · Espacio freno de mano · C cámara · R reiniciar · Esc pausa")
+		"W/S acelerar/frenar · A/D girar · E/Q marchas · C cámara · R volver a la pista · Esc pausa y controles")
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_place(hint, Vector4(0, 1, 0, 1), Vector4(24, -84, 760, -20))
 	root.add_child(hint)

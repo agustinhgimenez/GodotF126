@@ -1,0 +1,42 @@
+{
+  "description": "Tutorial de controles (Paso 24): secciones del panel de controles y consejos de la pantalla de carga. Cada fila tiene 'actions' (acciones del InputMap: las teclas se leen de project.godot) o 'keys' (texto fijo).",
+  "sections": [
+    {
+      "title": "Manejo",
+      "rows": [
+        { "actions": ["accelerate"], "text": "Acelerar" },
+        { "actions": ["brake"], "text": "Frenar (quieto: marcha atrás en automática)" },
+        { "actions": ["steer_left", "steer_right"], "text": "Girar" },
+        { "actions": ["handbrake"], "text": "Freno de mano" }
+      ]
+    },
+    {
+      "title": "Caja de cambios",
+      "rows": [
+        { "actions": ["gear_up"], "text": "Subir marcha" },
+        { "actions": ["gear_down"], "text": "Bajar marcha (de 1ª a N; quieto, R)" },
+        { "actions": ["toggle_gearbox"], "text": "Caja manual / automática" }
+      ]
+    },
+    {
+      "title": "Carrera",
+      "rows": [
+        { "actions": ["change_camera"], "text": "Cambiar cámara (6 vistas)" },
+        { "actions": ["reset_car"], "text": "Volver a la pista" },
+        { "keys": ["Esc"], "text": "Pausa: opciones, controles, reiniciar" }
+      ]
+    }
+  ],
+  "tips": [
+    "Los carteles 150 · 100 · 50 antes de cada curva marcan dónde empezar a frenar.",
+    "Con caja manual, las luces del volante avisan cuándo subir de marcha.",
+    "En el castillo la pista se angosta a menos de 8 m: entrá despacio.",
+    "Pisar con las cuatro ruedas afuera de los pianos invalida la vuelta.",
+    "En contrarreloj se larga detenido: esperá a que se apaguen las cinco luces.",
+    "Si el auto queda cruzado contra un muro, R lo devuelve a la pista.",
+    "La hora de la carrera (atardecer o día) se cambia en Opciones."
+  ],
+  "loading": {
+    "min_seconds": 1.2
+  }
+}

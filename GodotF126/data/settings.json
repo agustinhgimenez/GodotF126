@@ -10,7 +10,8 @@
     "music_volume": 70,
     "quality": "medium",
     "time_of_day": "sunset",
-    "fullscreen": false
+    "fullscreen": false,
+    "tutorial_seen": false
   },
   "steering": {
     "assisted": { "steer_response": 8.0, "high_speed_steer_factor": 0.35 },

@@ -8,7 +8,7 @@ Los pasos están agrupados en **fases**. El orden prioriza primero lo que más c
 
 | Hito | Se alcanza al terminar | Qué se puede mostrar |
 |---|---|---|
-| **H1 — Demo de cursada** | Paso 24 | Elegir escudería/piloto, caja manual, cockpit con volante y manos, sonido, vuelta cronometrada, resultado |
+| **H1 — Demo de cursada** ✅ | Paso 24 | Elegir escudería/piloto, caja manual, cockpit con volante y manos, sonido, vuelta cronometrada, resultado |
 | **H2 — Simulador** | Paso 38 | Física de neumáticos, aero activa 2026, ERS, setup, telemetría para entrenar |
 | **H3 — Juego completo** | Paso 52 | Rivales con IA, carrera con largada, fantasma, replays |
 | **H4 — Entrega final** | Paso 60 | Tests, optimización, `.exe`, documentación y defensa |
@@ -38,7 +38,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 9 | **Sonido de motor** generado por código en capas según RPM y acelerador; sonido de cambio, limitador y petardeo al soltar | ✅ |
 | 10 | Sonidos de neumáticos (chirrido por deslizamiento), viento por velocidad, golpes contra muros | ✅ |
 
-## Fase C — Menús y flujo de juego (cierra H1) ⏳
+## Fase C — Menús y flujo de juego (cierra H1) ✅
 
 | Paso | Contenido | Estado |
 |---|---|---|
@@ -55,13 +55,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 21 | Bakú mejorado: trazado más parecido (aproximado, sin datos oficiales FIA), **sector del castillo estrecho**, elevación suave | ✅ |
 | 22 | Ciudad: tribunas, edificios, barreras con publicidad, LOD para rendimiento | ✅ |
 | 23 | Iluminación de atardecer, sombras, reflejos en el mar | ✅ |
-| 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | ⏳ Siguiente |
+| 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | ✅ |
 
 ## Fase D — Física de simulador (H2)
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 25 | Modelo por **4 ruedas**: suspensión por raycast (resorte + amortiguador) en lugar del arcade | |
+| 25 | Modelo por **4 ruedas**: suspensión por raycast (resorte + amortiguador) en lugar del arcade | ⏳ Siguiente |
 | 26 | **Neumáticos**: curva tipo Pacejka simplificada, ángulo de deriva y deslizamiento longitudinal por rueda | |
 | 27 | Transferencia de peso en frenada, aceleración y curva | |
 | 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | |
@@ -377,3 +377,24 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   Las sombras con 4 cortes y el MSAA ×4 de "Alta" casi duplican el costo, pero quedan por encima de 100 FPS. Los tiempos absolutos varían entre sesiones (en el Paso 22 la misma recta dio 11 ms), así que conviene comparar sólo dentro de una misma corrida.
 - **Verificación**: prueba que aplica los dos presets y revisa dirección y color del sol, sombras, tonemap y niebla; mide la tabla; saca capturas. Se volvió a correr la vuelta con piloto automático del Paso 21 (1:42.2 y 1:41.1, sin salidas). Capturas: `informes/capturas/paso23-costa.png` (sol sobre el mar), `paso23-recta.png`, `paso23-castillo.png`, `paso23-ciudad-atardecer.png`, `paso23-ciudad-dia.png`, `paso23-opciones.png`, `paso23-menu-opciones.png`.
 - **Cómo probar**: F5 → Jugar → elegir piloto → en la recta del mar, el sol bajo y el reflejo en el agua; Esc → Opciones → "Hora de la carrera" cambia a Día al instante.
+
+### Paso 24 — Pulido de H1 (cierra el hito H1)
+- **Tutorial de controles** (`ControlsPanel`, `scripts/ui/controls_panel.gd`): panel con las teclas dibujadas como recuadros y lo que hace cada una, en tres secciones (Manejo, Caja de cambios, Carrera). Los textos están en `data/controls.json` y **las teclas se leen del InputMap** de `project.godot`, así que si se cambia una tecla el panel se actualiza solo. Se abre con el botón nuevo **"Controles"** del menú principal y de la pausa, y aparece en la pantalla de carga. La línea de ayuda del HUD quedó más corta ("Esc pausa y controles").
+- **Pantalla de carga** (`scenes/loading.tscn`, `LoadingScreen`): al confirmar el piloto, el menú pasa a esta pantalla en vez de cargar la carrera de golpe. Carga `main.tscn` en otro hilo (`ResourceLoader.load_threaded_request`) con barra de progreso y muestra circuito, piloto, escudería, modo, hora de la carrera, un consejo al azar (de `controls.json`) y los controles, con el color del equipo. La ciudad se arma en el `_ready()` de la carrera y congela la pantalla un momento: antes se muestra "Armando el circuito y la ciudad…".
+  - **Primera carrera**: espera **Enter** ("leé los controles y apretá Enter para salir a pista") y guarda `tutorial_seen` en `Settings` (no se borra con Restablecer).
+  - **Después**: pasa sola apenas termina de cargar (mínimo 1,2 s para que se lea el consejo; Enter lo saltea). Menú → carrera en ~1,8 s.
+- **Prueba en PC tipo laboratorio** (`scenes/benchmark.tscn`, `scripts/tools/benchmark.gd`): carga la carrera con cada calidad gráfica, mide 3 vistas sin vsync (promedio y percentil 95 de 120 cuadros) y recomienda la calidad más alta que se sostiene a 60 FPS en todas. Escribe un informe con CPU, placa de video, driver, renderer y resolución en `user://benchmark.txt` (en Windows: `%APPDATA%\Godot\app_userdata\GodotF126\benchmark.txt`). Se corre sin abrir el editor:
+  `Godot_v4.7.2-stable_win64.exe --path GodotF126 res://scenes/benchmark.tscn` (con `-- --quit` se cierra solo).
+  Corrida en una notebook con gráficos integrados, como las del laboratorio (i5-1334U, Intel UHD Graphics, OpenGL 3.3, ventana 1280×720):
+
+| Vista | Baja | Media | Alta |
+|---|---|---|---|
+| Recta principal | 4,9 / 8,6 ms | 7,5 / 13,7 ms | 13,7 / 19,9 ms |
+| Castillo | 3,8 / 6,1 ms | 6,5 / 11,6 ms | 10,2 / 16,8 ms |
+| Cenital | 7,1 / 12,5 ms | 5,7 / 9,8 ms | 10,5 / 14,9 ms |
+
+  (promedio / percentil 95 por cuadro). **Recomendada: Media**, que ya es la calidad por defecto; "Alta" pasa los 16,7 ms en los cuadros más pesados de la recta. **Pendiente**: correr el mismo comando en una PC del laboratorio y anotar el resultado; si recomienda "Baja", cambiar `"quality"` en `data/settings.json`.
+- **Verificación**: prueba que lee las teclas del InputMap (W/↑, A/←, D/→, E, Q, C; una acción inexistente da lista vacía), abre Controles en el menú y en la pausa (entran en 1280×720), recorre menú → carga → carrera: la primera vez la carga queda esperando Enter (sigue ahí 2,5 s después), con Enter entra a la carrera y guarda `tutorial_seen`; la segunda vez pasa sola y el auto aparece en la largada. Se volvió a correr la vuelta con piloto automático del Paso 21 (mismos tiempos). Capturas: `informes/capturas/paso24-menu.png`, `paso24-menu-controles.png`, `paso24-carga.png`, `paso24-pausa-controles.png`.
+- **Cómo probar**: F5 → Controles (en el menú) → Jugar → modo → piloto → la pantalla de carga espera Enter la primera vez; en carrera, Esc → Controles. Para ver el tutorial de nuevo, borrar `tutorial_seen` de `user://settings.json`.
+
+**Hito H1 alcanzado**: menú con auto 3D y música → modo → escudería y piloto → carga con tutorial → carrera en Bakú con caja manual, cockpit con volante y manos, sonido sintetizado, cronómetro por sectores, límites de pista, semáforo, cámaras de TV, ciudad e iluminación de atardecer → resultado → menú.

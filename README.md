@@ -78,6 +78,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 21: Bakú mejorado (aproximado, no es el layout oficial FIA): 2,6 km con recta junto al mar, ángulos rectos de la ciudad, subida de 12 m al sector del castillo de 7,6 m de ancho y bajada. Trazado en `data/tracks.json`. Capturas: `informes/capturas/paso21-trazado.png`, `paso21-subida.png`, `paso21-castillo-cockpit.png`.
 - ✅ Paso 22: ciudad generada desde el trazado — 389 edificios, 3 tribunas con techo y 267 paneles de publicidad genérica en los muros, con LOD (ventanas y textos se dejan de dibujar de lejos). Capturas: `informes/capturas/paso22-tribunas.png`, `paso22-publicidad.png`, `paso22-arriba.png`.
 - ✅ Paso 23: iluminación de atardecer (presets en `data/lighting.json`, opción "Hora de la carrera": Atardecer / Día), sombras según la calidad gráfica y mar con shader propio que refleja el cielo y el sol. Capturas: `informes/capturas/paso23-costa.png`, `paso23-ciudad-atardecer.png`, `paso23-ciudad-dia.png`.
-- ⏳ Paso 24: pulido de H1 — tutorial de controles, pantalla de carga, prueba en PC del laboratorio.
+- ✅ Paso 24: pulido de H1 — tutorial de controles (botón "Controles" en menú y pausa, teclas leídas del input map), pantalla de carga con barra, consejos y controles (la primera vez espera Enter) y prueba de rendimiento para la PC del laboratorio (`scenes/benchmark.tscn`, recomienda calidad e informa en `user://benchmark.txt`). Capturas: `informes/capturas/paso24-carga.png`, `paso24-menu-controles.png`. **Hito H1 (demo de cursada) alcanzado.**
+- ⏳ Paso 25: modelo por 4 ruedas con suspensión por raycast (empieza la Fase D, física de simulador).
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).

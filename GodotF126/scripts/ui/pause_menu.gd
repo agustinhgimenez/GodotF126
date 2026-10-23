@@ -2,7 +2,7 @@ class_name PauseMenu
 extends CanvasLayer
 ## Menú de pausa de la carrera (Paso 15), armado por código.
 ## Esc pausa el árbol (física, cronómetro y audio del auto quedan congelados) y muestra
-## Continuar / Reiniciar / Opciones / Menú / Salir. Este nodo sigue procesando en pausa.
+## Continuar / Reiniciar / Opciones / Controles / Menú / Salir. Este nodo sigue procesando en pausa.
 
 signal paused_changed(paused: bool)
 signal restart_requested
@@ -14,8 +14,10 @@ var _root: Control
 var _main_panel: VBoxContainer
 var _subtitle: Label
 var _options: OptionsPanel
+var _controls: ControlsPanel
 var _continue_button: Button
 var _options_button: Button
+var _controls_button: Button
 var _buttons: Array[Button] = []
 
 
@@ -35,6 +37,7 @@ func set_accent(color: Color) -> void:
 	for button in _buttons:
 		UiKit.apply_button_style(button, color)
 	_options.set_accent(color)
+	_controls.set_accent(color)
 
 
 ## Texto bajo el título (piloto, pista, vuelta).
@@ -67,12 +70,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		open()
 	elif _options.visible:
 		_show_main(_options_button)
+	elif _controls.visible:
+		_show_main(_controls_button)
 	else:
 		close()
 
 
 func _show_main(focus: Button) -> void:
 	_options.visible = false
+	_controls.visible = false
 	_main_panel.visible = true
 	focus.grab_focus()
 
@@ -81,6 +87,12 @@ func _on_options_pressed() -> void:
 	_main_panel.visible = false
 	_options.visible = true
 	_options.open()
+
+
+func _on_controls_pressed() -> void:
+	_main_panel.visible = false
+	_controls.visible = true
+	_controls.open()
 
 
 func _leave(request: Signal) -> void:
@@ -116,6 +128,7 @@ func _build_ui() -> void:
 	_continue_button = _add_button("Continuar", close)
 	_add_button("Reiniciar", func() -> void: _leave(restart_requested))
 	_options_button = _add_button("Opciones", _on_options_pressed)
+	_controls_button = _add_button("Controles", _on_controls_pressed)
 	_add_button("Menú principal", func() -> void: _leave(menu_requested))
 	_add_button("Salir del juego", func() -> void: get_tree().quit())
 	var hint := UiKit.make_label("Esc para continuar", 16)
@@ -127,6 +140,12 @@ func _build_ui() -> void:
 	UiKit.place(_options, Vector4(0, 0, 0, 0), Vector4(80, 190, 640, 700))
 	_options.closed.connect(func() -> void: _show_main(_options_button))
 	_root.add_child(_options)
+
+	_controls = ControlsPanel.new()
+	_controls.visible = false
+	UiKit.place(_controls, Vector4(0, 0, 0, 0), Vector4(80, 190, 700, 700))
+	_controls.closed.connect(func() -> void: _show_main(_controls_button))
+	_root.add_child(_controls)
 
 
 func _add_button(text: String, action: Callable) -> Button:

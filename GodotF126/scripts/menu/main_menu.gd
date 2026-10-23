@@ -4,9 +4,9 @@ extends Node3D
 ## generada por código. Jugar abre ModeSelect (práctica libre / contrarreloj, Paso 16) y
 ## después DriverSelect (escudería → piloto); mientras se recorren las tarjetas el auto, el
 ## aro y la luz toman el color del equipo. Al confirmar se guardan el modo y el piloto en
-## GameState y se carga la carrera.
+## GameState y se carga la carrera a través de la pantalla de carga (Paso 24).
 
-const RACE_SCENE := "res://scenes/main.tscn"
+const LOADING_SCENE := "res://scenes/loading.tscn"
 const FALLBACK_TEAM_COLOR := Color("#FF87BC")
 const RING_RADIUS := 3.85
 
@@ -19,8 +19,10 @@ var _main_panel: VBoxContainer
 var _modes: ModeSelect
 var _select: DriverSelect
 var _options: OptionsPanel
+var _controls: ControlsPanel
 var _play_button: Button
 var _options_button: Button
+var _controls_button: Button
 var _quit_button: Button
 var _title_stripe: ColorRect
 var _card_stripe: ColorRect
@@ -74,6 +76,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif _options.visible:
 		_show_main()
 		_options_button.grab_focus()
+	elif _controls.visible:
+		_show_main()
+		_controls_button.grab_focus()
 	else:
 		get_tree().quit()
 
@@ -82,6 +87,7 @@ func _show_main() -> void:
 	_modes.visible = false
 	_select.visible = false
 	_options.visible = false
+	_controls.visible = false
 	_main_panel.visible = true
 	_play_button.grab_focus()
 
@@ -90,6 +96,12 @@ func _on_options_pressed() -> void:
 	_main_panel.visible = false
 	_options.visible = true
 	_options.open()
+
+
+func _on_controls_pressed() -> void:
+	_main_panel.visible = false
+	_controls.visible = true
+	_controls.open()
 
 
 func _apply_quality() -> void:
@@ -126,7 +138,7 @@ func _on_select_cancelled() -> void:
 
 func _on_driver_confirmed(driver_id: String) -> void:
 	GameState.selected_driver_id = driver_id
-	get_tree().change_scene_to_file(RACE_SCENE)
+	get_tree().change_scene_to_file(LOADING_SCENE)
 
 
 func _on_quit_pressed() -> void:
@@ -150,8 +162,10 @@ func _preview(team: Dictionary, driver: Dictionary) -> void:
 	_card_stripe.color = color
 	UiKit.apply_button_style(_play_button, color)
 	UiKit.apply_button_style(_options_button, color)
+	UiKit.apply_button_style(_controls_button, color)
 	UiKit.apply_button_style(_quit_button, color)
 	_options.set_accent(color)
+	_controls.set_accent(color)
 	_modes.set_accent(color)
 	if driver.is_empty():
 		_card_title.text = str(team.get("name", ""))
@@ -226,6 +240,9 @@ func _build_ui() -> void:
 	_options_button = UiKit.make_button("Opciones", FALLBACK_TEAM_COLOR)
 	_options_button.pressed.connect(_on_options_pressed)
 	_main_panel.add_child(_options_button)
+	_controls_button = UiKit.make_button("Controles", FALLBACK_TEAM_COLOR)
+	_controls_button.pressed.connect(_on_controls_pressed)
+	_main_panel.add_child(_controls_button)
 	_quit_button = UiKit.make_button("Salir", FALLBACK_TEAM_COLOR)
 	_quit_button.pressed.connect(_on_quit_pressed)
 	_main_panel.add_child(_quit_button)
@@ -257,6 +274,14 @@ func _build_ui() -> void:
 	_options.closed.connect(func() -> void:
 		_show_main()
 		_options_button.grab_focus())
+
+	_controls = ControlsPanel.new()
+	_controls.name = "Controls"
+	UiKit.place(_controls, Vector4(0, 0, 0, 0), Vector4(80, 200, 700, 710))
+	root.add_child(_controls)
+	_controls.closed.connect(func() -> void:
+		_show_main()
+		_controls_button.grab_focus())
 
 	# Abajo a la derecha: piloto o escudería en exhibición.
 	var card := HBoxContainer.new()
