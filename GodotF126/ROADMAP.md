@@ -64,8 +64,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 25 | Modelo por **4 ruedas**: suspensión por raycast (resorte + amortiguador) en lugar del arcade | ✅ |
 | 26 | **Neumáticos**: curva tipo Pacejka simplificada, ángulo de deriva y deslizamiento longitudinal por rueda | ✅ |
 | 27 | Transferencia de peso en frenada, aceleración y curva | ✅ |
-| 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | ⏳ Siguiente |
-| 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | |
+| 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | ✅ |
+| 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | ⏳ Siguiente |
 | 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | |
 | 31 | Diferencial y **control de tracción** con niveles | |
 | 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | |
@@ -466,3 +466,30 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   Al acelerar, la transferencia coincide con la que da la fuerza de los neumáticos (−639 N, 98 %); contra la aceleración del auto da 89 % porque parte de esa aceleración la come el arrastre, que por ahora actúa en el centro de masa y no hace cabecear (se revisa con la aerodinámica del Paso 28). Además siguen las pruebas de los Pasos 25 y 26 (quieto, 0–100 en 2,15 s, frenada de 58 m, 1,80 / 1,88 g en curva, choques, limitadores) y la vuelta con piloto automático: **1:39.6 y 1:38.6**, sin salidas, golpes ni reinicios. Capturas: `informes/capturas/paso27-curva.png`, `paso27-frenada.png`.
 - **Cómo probar**: F5 → Jugar → F3. En una curva rápida se ven las ruedas de afuera en rojo y la delantera de adentro casi sin carga; frenando fuerte, las delanteras con 66 % del peso. Para comparar, cambiar `anti_roll` en `data/car.json` (por ejemplo 0 / 60.000): el auto rola más y cambia el balance.
+
+### Paso 28 — Aerodinámica: carga y resistencia que crecen con la velocidad
+- **Carga aerodinámica** = ½ · ρ · ClA · v² (ρ = 1,225 kg/m³, ClA = 3,2 m²), hacia abajo del auto, repartida entre los ejes según el **balance** (44 % adelante) y aplicada sobre cada eje. Comprime los resortes (**el auto baja con la velocidad**) y llega a los neumáticos como carga, así que **agarran más cuanto más rápido**: 0,19 × el peso a 100 km/h, 0,77 × a 200 km/h.
+- **Arrastre** = ½ · ρ · CdA · v² (CdA = 1,57 m², el mismo que daba el `aero_drag` del Paso 3), contra la velocidad y aplicado en el **centro de presión** (0,35 m sobre el piso, un poco más alto que el centro de masa): a alta velocidad descarga apenas el eje delantero.
+- **Agarre mecánico**: `tyre_mu` bajó de 2,3 (que incluía una carga aerodinámica promedio) a **1,75**. Ahora las curvas lentas son más lentas y las rápidas más rápidas que antes; arrancando, las traseras tienen menos para tirar (0–100 km/h en 2,7 s).
+- La dirección (`_update_steering()`) calcula el giro máximo con el agarre real, `grip_acceleration()` = μ × (peso + carga) / masa.
+- La **transferencia de la cuenta** (`theoretical_transfer()`) ahora sale de las fuerzas de los neumáticos más el momento del arrastre, en vez de la aceleración del auto: así coincide también acelerando (en el Paso 27 daba 89 % porque el arrastre se comía parte de la aceleración). El panel F3 muestra la carga aerodinámica y el arrastre, y descuenta la carga del eje delantero al medir la transferencia.
+- Datos en el bloque nuevo `"aero"` de `data/car.json` (`air_density`, `cla`, `cda`, `balance`, `pressure_height`); salió `"aero_drag"`.
+- **Verificación** (física a 60 Hz):
+
+| Velocidad | Carga (= la cuenta) | Arrastre | Carga por eje | El auto baja (adelante / atrás) | Agarre disponible |
+|---|---|---|---|---|---|
+| 0 km/h | 0 N | 0 N | 3.528 / 4.312 N (45 %) | — | 1,75 g |
+| 100 km/h | 1.512 N | 742 N | 4.331 / 5.021 N | 0,5 / 0,6 cm | 2,09 g |
+| 200 km/h | 6.049 N | 2.968 N | 6.326 / 7.564 N | 1,9 / 2,5 cm | 3,10 g |
+| 300 km/h | 13.611 N | 6.678 N | 9.580 / 11.871 N | 4,0 / 5,8 cm | 4,79 g |
+
+| Prueba | Paso 27 | Paso 28 |
+|---|---|---|
+| Curva con volante a fondo a 60 / 120 / 193 km/h | 1,80 / 1,88 g / — | **1,53 / 1,83 / 2,31 g** |
+| Frenada a fondo | ~2,4 g parejo | **3,6 g** a 250 km/h, 2,1 g a 70 km/h; 194 → 0 km/h en 60 m |
+| 0–100 km/h | 2,15 s | 2,72 s |
+| Transferencia contra la cuenta (frenada / aceleración / curva) | 97 / 89 / 100 % | 99 / 102 / 100 % |
+| Vuelta con piloto automático | 1:39.6 / 1:38.6 | 1:41.6 / **1:40.1**, sin salidas, golpes ni reinicios |
+
+  El piloto automático de la prueba frena y dobla con límites fijos (14 y 7 m/s²) y no aprovecha la carga en las rápidas; la vuelta se hace más lenta por las salidas de curva con menos tracción. Siguen bien quieto, choques, limitadores y freno de mano. **Velocidad máxima**: 198 km/h, la corta el limitador en 8ª, no el arrastre (con 446 kW el arrastre recién frenaría el auto a ~269 km/h); alargar la 8ª queda para el setup del Paso 35. Captura: `informes/capturas/paso28-curva-rapida.png` (panel F3 a 190 km/h).
+- **Cómo probar**: F5 → Jugar → F3. En la recta la carga aerodinámica sube con la velocidad y las cuatro ruedas se ponen rojas; en las curvas rápidas el auto aguanta mucho más que en el castillo.

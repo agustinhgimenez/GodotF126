@@ -2,10 +2,11 @@ class_name WheelLoadsPanel
 extends Control
 ## Panel de cargas por rueda (Paso 27, tecla F3): el auto visto desde arriba con la carga de
 ## cada rueda (N y % del peso, color según cuánto más o menos que quieto), κ y deriva; abajo
-## el reparto por eje y por lado, la aceleración, cabeceo y rolido, y la transferencia de peso
-## medida contra la de la cuenta (m · a · h / distancia entre ejes o trocha).
+## el reparto por eje y por lado, la aceleración, cabeceo y rolido, la carga aerodinámica y el
+## arrastre (Paso 28), y la transferencia de peso medida (sin la carga aerodinámica) contra la
+## de la cuenta (CarController.theoretical_transfer()).
 
-const SIZE := Vector2(330, 425)
+const SIZE := Vector2(330, 450)
 const BG := Color(0.04, 0.05, 0.07, 0.78)
 const TEXT := Color(0.9, 0.92, 0.95)
 const DIM := Color(0.6, 0.64, 0.7)
@@ -72,13 +73,15 @@ func _draw() -> void:
 	var right := loads[1] + loads[3]
 	var static_front := _car.wheels[0].static_load + _car.wheels[1].static_load
 	var accel := _car.local_acceleration
-	var theory := _car.theoretical_transfer(accel)
+	var theory := _car.theoretical_transfer()
+	var front_aero := _car.downforce_front
 	var lines := [
 		"Ejes: adelante %d %% · atrás %d %%" % [roundi(front / total * 100.0), roundi(100.0 - front / total * 100.0)],
 		"Lados: izq. %d %% · der. %d %%" % [roundi(100.0 - right / total * 100.0), roundi(right / total * 100.0)],
 		"Acel. long. %+.2f g · lat. %.2f g %s" % [-accel.z / 9.8, absf(accel.x) / 9.8, "izq." if accel.x < 0.0 else "der."],
 		"Cabeceo %.2f° · rolido %.2f°" % [_car.get_pitch_deg(), _car.get_roll_deg()],
-		"Transf. adelante %+d N (cuenta %+d)" % [roundi(front - static_front), roundi(theory.x)],
+		"Carga aero %d N · arrastre %d N" % [roundi(_car.downforce), roundi(_car.drag_force)],
+		"Transf. adelante %+d N (cuenta %+d)" % [roundi(front - static_front - front_aero), roundi(theory.x)],
 		"Transf. derecha %+d N (cuenta %+d)" % [roundi(right - total * 0.5), roundi(theory.y)],
 	]
 	var y := 280.0

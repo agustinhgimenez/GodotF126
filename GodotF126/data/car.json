@@ -2,7 +2,7 @@
   "description": "Datos del monoplaza. Valores aproximados para un modelo de 4 ruedas jugable; no son datos oficiales.",
   "mass_kg": 800,
   "wheel_radius": 0.36,
-  "aero_drag": 0.0012,
+  "aero": { "air_density": 1.225, "cla": 3.2, "cda": 1.57, "balance": 0.44, "pressure_height": 0.35 },
   "chassis": {
     "center_of_mass": [0, 0.3, 0.07],
     "inertia": [1000, 1100, 300],
@@ -17,7 +17,7 @@
       "rear": { "stiffness": 65000, "damping": 3600, "anti_roll": 30000, "anti_pitch": 0.25 }
     },
     "tyres": {
-      "mu": 2.3,
+      "mu": 1.75,
       "rear_grip_factor": 1.08,
       "load_sensitivity": 0.1,
       "wheel_inertia": 1.2,

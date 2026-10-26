@@ -50,7 +50,6 @@ const CHASSIS_KEYS := {
 @export var max_reverse_speed: float = 12.0
 @export var mass_kg: float = 800.0
 @export var wheel_radius: float = 0.36
-@export var aero_drag: float = 0.0012          ## desaceleración = aero_drag × v²
 @export var reverse_acceleration: float = 8.0  ## m/s² máximos en reversa
 @export var rolling_resistance: float = 0.25   ## m/s² de rodadura
 
@@ -75,8 +74,16 @@ const CHASSIS_KEYS := {
 ## por el resorte (anti-hundimiento adelante, anti-levantamiento / anti-agache atrás).
 @export var anti_pitch := Vector2(0.35, 0.25)
 
+@export_group("Aerodinámica")
+@export var air_density: float = 1.225         ## kg/m³
+## m²: coeficiente × área. Carga = ½ · ρ · ClA · v² (hacia abajo); arrastre = ½ · ρ · CdA · v².
+@export var cla: float = 3.2
+@export var cda: float = 1.57
+@export var aero_balance: float = 0.44         ## fracción de la carga en el eje delantero
+@export var pressure_height: float = 0.35      ## m sobre el piso donde empuja el arrastre
+
 @export_group("Neumáticos y frenos")
-@export var tyre_mu: float = 2.3               ## incluye una carga aerodinámica promedio hasta el Paso 28
+@export var tyre_mu: float = 1.75              ## agarre mecánico (la carga aerodinámica se suma a la carga)
 @export var rear_grip_factor: float = 1.08
 @export var brake_force: float = 30000.0       ## N totales con el freno a fondo (en el piso, sin bloquear)
 @export var brake_front_share: float = 0.58
@@ -108,6 +115,10 @@ var wheels: Array[CarWheel] = []
 var tyre := TyreModel.new()
 ## m/s² en ejes del auto (x derecha, y arriba, −z adelante), suavizada; la usa el panel de cargas.
 var local_acceleration: Vector3 = Vector3.ZERO
+## N de carga aerodinámica (total y en el eje delantero) y de arrastre del último cuadro.
+var downforce: float = 0.0
+var downforce_front: float = 0.0
+var drag_force: float = 0.0
 
 var camera_mode: int = 0
 
@@ -152,7 +163,13 @@ func _ready() -> void:
 func configure(data: Dictionary) -> void:
 	mass_kg = float(data.get("mass_kg", mass_kg))
 	wheel_radius = float(data.get("wheel_radius", wheel_radius))
-	aero_drag = float(data.get("aero_drag", aero_drag))
+	var aero_data = data.get("aero", {})
+	if aero_data is Dictionary:
+		air_density = float(aero_data.get("air_density", air_density))
+		cla = float(aero_data.get("cla", cla))
+		cda = float(aero_data.get("cda", cda))
+		aero_balance = clampf(float(aero_data.get("balance", aero_balance)), 0.0, 1.0)
+		pressure_height = float(aero_data.get("pressure_height", pressure_height))
 	var chassis_data = data.get("chassis", {})
 	if chassis_data is Dictionary:
 		_configure_chassis(chassis_data)
@@ -341,8 +358,8 @@ func _physics_process(delta: float) -> void:
 	var pedals := _map_pedals(throttle, brake)
 	_update_powertrain(pedals.x, delta)
 	_update_steering(steer_input, delta)
+	_apply_aero()
 	_apply_wheel_forces(pedals.x, pedals.y, handbrake, delta)
-	apply_central_force(-linear_velocity * linear_velocity.length() * aero_drag * mass)
 	_update_wheel_meshes()
 	_update_camera(delta)
 
@@ -395,7 +412,7 @@ func _update_steering(steer_input: float, delta: float) -> void:
 	_steer = lerpf(_steer, steer_input, clampf(steer_response * delta, 0.0, 1.0))
 	var speed := absf(forward_speed)
 	var wheelbase := rear_axle_z - front_axle_z
-	var limit := atan(wheelbase * tyre_mu * _gravity() / maxf(speed * speed, 0.01)) + tyre.slip_angle_peak
+	var limit := atan(wheelbase * grip_acceleration() / maxf(speed * speed, 0.01)) + tyre.slip_angle_peak
 	limit = clampf(limit * steer_limit, deg_to_rad(min_steer_deg), deg_to_rad(max_steer_deg))
 	for wheel in wheels:
 		wheel.steer_angle = _steer * limit if wheel.front else 0.0
@@ -468,6 +485,32 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 		total_torque += step_torque
 	apply_central_force(total_force / TYRE_SUBSTEPS)
 	apply_torque(total_torque / TYRE_SUBSTEPS)
+
+
+## Aerodinámica (Paso 28). Carga ½ · ρ · ClA · v² hacia abajo del auto, repartida entre los
+## ejes según aero_balance y aplicada sobre cada eje: comprime los resortes (el auto baja con
+## la velocidad) y llega a los neumáticos como carga, así que agarran más cuanto más rápido.
+## Arrastre ½ · ρ · CdA · v² contra la velocidad, en el centro de presión (pressure_height):
+## como está más alto que el centro de masa, a alta velocidad descarga un poco el eje delantero.
+## Se calcula antes que las ruedas: la suspensión ya ve la carga en este cuadro.
+func _apply_aero() -> void:
+	var t := global_transform
+	var up := t.basis.y.normalized()
+	var air_speed := linear_velocity.dot(-t.basis.z.normalized())
+	var pressure := 0.5 * air_density * air_speed * air_speed
+	downforce = pressure * cla
+	downforce_front = downforce * aero_balance
+	apply_force(-up * downforce_front, t.basis * Vector3(0.0, 0.0, front_axle_z))
+	apply_force(-up * (downforce - downforce_front), t.basis * Vector3(0.0, 0.0, rear_axle_z))
+	var speed := linear_velocity.length()
+	drag_force = 0.5 * air_density * cda * speed * speed
+	if speed > 0.01:
+		apply_force(-linear_velocity / speed * drag_force, t.basis * Vector3(0.0, pressure_height, center_of_mass.z))
+
+
+## Agarre total disponible en m/s² (μ × (peso + carga aerodinámica) / masa).
+func grip_acceleration() -> float:
+	return tyre_mu * (mass * _gravity() + downforce) / mass
 
 
 ## Transferencia de peso que no pasa sólo por los resortes (Paso 27), sumada a la carga:
@@ -650,13 +693,20 @@ func get_roll_deg() -> float:
 	return rad_to_deg(asin(clampf(-right.y, -1.0, 1.0)))
 
 
-## Transferencia de peso de la cuenta (N) con una aceleración en ejes del auto:
-## x = la que gana el eje delantero, m · a · h / distancia entre ejes (frenando, positiva);
-## y = la que gana el lado derecho, m · a_lat · h / trocha (en una curva a la izquierda, positiva).
-func theoretical_transfer(accel: Vector3) -> Vector2:
+## Transferencia de peso de la cuenta (N) con las fuerzas del último cuadro (h = altura del
+## centro de masa, L = distancia entre ejes):
+## x = la que gana el eje delantero: −ΣFx · h / L por los neumáticos (frenando, positiva)
+##     menos −D · (h_cp − h) / L del arrastre, que empuja más arriba que el centro de masa;
+## y = la que gana el lado derecho: −ΣFy · h / trocha (en una curva a la izquierda, positiva).
+## Sin arrastre y en el plano es lo mismo que m · a · h / L y m · a_lat · h / trocha.
+func theoretical_transfer() -> Vector2:
 	var height := center_of_mass.y
-	var longitudinal := mass * accel.z * height / (rear_axle_z - front_axle_z)
-	var lateral := -mass * accel.x * height / (half_track * 2.0)
+	var tyre_force := Vector2.ZERO
+	for wheel in wheels:
+		if wheel.in_contact:
+			tyre_force += wheel.force
+	var longitudinal := (-tyre_force.x * height - drag_force * (pressure_height - height)) / (rear_axle_z - front_axle_z)
+	var lateral := -tyre_force.y * height / (half_track * 2.0)
 	return Vector2(longitudinal, lateral)
 
 
