@@ -27,6 +27,7 @@ var _sector_labels: Array[Label] = []
 var _message_label: Label
 var _start_lights: StartLightsDisplay
 var _start_hint: Label
+var _wheel_loads: WheelLoadsPanel
 
 
 func _ready() -> void:
@@ -36,6 +37,7 @@ func _ready() -> void:
 func bind_car(car: CarController) -> void:
 	_car = car
 	_dashboard.bind_car(car)
+	_wheel_loads.bind_car(car)
 	car.camera_changed.connect(func(mode_name: String) -> void: show_message(mode_name, 1.2))
 	car.gearbox.shift_denied.connect(func(reason: String) -> void: show_message(reason, 1.2, COLOR_SLOWER))
 	car.gearbox.mode_changed.connect(_on_gearbox_mode_changed)
@@ -84,6 +86,19 @@ func set_driver_info(driver: Dictionary, team: Dictionary, team_color: Color) ->
 
 func set_track_name(track_name: String) -> void:
 	_track_label.text = track_name
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("toggle_telemetry"):
+		set_wheel_loads_visible(not _wheel_loads.visible)
+
+
+func set_wheel_loads_visible(enabled: bool) -> void:
+	_wheel_loads.visible = enabled
+
+
+func is_wheel_loads_visible() -> bool:
+	return _wheel_loads.visible
 
 
 func show_message(text: String, seconds: float = 2.0, color: Color = COLOR_NEUTRAL) -> void:
@@ -270,6 +285,14 @@ func _build_ui() -> void:
 	_start_hint.visible = false
 	_place(_start_hint, Vector4(0.5, 0, 0.5, 0), Vector4(-460, 420, 460, 450))
 	root.add_child(_start_hint)
+
+	# A la izquierda, debajo del piloto: panel de cargas por rueda (F3).
+	_wheel_loads = WheelLoadsPanel.new()
+	_wheel_loads.name = "WheelLoads"
+	_wheel_loads.visible = false
+	_place(_wheel_loads, Vector4(0, 0, 0, 0),
+		Vector4(24, 110, 24 + WheelLoadsPanel.SIZE.x, 110 + WheelLoadsPanel.SIZE.y))
+	root.add_child(_wheel_loads)
 
 	# Abajo a la izquierda: controles.
 	var hint := _make_label(16, HORIZONTAL_ALIGNMENT_LEFT,

@@ -8,7 +8,14 @@
     "inertia": [1000, 1100, 300],
     "rolling_resistance": 0.25,
     "reverse_acceleration": 8.0,
-    "suspension": { "front_axle_z": -1.8, "rear_axle_z": 1.6, "half_track": 0.85, "travel": 0.12, "stiffness": 70000, "damping": 3800 },
+    "suspension": {
+      "front_axle_z": -1.8,
+      "rear_axle_z": 1.6,
+      "half_track": 0.85,
+      "travel": 0.12,
+      "front": { "stiffness": 75000, "damping": 4000, "anti_roll": 40000, "anti_pitch": 0.35 },
+      "rear": { "stiffness": 65000, "damping": 3600, "anti_roll": 30000, "anti_pitch": 0.25 }
+    },
     "tyres": {
       "mu": 2.3,
       "rear_grip_factor": 1.08,

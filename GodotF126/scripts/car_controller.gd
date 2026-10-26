@@ -39,7 +39,7 @@ const WHEEL_NODES := [["WheelFL", -1.0, true], ["WheelFR", 1.0, true], ["WheelRL
 ## Bloque "chassis" de data/car.json: grupo → {clave del JSON: propiedad}.
 const CHASSIS_KEYS := {
 	"suspension": {"front_axle_z": "front_axle_z", "rear_axle_z": "rear_axle_z", "half_track": "half_track",
-		"travel": "suspension_travel", "stiffness": "spring_stiffness", "damping": "damper"},
+		"travel": "suspension_travel"},
 	"tyres": {"mu": "tyre_mu", "rear_grip_factor": "rear_grip_factor"},
 	"brakes": {"force": "brake_force", "front_share": "brake_front_share"},
 	"steering": {"max_deg": "max_steer_deg", "min_deg": "min_steer_deg"},
@@ -66,8 +66,14 @@ const CHASSIS_KEYS := {
 @export var rear_axle_z: float = 1.6
 @export var half_track: float = 0.85
 @export var suspension_travel: float = 0.12   ## m de recorrido para cada lado del reposo
-@export var spring_stiffness: float = 70000.0 ## N/m
-@export var damper: float = 3800.0            ## N·s/m
+## Por eje: x = delantero, y = trasero.
+@export var spring_stiffness := Vector2(75000.0, 65000.0)  ## N/m
+@export var damper := Vector2(4000.0, 3600.0)              ## N·s/m
+## N/m de la barra estabilizadora: fuerza = rigidez × diferencia de compresión izq./der.
+@export var anti_roll := Vector2(40000.0, 30000.0)
+## Fracción de la transferencia longitudinal que va por los brazos de la suspensión y no
+## por el resorte (anti-hundimiento adelante, anti-levantamiento / anti-agache atrás).
+@export var anti_pitch := Vector2(0.35, 0.25)
 
 @export_group("Neumáticos y frenos")
 @export var tyre_mu: float = 2.3               ## incluye una carga aerodinámica promedio hasta el Paso 28
@@ -100,6 +106,8 @@ var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
 var wheels: Array[CarWheel] = []
 var tyre := TyreModel.new()
+## m/s² en ejes del auto (x derecha, y arriba, −z adelante), suavizada; la usa el panel de cargas.
+var local_acceleration: Vector3 = Vector3.ZERO
 
 var camera_mode: int = 0
 
@@ -107,6 +115,7 @@ var _steer: float = 0.0
 var _handbrake: bool = false
 var _touching_wall: bool = false
 var _last_velocity: Vector3 = Vector3.ZERO
+var _accel_velocity: Vector3 = Vector3.ZERO
 var _camera_base: Transform3D = Transform3D.IDENTITY
 var _shake_noise := FastNoiseLite.new()
 var _shake_time: float = 0.0
@@ -184,6 +193,16 @@ func _configure_chassis(data: Dictionary) -> void:
 		for key in keys:
 			if values.has(key):
 				set(keys[key], float(values[key]))
+	var suspension = data.get("suspension", {})
+	if suspension is Dictionary:
+		for axle in ["front", "rear"]:
+			var values = suspension.get(axle, {})
+			if values is Dictionary:
+				var index := 0 if axle == "front" else 1
+				spring_stiffness[index] = float(values.get("stiffness", spring_stiffness[index]))
+				damper[index] = float(values.get("damping", damper[index]))
+				anti_roll[index] = float(values.get("anti_roll", anti_roll[index]))
+				anti_pitch[index] = clampf(float(values.get("anti_pitch", anti_pitch[index])), 0.0, 1.0)
 	var tyre_data = data.get("tyres", {})
 	if tyre_data is Dictionary:
 		tyre.configure(tyre_data)
@@ -315,6 +334,9 @@ func _physics_process(delta: float) -> void:
 		handbrake = Input.is_action_pressed("handbrake")
 	_handbrake = handbrake
 	forward_speed = linear_velocity.dot(_flat_forward())
+	var world_accel := (linear_velocity - _accel_velocity) / delta
+	_accel_velocity = linear_velocity
+	local_acceleration = local_acceleration.lerp(global_transform.basis.orthonormalized().transposed() * world_accel, 0.2)
 
 	var pedals := _map_pedals(throttle, brake)
 	_update_powertrain(pedals.x, delta)
@@ -396,7 +418,10 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 	var grounded: Array[CarWheel] = []
 	var torques: Array[Vector3] = []
 	for wheel in wheels:
-		wheel.update_suspension(self, space, suspension_travel, wheel_radius, spring_stiffness, damper, delta)
+		var axle := 0 if wheel.front else 1
+		wheel.update_suspension(self, space, suspension_travel, wheel_radius, spring_stiffness[axle], damper[axle], delta)
+	_apply_chassis_links()
+	for wheel in wheels:
 		var mu := tyre_mu * (1.0 if wheel.front else rear_grip_factor)
 		var share := brake_front_share if wheel.front else 1.0 - brake_front_share
 		var brake_torque := (brake_force * brake * share * 0.5 + rolling_resistance * corner_mass) * wheel_radius
@@ -443,6 +468,28 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 		total_torque += step_torque
 	apply_central_force(total_force / TYRE_SUBSTEPS)
 	apply_torque(total_torque / TYRE_SUBSTEPS)
+
+
+## Transferencia de peso que no pasa sólo por los resortes (Paso 27), sumada a la carga:
+## - Barra estabilizadora: si una rueda del eje está más comprimida que la otra, la barra la
+##   empuja con anti_roll × diferencia y descarga a la otra. Más barra en un eje = ese eje se
+##   lleva más transferencia lateral (y por la sensibilidad a la carga, agarra menos).
+## - Anti-cabeceo: la fuerza longitudinal del neumático (la del cuadro anterior) empuja el
+##   chasis hacia arriba o abajo por los brazos: carga la rueda sin comprimir el resorte, así
+##   el auto cabecea menos. La transferencia total no cambia (la fija la altura del centro de
+##   masa); cambia por dónde pasa.
+func _apply_chassis_links() -> void:
+	var lever := center_of_mass.y / (rear_axle_z - front_axle_z)
+	for axle in 2:
+		var left := wheels[axle * 2]
+		var right := wheels[axle * 2 + 1]
+		var bar := anti_roll[axle] * (right.length - left.length)
+		for wheel: CarWheel in [left, right]:
+			var side := 1.0 if wheel == left else -1.0
+			var direction := -1.0 if wheel.front else 1.0
+			wheel.link_force = anti_pitch[axle] * wheel.force.x * lever * direction
+			if wheel.in_contact:
+				wheel.wheel_load = maxf(wheel.wheel_load + bar * side + wheel.link_force, 0.0)
 
 
 ## N de empuje entre las dos ruedas traseras (negativo en R).
@@ -538,6 +585,8 @@ func reset_to_spawn() -> void:
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	_last_velocity = Vector3.ZERO
+	_accel_velocity = Vector3.ZERO
+	local_acceleration = Vector3.ZERO
 	global_transform = spawn_transform
 	forward_speed = 0.0
 	_steer = 0.0
@@ -588,6 +637,27 @@ func is_grounded() -> bool:
 		if wheel.in_contact:
 			return true
 	return false
+
+
+## Grados de cabeceo (positivo = trompa arriba) y de rolido (positivo = inclinado a la derecha).
+func get_pitch_deg() -> float:
+	var forward := -global_transform.basis.z.normalized()
+	return rad_to_deg(asin(clampf(forward.y, -1.0, 1.0)))
+
+
+func get_roll_deg() -> float:
+	var right := global_transform.basis.x.normalized()
+	return rad_to_deg(asin(clampf(-right.y, -1.0, 1.0)))
+
+
+## Transferencia de peso de la cuenta (N) con una aceleración en ejes del auto:
+## x = la que gana el eje delantero, m · a · h / distancia entre ejes (frenando, positiva);
+## y = la que gana el lado derecho, m · a_lat · h / trocha (en una curva a la izquierda, positiva).
+func theoretical_transfer(accel: Vector3) -> Vector2:
+	var height := center_of_mass.y
+	var longitudinal := mass * accel.z * height / (rear_axle_z - front_axle_z)
+	var lateral := -mass * accel.x * height / (half_track * 2.0)
+	return Vector2(longitudinal, lateral)
 
 
 ## Mayor deslizamiento longitudinal |κ| de las ruedas apoyadas (1 = bloqueada o girando el

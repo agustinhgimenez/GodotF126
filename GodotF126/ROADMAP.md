@@ -63,8 +63,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 |---|---|---|
 | 25 | Modelo por **4 ruedas**: suspensión por raycast (resorte + amortiguador) en lugar del arcade | ✅ |
 | 26 | **Neumáticos**: curva tipo Pacejka simplificada, ángulo de deriva y deslizamiento longitudinal por rueda | ✅ |
-| 27 | Transferencia de peso en frenada, aceleración y curva | ⏳ Siguiente |
-| 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | |
+| 27 | Transferencia de peso en frenada, aceleración y curva | ✅ |
+| 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | ⏳ Siguiente |
 | 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | |
 | 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | |
 | 31 | Diferencial y **control de tracción** con niveles | |
@@ -447,3 +447,22 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   El benchmark del Paso 24 no cambió (en esta corrida recomendó "Alta"; los tiempos varían entre corridas).
 - **Cómo probar**: F5 → Jugar. Con los limitadores igual que antes; para sentir el neumático, poner `"limiters": { "brake": false, "traction": false }` en `data/car.json`: arrancando a fondo en 1ª las traseras patinan y chirrían, y frenando a fondo a alta velocidad las delanteras se bloquean y el auto no dobla.
+
+### Paso 27 — Transferencia de peso en frenada, aceleración y curva
+- **De dónde sale**: el centro de masa está 0,3 m sobre el piso y los neumáticos empujan en el piso, así que frenar carga el eje delantero, acelerar el trasero y doblar las ruedas de afuera. El cuerpo rígido del Paso 25 ya lo hacía solo; la cuenta es ΔW = m · a · h / L (L = 3,4 m entre ejes) para la longitudinal y ΔW = m · a_lat · h / trocha (1,7 m) para la lateral. Este paso **mide** esa transferencia y agrega lo que en un auto real decide **por dónde pasa**.
+- **Suspensión por eje** (`"suspension"` → `"front"` / `"rear"` en `data/car.json`): resortes 75.000 / 65.000 N/m y amortiguadores 4.000 / 3.600 N·s/m (antes 70.000 y 3.800 en las cuatro).
+- **Barras estabilizadoras** (`anti_roll`, 40.000 / 30.000 N/m): si una rueda del eje está más comprimida que la otra, la barra la carga con rigidez × diferencia y descarga a la otra. El auto **rola la mitad** (1,29° → 0,63° en una curva a 1,9 g). La transferencia lateral total no cambia (la fija la altura del centro de masa); las barras deciden qué eje se lleva más: con más barra adelante, el eje delantero carga 55 % de la transferencia y, por la sensibilidad a la carga del neumático (Paso 26), agarra un poco menos que el trasero: el auto tiende a **subvirar** (más estable con teclado).
+- **Anti-cabeceo** (`anti_pitch`, 35 % adelante / 25 % atrás): esa fracción de la transferencia longitudinal pasa por los brazos de la suspensión y no por el resorte (se calcula con la fuerza del neumático del cuadro anterior). La carga en las ruedas es la misma, pero el auto **cabecea menos**: 0,39° → 0,33° frenando a 2,4 g.
+- **Panel de cargas por rueda** (tecla **F3**, `WheelLoadsPanel`, `scripts/ui/wheel_loads_panel.gd`): el auto visto desde arriba con la carga de cada rueda en N y % del peso (rojo = más carga que quieto, azul = menos), κ y deriva; abajo el reparto por eje y por lado, la aceleración en g, cabeceo y rolido, y la **transferencia medida contra la cuenta**. Está en Controles (acción nueva `toggle_telemetry`). Se ajustó el espaciado del panel de Controles para que la fila nueva entre en 720 px.
+- `CarController` suma `local_acceleration` (en ejes del auto), `get_pitch_deg()`, `get_roll_deg()` y `theoretical_transfer(aceleración)`.
+- **Verificación** (física a 60 Hz; "Paso 26" = resortes iguales, sin barras ni anti-cabeceo):
+
+| Prueba | Paso 26 | Paso 27 |
+|---|---|---|
+| Frenada a 2,4 g: eje delantero gana (cuenta 1.663 N) | +1.615 N (97 %), cabeceo 0,39° | +1.622 N (97 %), cabeceo 0,33° |
+| Aceleración a 1,0 g en 4ª: eje delantero pierde | −620 N, cabeceo 0,17° | −625 N, cabeceo 0,15° |
+| Curva a 120 km/h (1,9 g): lado de afuera gana (cuenta ~2.630 N) | +2.677 N (101 %), 50 % adelante, rolido 1,29° | +2.619 N (100 %), 55 % adelante, rolido 0,63° |
+| Rueda delantera de adentro en esa curva | 361 N | 258 N |
+
+  Al acelerar, la transferencia coincide con la que da la fuerza de los neumáticos (−639 N, 98 %); contra la aceleración del auto da 89 % porque parte de esa aceleración la come el arrastre, que por ahora actúa en el centro de masa y no hace cabecear (se revisa con la aerodinámica del Paso 28). Además siguen las pruebas de los Pasos 25 y 26 (quieto, 0–100 en 2,15 s, frenada de 58 m, 1,80 / 1,88 g en curva, choques, limitadores) y la vuelta con piloto automático: **1:39.6 y 1:38.6**, sin salidas, golpes ni reinicios. Capturas: `informes/capturas/paso27-curva.png`, `paso27-frenada.png`.
+- **Cómo probar**: F5 → Jugar → F3. En una curva rápida se ven las ruedas de afuera en rojo y la delantera de adentro casi sin carga; frenando fuerte, las delanteras con 66 % del peso. Para comparar, cambiar `anti_roll` en `data/car.json` (por ejemplo 0 / 60.000): el auto rola más y cambia el balance.

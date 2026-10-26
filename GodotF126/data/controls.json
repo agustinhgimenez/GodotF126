@@ -23,6 +23,7 @@
       "rows": [
         { "actions": ["change_camera"], "text": "Cambiar cámara (6 vistas)" },
         { "actions": ["reset_car"], "text": "Volver a la pista" },
+        { "actions": ["toggle_telemetry"], "text": "Panel de cargas por rueda" },
         { "keys": ["Esc"], "text": "Pausa: opciones, controles, reiniciar" }
       ]
     }

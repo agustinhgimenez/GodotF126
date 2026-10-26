@@ -22,7 +22,7 @@ var _chips: Array[PanelContainer] = []
 
 
 func _ready() -> void:
-	add_theme_constant_override("separation", 4)
+	add_theme_constant_override("separation", 2)
 	add_child(UiKit.make_label("Controles", 26))
 	var data := DataLoader.load_json(DATA_PATH)
 	for section in data.get("sections", []):

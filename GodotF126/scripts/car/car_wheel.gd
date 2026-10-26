@@ -25,8 +25,11 @@ var steer_angle: float = 0.0
 var in_contact: bool = false
 ## Largo actual de la suspensión: 0 = a tope, travel = reposo, 2 × travel = colgando.
 var length: float = 0.0
-## N que empuja el piso (carga vertical de la rueda).
+## N que empuja el piso (carga vertical de la rueda): resorte + amortiguador + barra
+## estabilizadora + anti-cabeceo.
 var wheel_load: float = 0.0
+## N de la carga que llega por los brazos (anti-cabeceo) y no por el resorte.
+var link_force: float = 0.0
 var contact_point: Vector3 = Vector3.ZERO
 var contact_normal: Vector3 = Vector3.UP
 ## Ejes de la rueda en el mundo (sobre el plano del piso).
@@ -62,6 +65,7 @@ func reset(travel: float) -> void:
 	in_contact = false
 	length = travel
 	wheel_load = 0.0
+	link_force = 0.0
 	force = Vector2.ZERO
 	slip_angle = 0.0
 	slip_ratio = 0.0
