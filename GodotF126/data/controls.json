@@ -7,14 +7,14 @@
         { "actions": ["accelerate"], "text": "Acelerar" },
         { "actions": ["brake"], "text": "Frenar (quieto: marcha atrás en automática)" },
         { "actions": ["steer_left", "steer_right"], "text": "Girar" },
-        { "actions": ["handbrake"], "text": "Freno de mano" }
+        { "actions": ["handbrake"], "text": "Freno de mano" },
+        { "actions": ["aero_mode", "overtake"], "text": "Modo recta (manual) · adelantamiento" }
       ]
     },
     {
       "title": "Caja de cambios",
       "rows": [
-        { "actions": ["gear_up"], "text": "Subir marcha" },
-        { "actions": ["gear_down"], "text": "Bajar marcha (de 1ª a N; quieto, R)" },
+        { "actions": ["gear_up", "gear_down"], "text": "Subir / bajar marcha (de 1ª a N; quieto, R)" },
         { "actions": ["toggle_gearbox"], "text": "Caja manual / automática" }
       ]
     },
@@ -35,7 +35,9 @@
     "Pisar con las cuatro ruedas afuera de los pianos invalida la vuelta.",
     "En contrarreloj se larga detenido: esperá a que se apaguen las cinco luces.",
     "Si el auto queda cruzado contra un muro, R lo devuelve a la pista.",
-    "La hora de la carrera (atardecer o día) se cambia en Opciones."
+    "La hora de la carrera (atardecer o día) se cambia en Opciones.",
+    "En las rectas los alerones se abren (modo recta): menos arrastre. Al frenar se cierran solos.",
+    "G activa el modo adelantamiento: potencia extra con energía limitada por vuelta."
   ],
   "loading": {
     "min_seconds": 1.2

@@ -4,8 +4,11 @@ extends Control
 ## velocímetro digital con aguja analógica. Todo se dibuja en _draw().
 ## Luces: se encienden de izquierda a derecha entre shift_light_start_rpm y el
 ## punto de cambio de la caja (la lógica de colores está en HudDraw).
+## Abajo (Paso 29): modo de la aero activa y energía del modo adelantamiento.
 
-const SIZE := Vector2(440, 250)
+const SIZE := Vector2(440, 284)
+const COLOR_STRAIGHT := Color(0.2, 0.9, 0.4)
+const COLOR_OVERTAKE := Color(0.3, 0.6, 1.0)
 const COLOR_PANEL := Color(0.0, 0.0, 0.0, 0.55)
 const COLOR_NEEDLE := Color(1.0, 0.3, 0.1)
 const COLOR_DIM := Color(1.0, 1.0, 1.0, 0.7)
@@ -72,6 +75,28 @@ func _draw() -> void:
 	_draw_shift_lights(Rect2(20, 14, SIZE.x - 40, 26))
 	_draw_speedometer(Vector2(125, 150), 88.0)
 	_draw_gear_panel(Rect2(250, 52, 170, 186))
+	_draw_aero_row(Rect2(20, 248, SIZE.x - 40, 24))
+
+
+## Modo recta / curva (verde abierto; contorno en zona de recta) y barra de energía para
+## adelantar (azul cuando está activo).
+func _draw_aero_row(rect: Rect2) -> void:
+	var aero := _car.active_aero
+	var half := (rect.size.x - 12.0) * 0.5
+	var mode_rect := Rect2(rect.position, Vector2(half, rect.size.y))
+	var label := aero.mode_label()
+	var open := label == "RECTA"
+	draw_rect(mode_rect, COLOR_STRAIGHT if open else HudDraw.COLOR_OFF)
+	if aero.in_zone and not open:
+		draw_rect(mode_rect, COLOR_STRAIGHT, false, 2.0)
+	_draw_text_centered("MODO " + label, mode_rect.get_center() + Vector2(0, 1), 15,
+		Color.BLACK if open else Color.WHITE)
+
+	var energy_rect := Rect2(rect.position + Vector2(half + 12.0, 0), Vector2(half, rect.size.y))
+	draw_rect(energy_rect, HudDraw.COLOR_OFF)
+	var fill_color := COLOR_OVERTAKE if aero.overtake_active else Color(COLOR_OVERTAKE, 0.45)
+	draw_rect(Rect2(energy_rect.position, Vector2(energy_rect.size.x * aero.energy_ratio(), energy_rect.size.y)), fill_color)
+	_draw_text_centered("ADELANTAR %d %%" % roundi(aero.energy_ratio() * 100.0), energy_rect.get_center() + Vector2(0, 1), 15)
 
 
 func _draw_shift_lights(rect: Rect2) -> void:

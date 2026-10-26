@@ -114,6 +114,13 @@
         "width": 1.6,
         "panel_height": 1.1
       },
+      "aero_zones": {
+        "description": "Zonas de modo recta (Paso 29): metros desde la línea de largada en sentido de carrera; negativo = antes de la línea. Terminan antes del punto de frenado para que los alerones ya estén cerrados al frenar.",
+        "zones": [
+          { "name": "Recta principal", "from": -470, "to": 50 },
+          { "name": "Recta del oeste", "from": 1790, "to": 1915 }
+        ]
+      },
       "limits": {
         "car_half_width": 1.0,
         "wheel_track": 0.85,

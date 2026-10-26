@@ -8,6 +8,7 @@ const COLOR_BG := Color(0.02, 0.02, 0.03)
 const COLOR_DIM := Color(1.0, 1.0, 1.0, 0.6)
 const COLOR_FASTER := Color(0.2, 1.0, 0.35)
 const COLOR_SLOWER := Color(1.0, 0.25, 0.2)
+const COLOR_OVERTAKE := Color(0.3, 0.6, 1.0)
 
 var shift_light_start_rpm: float = 9000.0
 
@@ -57,6 +58,12 @@ func _draw() -> void:
 	_text("DELTA", Vector2(212, 34), 12, COLOR_DIM)
 	_text(delta_text, Vector2(212, 56), 20, delta_color)
 	_text("MAN" if _car.gearbox.manual else "AUT", Vector2(212, 82), 12, COLOR_DIM)
+	var aero_label := _car.active_aero.mode_label()
+	if _car.active_aero.overtake_active:
+		_text("ADEL", Vector2(212, 98), 12, COLOR_OVERTAKE)
+	else:
+		_text("CURVA" if aero_label == "CURVA" else "RECTA", Vector2(212, 98), 12,
+			COLOR_FASTER if aero_label == "RECTA" else COLOR_DIM)
 	if _timer != null:
 		_text(LapTimer.format_time(_timer.current_time if _timer.running else -1.0), Vector2(160, 114), 14)
 

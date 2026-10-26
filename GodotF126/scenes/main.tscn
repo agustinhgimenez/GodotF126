@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/race/start_lights.gd" id="8_lights"]
 [ext_resource type="Script" path="res://scripts/race/tv_cameras.gd" id="9_tv"]
 [ext_resource type="Script" path="res://scripts/race/track_limits.gd" id="10_limits"]
+[ext_resource type="Script" path="res://scripts/race/aero_zones.gd" id="11_aero"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.25, 0.45, 0.8, 1)
@@ -50,6 +51,9 @@ script = ExtResource("9_tv")
 
 [node name="TrackLimits" type="Node" parent="."]
 script = ExtResource("10_limits")
+
+[node name="AeroZones" type="Node" parent="."]
+script = ExtResource("11_aero")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=543547257]
 script = ExtResource("4_hud")

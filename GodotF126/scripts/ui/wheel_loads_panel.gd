@@ -3,7 +3,7 @@ extends Control
 ## Panel de cargas por rueda (Paso 27, tecla F3): el auto visto desde arriba con la carga de
 ## cada rueda (N y % del peso, color según cuánto más o menos que quieto), κ y deriva; abajo
 ## el reparto por eje y por lado, la aceleración, cabeceo y rolido, la carga aerodinámica y el
-## arrastre (Paso 28), y la transferencia de peso medida (sin la carga aerodinámica) contra la
+## arrastre (Paso 28), el modo de la aero activa con ClA y CdA (Paso 29), y la transferencia de peso medida (sin la carga aerodinámica) contra la
 ## de la cuenta (CarController.theoretical_transfer()).
 
 const SIZE := Vector2(330, 450)
@@ -81,6 +81,7 @@ func _draw() -> void:
 		"Acel. long. %+.2f g · lat. %.2f g %s" % [-accel.z / 9.8, absf(accel.x) / 9.8, "izq." if accel.x < 0.0 else "der."],
 		"Cabeceo %.2f° · rolido %.2f°" % [_car.get_pitch_deg(), _car.get_roll_deg()],
 		"Carga aero %d N · arrastre %d N" % [roundi(_car.downforce), roundi(_car.drag_force)],
+		"Modo %s · ClA %.2f · CdA %.2f" % [_car.active_aero.mode_label().to_lower(), _car.get_cla(), _car.get_cda()],
 		"Transf. adelante %+d N (cuenta %+d)" % [roundi(front - static_front - front_aero), roundi(theory.x)],
 		"Transf. derecha %+d N (cuenta %+d)" % [roundi(right - total * 0.5), roundi(theory.y)],
 	]

@@ -113,6 +113,8 @@ var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
 var wheels: Array[CarWheel] = []
 var tyre := TyreModel.new()
+## Modo recta / curva y modo adelantamiento (Paso 29).
+var active_aero := ActiveAero.new()
 ## m/s² en ejes del auto (x derecha, y arriba, −z adelante), suavizada; la usa el panel de cargas.
 var local_acceleration: Vector3 = Vector3.ZERO
 ## N de carga aerodinámica (total y en el eje delantero) y de arrastre del último cuadro.
@@ -170,6 +172,9 @@ func configure(data: Dictionary) -> void:
 		cda = float(aero_data.get("cda", cda))
 		aero_balance = clampf(float(aero_data.get("balance", aero_balance)), 0.0, 1.0)
 		pressure_height = float(aero_data.get("pressure_height", pressure_height))
+		var active_data = aero_data.get("active", {})
+		if active_data is Dictionary:
+			active_aero.configure(active_data)
 	var chassis_data = data.get("chassis", {})
 	if chassis_data is Dictionary:
 		_configure_chassis(chassis_data)
@@ -269,6 +274,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		gearbox.shift_down(forward_speed)
 	elif event.is_action_pressed("toggle_gearbox"):
 		gearbox.toggle_mode()
+	elif event.is_action_pressed("aero_mode"):
+		active_aero.toggle_straight()
+	elif event.is_action_pressed("overtake"):
+		active_aero.toggle_overtake()
 
 
 func cycle_camera() -> void:
@@ -358,6 +367,7 @@ func _physics_process(delta: float) -> void:
 	var pedals := _map_pedals(throttle, brake)
 	_update_powertrain(pedals.x, delta)
 	_update_steering(steer_input, delta)
+	active_aero.update(pedals.x, pedals.y, _steer, forward_speed, _overtake_power(pedals.x), delta)
 	_apply_aero()
 	_apply_wheel_forces(pedals.x, pedals.y, handbrake, delta)
 	_update_wheel_meshes()
@@ -493,19 +503,29 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 ## Arrastre ½ · ρ · CdA · v² contra la velocidad, en el centro de presión (pressure_height):
 ## como está más alto que el centro de masa, a alta velocidad descarga un poco el eje delantero.
 ## Se calcula antes que las ruedas: la suspensión ya ve la carga en este cuadro.
+## En modo recta (Paso 29) ClA y CdA bajan según cuánto están abiertos los alerones.
 func _apply_aero() -> void:
 	var t := global_transform
 	var up := t.basis.y.normalized()
 	var air_speed := linear_velocity.dot(-t.basis.z.normalized())
 	var pressure := 0.5 * air_density * air_speed * air_speed
-	downforce = pressure * cla
+	downforce = pressure * get_cla()
 	downforce_front = downforce * aero_balance
 	apply_force(-up * downforce_front, t.basis * Vector3(0.0, 0.0, front_axle_z))
 	apply_force(-up * (downforce - downforce_front), t.basis * Vector3(0.0, 0.0, rear_axle_z))
 	var speed := linear_velocity.length()
-	drag_force = 0.5 * air_density * cda * speed * speed
+	drag_force = 0.5 * air_density * get_cda() * speed * speed
 	if speed > 0.01:
 		apply_force(-linear_velocity / speed * drag_force, t.basis * Vector3(0.0, pressure_height, center_of_mass.z))
+
+
+## ClA y CdA de ahora (con el modo recta).
+func get_cla() -> float:
+	return cla * active_aero.cla_scale()
+
+
+func get_cda() -> float:
+	return cda * active_aero.cda_scale()
 
 
 ## Agarre total disponible en m/s² (μ × (peso + carga aerodinámica) / masa).
@@ -546,7 +566,17 @@ func _drive_force(throttle: float) -> float:
 	var force := wheel_torque / wheel_radius
 	if direction < 0.0:
 		force = minf(force, reverse_acceleration * mass)
+	else:
+		force += _overtake_power(throttle) / maxf(forward_speed, 10.0)
 	return force * direction
+
+
+## W extra del modo adelantamiento: sólo hacia adelante, acelerando y sin el corte del limitador.
+func _overtake_power(throttle: float) -> float:
+	if not active_aero.overtake_active or gearbox.get_direction() <= 0 or gearbox.is_shifting() \
+			or engine.is_cutting():
+		return 0.0
+	return active_aero.overtake_power * throttle
 
 
 ## Las ruedas siguen la suspensión y las delanteras giran con la dirección.
@@ -637,6 +667,7 @@ func reset_to_spawn() -> void:
 	kerb_contact = 0.0
 	for wheel in wheels:
 		wheel.reset(suspension_travel)
+	active_aero.reset()
 	engine.reset()
 	gearbox.reset()
 	_snap_camera()

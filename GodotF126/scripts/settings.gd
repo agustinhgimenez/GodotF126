@@ -18,6 +18,7 @@ const VOLUME_BUSES := {
 	"music_volume": BUS_MUSIC,
 }
 const GEARBOX_MODES := ["manual", "automatic"]
+const ACTIVE_AERO_MODES := ["automatic", "manual"]
 const QUALITY_LEVELS := ["low", "medium", "high"]
 const TIMES_OF_DAY := ["sunset", "day"]
 const MSAA_MODES := {0: Viewport.MSAA_DISABLED, 2: Viewport.MSAA_2X, 4: Viewport.MSAA_4X, 8: Viewport.MSAA_8X}
@@ -107,10 +108,11 @@ func apply_global() -> void:
 		DisplayServer.window_set_mode(mode)
 
 
-## Caja, dirección, cámara inicial y espejos del auto de carrera.
+## Caja, dirección, aero activa, cámara inicial y espejos del auto de carrera.
 ## Con `include_camera` en false (opciones desde la pausa) se respeta la cámara actual.
 func apply_to_car(car: CarController, include_camera: bool = true) -> void:
 	car.gearbox.manual = str(get_value("gearbox")) == "manual"
+	car.active_aero.automatic = str(get_value("active_aero")) == "automatic"
 	var steering: Dictionary = _data.get("steering", {})
 	var profile = steering.get("assisted" if bool(get_value("steering_assist")) else "direct", {})
 	if profile is Dictionary:
@@ -126,6 +128,8 @@ func _sanitize(key: String, value):
 	match key:
 		"gearbox":
 			return value if str(value) in GEARBOX_MODES else fallback
+		"active_aero":
+			return value if str(value) in ACTIVE_AERO_MODES else fallback
 		"quality":
 			return value if str(value) in QUALITY_LEVELS else fallback
 		"time_of_day":

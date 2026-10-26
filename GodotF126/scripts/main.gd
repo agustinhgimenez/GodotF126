@@ -18,6 +18,8 @@ const DEFAULT_KEYS := {
 	"gear_up": [KEY_E],
 	"gear_down": [KEY_Q],
 	"toggle_gearbox": [KEY_M],
+	"aero_mode": [KEY_F],
+	"overtake": [KEY_G],
 }
 
 const FALLBACK_DRIVER := {"id": "colapinto", "name": "Franco Colapinto", "number": 43, "country": "AR"}
@@ -40,6 +42,7 @@ var _start_data: Dictionary = {}
 @onready var start_lights: StartLights = $StartLights
 @onready var tv_cameras: TvCameras = $TvCameras
 @onready var track_limits: TrackLimits = $TrackLimits
+@onready var aero_zones: AeroZones = $AeroZones
 
 
 func _ready() -> void:
@@ -87,6 +90,10 @@ func _ready() -> void:
 
 	lap_timer.setup(str(track_info.get("records_key", TRACK_ID)))
 	_setup_mode()
+	var zones_data = track_info.get("aero_zones", {})
+	if zones_data is Dictionary:
+		aero_zones.configure(zones_data)
+	aero_zones.setup(track, car, track_limits, lap_timer)
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)
 	hud.bind_lap_timer(lap_timer)

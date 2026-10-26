@@ -41,6 +41,10 @@ func bind_car(car: CarController) -> void:
 	car.camera_changed.connect(func(mode_name: String) -> void: show_message(mode_name, 1.2))
 	car.gearbox.shift_denied.connect(func(reason: String) -> void: show_message(reason, 1.2, COLOR_SLOWER))
 	car.gearbox.mode_changed.connect(_on_gearbox_mode_changed)
+	car.active_aero.overtake_changed.connect(func(active: bool) -> void:
+		show_message("MODO ADELANTAMIENTO" if active else "Adelantamiento desactivado", 1.2,
+			Dashboard.COLOR_OVERTAKE if active else COLOR_NEUTRAL))
+	car.active_aero.overtake_denied.connect(func(reason: String) -> void: show_message(reason, 1.2, COLOR_SLOWER))
 
 
 func configure_dashboard(data: Dictionary) -> void:

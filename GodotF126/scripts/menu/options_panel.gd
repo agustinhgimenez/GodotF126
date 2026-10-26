@@ -7,12 +7,13 @@ extends VBoxContainer
 signal closed
 
 const LABEL_WIDTH := 250.0
-const CONTROL_SIZE := Vector2(250, 36)
+const CONTROL_SIZE := Vector2(250, 34)
 
 ## [clave, texto, [valores], [textos de cada valor]]
 const CHOICES := [
 	["gearbox", "Caja de cambios", ["manual", "automatic"], ["Manual (E/Q)", "Automática"]],
 	["steering_assist", "Dirección asistida", [true, false], ["Sí", "No"]],
+	["active_aero", "Modo recta (aero activa)", ["automatic", "manual"], ["Automático", "Manual (F)"]],
 	["camera", "Cámara inicial", [0, 1, 2, 3, 4, 5], ["TV", "Cercana", "Cockpit", "T-cam", "Capot", "De pista"]],
 	["quality", "Calidad gráfica", ["low", "medium", "high"], ["Baja", "Media", "Alta"]],
 	["time_of_day", "Hora de la carrera", ["sunset", "day"], ["Atardecer", "Día"]],
@@ -35,13 +36,13 @@ var _buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	add_theme_constant_override("separation", 4)
+	add_theme_constant_override("separation", 2)
 	add_child(UiKit.make_label("Opciones", 26))
-	for choice in CHOICES.slice(0, 3):
+	for choice in CHOICES.slice(0, 4):
 		_add_choice(choice)
 	for volume in VOLUMES:
 		_add_volume(volume[0], volume[1])
-	for choice in CHOICES.slice(3):
+	for choice in CHOICES.slice(4):
 		_add_choice(choice)
 
 	var actions := HBoxContainer.new()

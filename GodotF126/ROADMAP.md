@@ -65,8 +65,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 26 | **Neumáticos**: curva tipo Pacejka simplificada, ángulo de deriva y deslizamiento longitudinal por rueda | ✅ |
 | 27 | Transferencia de peso en frenada, aceleración y curva | ✅ |
 | 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | ✅ |
-| 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | ⏳ Siguiente |
-| 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | |
+| 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | ✅ |
+| 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | ⏳ Siguiente |
 | 31 | Diferencial y **control de tracción** con niveles | |
 | 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | |
 | 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | |
@@ -493,3 +493,27 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   El piloto automático de la prueba frena y dobla con límites fijos (14 y 7 m/s²) y no aprovecha la carga en las rápidas; la vuelta se hace más lenta por las salidas de curva con menos tracción. Siguen bien quieto, choques, limitadores y freno de mano. **Velocidad máxima**: 198 km/h, la corta el limitador en 8ª, no el arrastre (con 446 kW el arrastre recién frenaría el auto a ~269 km/h); alargar la 8ª queda para el setup del Paso 35. Captura: `informes/capturas/paso28-curva-rapida.png` (panel F3 a 190 km/h).
 - **Cómo probar**: F5 → Jugar → F3. En la recta la carga aerodinámica sube con la velocidad y las cuatro ruedas se ponen rojas; en las curvas rápidas el auto aguanta mucho más que en el castillo.
+
+### Paso 29 — Aero activa 2026: modo recta / modo curva y modo adelantamiento
+- **Modo recta / modo curva** (`ActiveAero`, componente del auto): en modo recta los alerones se abren y la carga y el arrastre bajan (ClA × 0,6 y CdA × 0,7: de 3,2 a 1,92 m² y de 1,57 a 1,10 m²; valores aproximados, no oficiales). Los alerones tardan **0,3 s** en abrirse o cerrarse. El modo curva es el normal.
+- **Cuándo se abre**: sólo dentro de las **zonas de recta** (`"aero_zones"` en `data/tracks.json`, en metros desde la línea de largada; un nodo nuevo `AeroZones` le avisa al auto si está en una) y por encima de **120 km/h**. Más despacio las traseras patinan y la carga que se pierde cuesta más tracción que el arrastre que se ahorra (en la largada detenida, con el modo abierto desde 0 km/h la vuelta 1 salía más lenta). En Bakú hay dos zonas: la **recta principal** (de 470 m antes de la línea a 50 m después) y la **recta del oeste** (1.790–1.915 m). Las dos terminan antes del punto de frenado, así los alerones ya están cerrados al frenar.
+- **Se cierra solo** al frenar, al girar fuerte (dirección > 30 %) o al salir de la zona; levantar el pie no lo cierra.
+- **Automático o manual** (opción nueva "Modo recta (aero activa)", por defecto automático): en automático se abre a fondo con el acelerador; en manual lo abre y lo cierra la tecla **F** (acción `aero_mode`).
+- **Modo adelantamiento** (tecla **G**, acción `overtake`): +100 kW con 0,5 MJ de energía por vuelta (unos 5 s a fondo), que se recarga al empezar cada vuelta. En 2026 sólo vale a menos de 1 s del auto de adelante y la energía sale de la batería: queda como `TODO` para cuando haya rivales (Fase F) y ERS (Paso 32). No suma potencia durante el corte del limitador ni en los cambios.
+- **HUD**: fila nueva en el tablero con "MODO RECTA" (verde), "MODO CURVA" o "MODO RECTA LISTA" (con borde verde dentro de la zona), y una barra "ADELANTAR %" con la energía (azul fuerte cuando está activo). El volante muestra RECTA / CURVA / ADEL, el panel F3 suma el modo con ClA y CdA, y aparece un mensaje al activar el modo adelantamiento o si no queda energía.
+- Para que entrara la fila nueva de Opciones, se juntaron "Subir / bajar marcha" en una sola fila del panel de Controles (sigue terminando en 716 de 720 px) y las filas de Opciones pasaron de 36 a 34 px con menos separación (ahora terminan en 701 px en el menú y en 691 en la pausa).
+- Datos: `"active"` dentro de `"aero"` en `data/car.json` (`straight_mode`: `cla_factor`, `cda_factor`, `transition_time`, `close_brake`, `close_steer`, `open_throttle`, `min_speed_kmh`; `overtake`: `extra_power_kw`, `energy_mj`) y `"aero_zones"` en `data/tracks.json`.
+- **Verificación** (física a 60 Hz):
+
+| Prueba | Modo curva | Modo recta | Curva + adelantamiento | Recta + adelantamiento |
+|---|---|---|---|---|
+| 100 → 160 km/h | 1,98 s | 1,92 s | 1,67 s | 1,67 s |
+| 100 → 185 km/h | 3,03 s (124 m) | 2,87 s (116 m) | 2,45 s (98 m) | 2,38 s (95 m) |
+| A 185 km/h: arrastre / carga | 2.530 / 5.157 N | 1.777 / 3.104 N | — | — |
+| Curva a 190 km/h | 2,28 g | 2,00 g (modo mal puesto) | — | — |
+| Vuelta con piloto automático (2ª) | 1:40.133 (sin zonas) | 1:40.200 | — | 1:39.800 |
+
+  Los alerones se cierran en 0,30 s al frenar o al salir de la zona y en 0,33 s al girar (la dirección está suavizada). En manual, F fuera de la zona no abre nada; dentro abre y cierra, y al salir se cierra solo. Con la energía en cero el modo adelantamiento no se activa y avisa; al empezar la vuelta vuelve a 0,5 MJ. Siguen igual las pruebas de los Pasos 25–28 (0–100 en 2,72 s, frenada de 60 m, 1,53 / 1,83 / 2,31 g, transferencia 98–102 %, cargas aerodinámicas) y las vueltas no tienen salidas, golpes ni reinicios.
+
+  **En la vuelta casi no se nota** (todas las variantes quedan dentro de ±0,2 s, lo que ya varía entre corridas): el limitador corta en 8ª a ~194 km/h y el auto llega igual a esa velocidad en la recta principal. Con una 8ª más larga (sólo en la prueba: 257 km/h en el limitador), 600 m a fondo desde 150 km/h tardan **9,87 s en modo recta contra 10,23 s** en modo curva: el modo recta va a rendir de verdad cuando se ajuste la caja en el setup del Paso 35. Capturas: `informes/capturas/paso29-modo-recta.png` (recta principal a 181 km/h con los dos modos activos y el panel F3), `paso29-opciones.png`, `paso29-controles.png`.
+- **Cómo probar**: F5 → Jugar. Al salir de la última curva hacia la recta principal, a fondo, la fila del tablero pasa a "MODO RECTA" en verde; al frenar para la curva 1 vuelve a "MODO CURVA". G activa el modo adelantamiento y la barra azul se vacía. En Opciones se puede pasar a manual y abrir los alerones con F.
