@@ -22,6 +22,7 @@ const DEFAULT_KEYS := {
 	"overtake": [KEY_G],
 	"brake_bias_rearward": [KEY_Z],
 	"brake_bias_forward": [KEY_X],
+	"traction_control": [KEY_T],
 }
 
 const FALLBACK_DRIVER := {"id": "colapinto", "name": "Franco Colapinto", "number": 43, "country": "AR"}

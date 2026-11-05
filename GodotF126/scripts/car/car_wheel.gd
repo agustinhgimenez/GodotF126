@@ -122,12 +122,12 @@ func measure(body_basis: Basis, velocity: Vector3, slip_floor: float) -> void:
 
 ## Integra el giro de la rueda y devuelve la fuerza del neumático (N, en el mundo).
 ## drive_torque: N·m del motor (con signo); brake_torque: N·m que se oponen al giro (frenos,
-## freno motor, rodadura). limit_drive: no deja pasar κ del pico acelerando (provisorio hasta
-## el Paso 31). abs_model: con ABS (Paso 30) modula el par de freno; null = sin ABS (la rueda
-## se puede bloquear). La rueda se integra en forma implícita (con la pendiente de la
-## curva): una rueda liviana contra un neumático rígido oscilaría.
+## freno motor, rodadura). abs_model: con ABS (Paso 30) modula el par de freno; null = sin
+## ABS (la rueda se puede bloquear). El control de tracción y el diferencial (Paso 31) ya
+## vienen dentro de drive_torque. La rueda se integra en forma implícita (con la pendiente
+## de la curva): una rueda liviana contra un neumático rígido oscilaría.
 func update_tyre(tyre: TyreModel, mu: float, drive_torque: float, brake_torque: float, radius: float,
-		limit_drive: bool, abs_model: AbsModel, delta: float) -> Vector3:
+		abs_model: AbsModel, delta: float) -> Vector3:
 	var grip := mu * tyre.load_factor(wheel_load, static_load) * wheel_load
 	var v_ref := maxf(absf(long_speed), tyre.slip_floor)
 	slip_ratio = (spin * radius - long_speed) / v_ref
@@ -142,14 +142,6 @@ func update_tyre(tyre: TyreModel, mu: float, drive_torque: float, brake_torque: 
 	var inertia := tyre.wheel_inertia + slope * delta
 	spin += (drive_torque - now.x * radius) * delta / inertia
 	spin = move_toward(spin, 0.0, brake_torque * delta / inertia)
-
-	var rolling := long_speed / radius
-	var max_slip := tyre.slip_ratio_peak * v_ref / radius
-	if limit_drive and drive_torque > 0.0:
-		spin = minf(spin, rolling + max_slip)
-	elif limit_drive and drive_torque < 0.0:
-		spin = maxf(spin, rolling - max_slip)
-
 	slip_ratio = (spin * radius - long_speed) / v_ref
 	var result := tyre.forces(slip_ratio, slip_angle, grip)
 	force = result

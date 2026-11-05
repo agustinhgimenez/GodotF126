@@ -51,7 +51,8 @@
       "bias_step": 0.01,
       "abs": { "release_slip": 0.14, "apply_slip": 0.08, "release_rate": 15, "apply_rate": 4, "min_speed": 2 }
     },
-    "limiters": { "traction": true },
+    "differential": { "preload_nm": 100, "power_lock": 0.25, "coast_lock": 0.1 },
+    "traction_control": { "slip_levels": [0.3, 0.16, 0.09], "gain": 40, "max_error": 5 },
     "steering": { "max_deg": 22, "min_deg": 3 }
   },
   "engine": {

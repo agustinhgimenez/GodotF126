@@ -4,8 +4,8 @@ extends RigidBody3D
 ## inercia; cada rueda (CarWheel) es un rayo con resorte y amortiguador, y su neumático
 ## (TyreModel, Pacejka, Paso 26) empuja en el punto de contacto según la deriva y el
 ## deslizamiento. Motor y caja son componentes (Pasos 3 y 4): el par llega a las ruedas
-## traseras según la marcha (adelante en 1–8, atrás en R, nada en N) y las RPM salen del
-## giro de esas ruedas.
+## traseras según la marcha (adelante en 1–8, atrás en R, nada en N) a través del
+## diferencial y del control de tracción (Paso 31), y las RPM salen del giro de esas ruedas.
 ## El auto avanza sobre su eje -Z. En caja automática S con el auto quieto pone R.
 
 signal was_reset
@@ -17,6 +17,8 @@ signal wall_hit(strength: float)
 signal camera_mode_applied(external: bool)
 ## Nuevo reparto de frenada (fracción adelante, Paso 30).
 signal brake_bias_changed(front_share: float)
+## Nuevo nivel del control de tracción (0 = apagado, Paso 31).
+signal traction_control_changed(level: int)
 
 ## "view": chase = sigue el giro del auto con retraso; onboard = pegada al auto (T-cam, capot);
 ## cockpit = pegada al auto con volante, brazos, espejos y casco; external = cámaras de TV
@@ -97,9 +99,6 @@ const CHASSIS_KEYS := {
 @export var brake_bias_step: float = 0.01
 ## ABS (Paso 30, opción del jugador). Sin ABS las ruedas se pueden bloquear.
 @export var abs_enabled: bool = true
-## Provisorio hasta el control de tracción (Paso 31): no deja que las traseras pasen del
-## deslizamiento de pico al acelerar.
-@export var traction_limiter: bool = true
 
 @export_group("Cámara")
 @export var camera_follow: float = 6.0
@@ -123,6 +122,9 @@ var spawn_transform: Transform3D = Transform3D.IDENTITY
 var wheels: Array[CarWheel] = []
 var tyre := TyreModel.new()
 var abs_model := AbsModel.new()
+## Diferencial trasero y control de tracción (Paso 31; el nivel lo pone Settings).
+var differential := Differential.new()
+var traction_control := TractionControl.new()
 ## Modo recta / curva y modo adelantamiento (Paso 29).
 var active_aero := ActiveAero.new()
 ## m/s² en ejes del auto (x derecha, y arriba, −z adelante), suavizada; la usa el panel de cargas.
@@ -246,9 +248,12 @@ func _configure_chassis(data: Dictionary) -> void:
 	brake_bias_min = clampf(brake_bias_min, 0.0, 1.0)
 	brake_bias_max = clampf(brake_bias_max, brake_bias_min, 1.0)
 	brake_front_share = clampf(brake_front_share, brake_bias_min, brake_bias_max)
-	var limiters = data.get("limiters", {})
-	if limiters is Dictionary:
-		traction_limiter = bool(limiters.get("traction", traction_limiter))
+	var differential_data = data.get("differential", {})
+	if differential_data is Dictionary:
+		differential.configure(differential_data)
+	var traction_data = data.get("traction_control", {})
+	if traction_data is Dictionary:
+		traction_control.configure(traction_data)
 
 
 func _configure_shake(data: Dictionary) -> void:
@@ -299,6 +304,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		adjust_brake_bias(1)
 	elif event.is_action_pressed("brake_bias_rearward"):
 		adjust_brake_bias(-1)
+	elif event.is_action_pressed("traction_control"):
+		set_traction_control(traction_control.level + 1)
 
 
 ## Mueve el reparto de frenada `steps` pasos (positivo = más adelante).
@@ -307,6 +314,14 @@ func adjust_brake_bias(steps: int) -> void:
 	if share != brake_front_share:
 		brake_front_share = share
 		brake_bias_changed.emit(share)
+
+
+## Nivel del control de tracción; después del último vuelve a 0 (apagado).
+func set_traction_control(level: int) -> void:
+	var new_level := posmod(level, traction_control.level_count())
+	if new_level != traction_control.level:
+		traction_control.set_level(new_level)
+		traction_control_changed.emit(new_level)
 
 
 func cycle_camera() -> void:
@@ -458,7 +473,8 @@ func _update_steering(steer_input: float, delta: float) -> void:
 
 
 ## Suspensión y neumático de cada rueda. Pares sobre cada rueda: el motor en las traseras
-## (mitad cada una), los frenos repartidos entre los ejes, rodadura y freno motor; con freno
+## (mitad cada una, menos lo que corta el control de tracción, más o menos lo que pasa el
+## diferencial), los frenos repartidos entre los ejes, rodadura y freno motor; con freno
 ## de mano las traseras se bloquean (y al patinar casi no agarran de costado).
 ## Los neumáticos se calculan en TYRE_SUBSTEPS sub-pasos: en cada uno se predice cómo cambian
 ## la velocidad y el giro del auto con esas fuerzas, y al cuerpo se le aplica el promedio.
@@ -494,10 +510,13 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 			continue
 		apply_force(wheel.up * wheel.wheel_load, wheel.contact_point - global_position)
 		grounded.append(wheel)
-		# (μ, par del motor, par de frenado); el freno de mano no pasa por el limitador.
+		# (μ, par del motor, par de frenado); el freno de mano no pasa por el ABS.
 		torques.append(Vector3(mu, torque, brake_torque if not locked else -brake_torque))
 	if grounded.is_empty():
+		traction_control.reset()
 		return
+	var rear_left := grounded.find(wheels[2])
+	var rear_right := grounded.find(wheels[3])
 
 	var basis_now := global_transform.basis
 	var inverse_inertia := PhysicsServer3D.body_get_direct_state(get_rid()).inverse_inertia_tensor
@@ -509,13 +528,24 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 	for step in TYRE_SUBSTEPS:
 		var step_force := Vector3.ZERO
 		var step_torque := Vector3.ZERO
+		var factor := traction_control.modulate(_drive_slip(drive_torque), h)
+		var split := 0.0
+		if rear_left >= 0 and rear_right >= 0:
+			var on_power := drive_torque != 0.0
+			var input := drive_torque * factor * 2.0 if on_power else engine_brake * 2.0
+			split = differential.transfer(wheels[2].spin, wheels[3].spin, input, on_power, tyre.wheel_inertia, h)
 		for i in grounded.size():
 			var wheel := grounded[i]
 			var arm := wheel.contact_point - center
 			wheel.measure(basis_now, velocity + spin.cross(arm), tyre.slip_floor)
 			var t := torques[i]
-			var force := wheel.update_tyre(tyre, t.x, t.y, absf(t.z), wheel_radius,
-				traction_limiter, abs_model if abs_enabled and t.z >= 0.0 else null, h)
+			var drive := t.y * factor
+			if i == rear_left:
+				drive += split
+			elif i == rear_right:
+				drive -= split
+			var force := wheel.update_tyre(tyre, t.x, drive, absf(t.z), wheel_radius,
+				abs_model if abs_enabled and t.z >= 0.0 else null, h)
 			step_force += force
 			step_torque += arm.cross(force)
 		velocity += step_force / mass * h
@@ -524,6 +554,17 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 		total_torque += step_torque
 	apply_central_force(total_force / TYRE_SUBSTEPS)
 	apply_torque(total_torque / TYRE_SUBSTEPS)
+
+
+## Mayor deslizamiento de las traseras apoyadas en el sentido del par del motor (0 sin par).
+func _drive_slip(drive_torque: float) -> float:
+	if drive_torque == 0.0:
+		return 0.0
+	var slip := 0.0
+	for wheel in wheels:
+		if not wheel.front and wheel.in_contact:
+			slip = maxf(slip, wheel.slip_ratio * signf(drive_torque))
+	return slip
 
 
 ## Aerodinámica (Paso 28). Carga ½ · ρ · ClA · v² hacia abajo del auto, repartida entre los
@@ -697,6 +738,7 @@ func reset_to_spawn() -> void:
 	for wheel in wheels:
 		wheel.reset(suspension_travel)
 	active_aero.reset()
+	traction_control.reset()
 	engine.reset()
 	gearbox.reset()
 	_snap_camera()
@@ -786,6 +828,11 @@ func is_abs_active() -> bool:
 		if wheel.abs_active:
 			return true
 	return false
+
+
+## El control de tracción está cortando par.
+func is_tc_active() -> bool:
+	return traction_control.active
 
 
 ## Alguna rueda bloqueada (frenando sin ABS o con el freno de mano).

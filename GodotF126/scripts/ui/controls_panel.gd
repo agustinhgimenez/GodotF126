@@ -22,7 +22,7 @@ var _chips: Array[PanelContainer] = []
 
 
 func _ready() -> void:
-	add_theme_constant_override("separation", 2)
+	add_theme_constant_override("separation", 1)
 	add_child(UiKit.make_label("Controles", 26))
 	var data := DataLoader.load_json(DATA_PATH)
 	for section in data.get("sections", []):
@@ -99,7 +99,7 @@ func _add_row(row_data: Dictionary) -> void:
 		key_box.add_child(UiKit.make_label("—", 18))
 	for key in keys:
 		key_box.add_child(_make_chip(key))
-	var label := UiKit.make_label(str(row_data.get("text", "")), 19)
+	var label := UiKit.make_label(str(row_data.get("text", "")), 18)
 	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(label)
 
@@ -109,7 +109,7 @@ func _make_chip(text: String) -> PanelContainer:
 	var chip := PanelContainer.new()
 	chip.add_theme_stylebox_override("panel", _chip_style())
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var label := UiKit.make_label(text, 17, HORIZONTAL_ALIGNMENT_CENTER)
+	var label := UiKit.make_label(text, 16, HORIZONTAL_ALIGNMENT_CENTER)
 	label.custom_minimum_size = Vector2(26, 0)
 	chip.add_child(label)
 	_chips.append(chip)

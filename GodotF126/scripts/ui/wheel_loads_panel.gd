@@ -5,10 +5,11 @@ extends Control
 ## "BLOQUEADA" / la presión que deja el ABS, Paso 30); abajo
 ## el reparto por eje y por lado, la aceleración, cabeceo y rolido, la carga aerodinámica y el
 ## arrastre (Paso 28), el modo de la aero activa con ClA y CdA (Paso 29), el reparto de
-## frenada y el ABS (Paso 30), y la transferencia de peso medida (sin la carga aerodinámica) contra la
+## frenada y el ABS (Paso 30), el control de tracción y el par que pasa el diferencial
+## (Paso 31), y la transferencia de peso medida (sin la carga aerodinámica) contra la
 ## de la cuenta (CarController.theoretical_transfer()).
 
-const SIZE := Vector2(330, 474)
+const SIZE := Vector2(330, 498)
 const BG := Color(0.04, 0.05, 0.07, 0.78)
 const TEXT := Color(0.9, 0.92, 0.95)
 const DIM := Color(0.6, 0.64, 0.7)
@@ -83,6 +84,7 @@ func _draw() -> void:
 	var accel := _car.local_acceleration
 	var theory := _car.theoretical_transfer()
 	var front_aero := _car.downforce_front
+	var tc := _car.traction_control
 	var lines := [
 		"Ejes: adelante %d %% · atrás %d %%" % [roundi(front / total * 100.0), roundi(100.0 - front / total * 100.0)],
 		"Lados: izq. %d %% · der. %d %%" % [roundi(100.0 - right / total * 100.0), roundi(right / total * 100.0)],
@@ -91,6 +93,8 @@ func _draw() -> void:
 		"Carga aero %d N · arrastre %d N" % [roundi(_car.downforce), roundi(_car.drag_force)],
 		"Modo %s · ClA %.2f · CdA %.2f" % [_car.active_aero.mode_label().to_lower(), _car.get_cla(), _car.get_cda()],
 		"Frenos: reparto %d %% adelante · ABS %s" % [roundi(_car.brake_front_share * 100.0), "sí" if _car.abs_enabled else "no"],
+		"TC %s · par %d %% · dif. %+d N·m" % [str(tc.level) if tc.level > 0 else "no", roundi(tc.torque_factor * 100.0),
+			roundi(_car.differential.transferred)],
 		"Transf. adelante %+d N (cuenta %+d)" % [roundi(front - static_front - front_aero), roundi(theory.x)],
 		"Transf. derecha %+d N (cuenta %+d)" % [roundi(right - total * 0.5), roundi(theory.y)],
 	]

@@ -67,8 +67,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | ✅ |
 | 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | ✅ |
 | 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | ✅ |
-| 31 | Diferencial y **control de tracción** con niveles | ⏳ Siguiente |
-| 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | |
+| 31 | Diferencial y **control de tracción** con niveles | ✅ |
+| 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | ⏳ Siguiente |
 | 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | |
 | 34 | Combustible: el peso baja vuelta a vuelta | |
 | 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | |
@@ -540,3 +540,28 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   El ABS hace unos 20 ciclos por frenada larga, con la presión media adelante entre 43 y 64 % según el reparto. El freno de mano sigue bloqueando las traseras con ABS. Siguen igual las pruebas de los Pasos 25–29 (0–100 en 2,72 s, 1,53 / 1,83 / 2,31 g en curva, transferencia 98–102 %, aero y aero activa) y la vuelta con piloto automático: **1:40.117** sin aero activa y 1:40.167 con modo recta, sin salidas, golpes ni reinicios. Capturas: `informes/capturas/paso30-frenada-abs.png` (ABS actuando a 139 km/h), `paso30-bloqueo.png` (sin ABS y reparto 45 %: ruedas bloqueadas y derrape), `paso30-opciones.png`, `paso30-controles.png`.
 - **Cómo probar**: F5 → Jugar → F3. Frenando fuerte se enciende la luz ABS naranja y las ruedas del panel muestran el ABS trabajando. En Opciones poner ABS en No: frenando a fondo las ruedas quedan "BLOQUEADA" y el auto no dobla. Con Z bajar el reparto a 45 % y frenar en una curva: el auto se cruza.
+
+### Paso 31 — Diferencial y control de tracción con niveles
+- **Diferencial autoblocante** (`Differential`): antes el par del motor iba mitad y mitad a las traseras y cada una giraba libre (un diferencial abierto ideal). Ahora, si una rueda gira más rápido que la otra, el diferencial le pasa par a la más lenta, hasta una capacidad de **precarga + bloqueo × par de entrada**: 100 N·m más el 25 % del par del motor acelerando, o el 10 % del freno motor sin acelerar. Con todo en 0 queda abierto y con una capacidad enorme, bloqueado. Corre en los sub-pasos de los neumáticos; en la curva lenta pasa hasta ~600 N·m de la rueda de adentro (descargada, patina) a la de afuera.
+- **Control de tracción** (`TractionControl`, opción nueva "Control de tracción" y tecla **T** en carrera): reemplaza al limitador provisorio de los Pasos 25–26, que no dejaba a cada rueda pasar del pico. Ahora corta par del motor para mantener el deslizamiento de las traseras en el umbral del nivel: **κ 0,30 / 0,16 / 0,09** para los niveles 1 / 2 / 3 (el pico del neumático está en 0,10); 0 = apagado. El factor de par se corrige en cada sub-paso con el error relativo (umbral − κ) / umbral × 40 por segundo: patinando de más baja rápido y sin patinar vuelve a 100 % en 25 ms. **Por defecto nivel 3**: con teclado (acelerador a fondo) es el más rápido y el más seguro; los niveles bajos dejan cruzar la cola, para dosificar el acelerador.
+- **HUD**: luz "TC n" a la derecha de la fila de abajo del tablero (naranja cuando corta; "SIN TC" apagado), "TCn" en el volante, una línea en el panel F3 con el nivel, el par que deja pasar y el par que pasa el diferencial, y un mensaje al cambiar el nivel.
+- Para que entraran las filas nuevas: botones de Opciones de 31 px de alto (eran 34) y en Controles separación de 1 px y letra un punto más chica. Opciones termina en 714 de 720 px en el menú (704 en la pausa) y Controles en 709 (699 en la pausa, 678 en la pantalla de carga).
+- `Settings` ahora sanea también los valores por defecto (el JSON trae los enteros como float y el selector buscaba "3.0" en vez de "3").
+- Datos en `"chassis"` de `data/car.json`: `"differential"` (`preload_nm`, `power_lock`, `coast_lock`) y `"traction_control"` (`slip_levels`, `gain`, `max_error`). Salió `"limiters"`.
+- **Verificación** (física a 60 Hz):
+
+| Largada (automática) | TC 0 | TC 1 | TC 2 | TC 3 |
+|---|---|---|---|---|
+| 0–100 km/h | 3,33 s | 3,32 s | 3,12 s | **2,78 s** |
+| 0–160 km/h | 5,20 s | 5,20 s | 5,00 s | 4,75 s |
+| κ traseras máx / promedio 2 s | 33 / 6,6 (patinan) | 0,90 / 0,29 | 0,52 / 0,15 | 0,27 / 0,08 |
+
+| Salida de curva lenta (60 km/h en 2ª, a fondo 1,5 s) | TC 0 | TC 1 | TC 2 | TC 3 |
+|---|---|---|---|---|
+| Diferencial abierto | **trompo** (derrape 90°), 37 km/h | derrape 18°, 57 km/h | 1°, 68 km/h | 1°, 70 km/h |
+| Diferencial normal (100 N·m + 25 %) | trompo (93°), 37 km/h | derrape 23°, 54 km/h | 3°, 69 km/h | 1°, 70 km/h |
+| Diferencial bloqueado | trompo (91°), 38 km/h | derrape 27°, 52 km/h | 3°, 70 km/h | 1°, 70 km/h |
+
+  Con el diferencial abierto la trasera de adentro patina mucho más que la de afuera (κ 0,94 contra 0,60 con TC 1; 0,36 contra 0,04 con TC 3); cuanto más bloqueado, más parejas y más se cruza la cola con poco TC. En una curva constante a 90 km/h con medio acelerador, el diferencial bloqueado subvira un poco: el auto gira 38° en 1 s (1,49 g) contra 40–41° (1,58–1,60 g) abierto o normal. En la largada en recta el diferencial no cambia nada (las dos ruedas giran igual). La tecla T pasa 2 → 3 → 0 → 1 → 2.
+  Siguen igual las pruebas de los Pasos 25–30 (0–100 en 2,78 s con TC 3, frenada de 61,5 m, 1,47 / 1,82 / 2,33 g en curva, transferencia 97–100 %, aero activa, ABS y reparto). **La vuelta con piloto automático** (a todo o nada) da **1:41.35** con TC 3, 1:41.12 con TC 2 y 1:41.75 con TC 1, sin salidas, golpes ni reinicios: ~1,2 s más que con el limitador ideal (1:40.117), que dejaba cada rueda justo en el pico sin cortarle par a la otra. Con diferencial abierto da 1:41.32 y bloqueado 1:41.52. Sin TC el piloto automático se cruza en las salidas lentas (9 salidas de pista): con TC apagado hay que dosificar el acelerador. Capturas: `informes/capturas/paso31-tc-actuando.png` (TC 2 cortando en la salida de una curva, par al 28 %), `paso31-sin-tc.png` (sin TC: la cola se cruza, derrape de 57°), `paso31-opciones.png`, `paso31-controles.png`.
+- **Cómo probar**: F5 → Jugar → F3. En una curva lenta, a fondo en 2ª: la luz "TC 3" se pone naranja y el auto sale derecho. Con T pasar a "SIN TC" y repetir: las traseras patinan y la cola se cruza. En TC 1 se puede salir derrapando un poco.

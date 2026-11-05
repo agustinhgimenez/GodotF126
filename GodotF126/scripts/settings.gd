@@ -21,6 +21,8 @@ const GEARBOX_MODES := ["manual", "automatic"]
 const ACTIVE_AERO_MODES := ["automatic", "manual"]
 const QUALITY_LEVELS := ["low", "medium", "high"]
 const TIMES_OF_DAY := ["sunset", "day"]
+## Niveles del control de tracción contando el apagado (los umbrales están en car.json).
+const TRACTION_LEVELS := 4
 const MSAA_MODES := {0: Viewport.MSAA_DISABLED, 2: Viewport.MSAA_2X, 4: Viewport.MSAA_4X, 8: Viewport.MSAA_8X}
 
 var values: Dictionary = {}
@@ -52,15 +54,23 @@ func set_value(key: String, value) -> void:
 ## No vuelve a mostrar el tutorial: tutorial_seen no es una opción del jugador.
 func reset_to_defaults() -> void:
 	var seen = get_value("tutorial_seen")
-	values = _data.get("defaults", {}).duplicate()
+	values = _defaults()
 	values["tutorial_seen"] = seen
 	apply_global()
 	save_settings()
 	changed.emit("")
 
 
+## Valores por defecto ya saneados (el JSON trae los enteros como float).
+func _defaults() -> Dictionary:
+	var result: Dictionary = _data.get("defaults", {}).duplicate()
+	for key in result.keys():
+		result[key] = _sanitize(key, result[key])
+	return result
+
+
 func load_settings() -> void:
-	values = _data.get("defaults", {}).duplicate()
+	values = _defaults()
 	if not FileAccess.file_exists(USER_PATH):
 		return
 	var saved = JSON.parse_string(FileAccess.get_file_as_string(USER_PATH))
@@ -108,12 +118,14 @@ func apply_global() -> void:
 		DisplayServer.window_set_mode(mode)
 
 
-## Caja, dirección, aero activa, ABS, cámara inicial y espejos del auto de carrera.
+## Caja, dirección, aero activa, ABS, control de tracción, cámara inicial y espejos del
+## auto de carrera.
 ## Con `include_camera` en false (opciones desde la pausa) se respeta la cámara actual.
 func apply_to_car(car: CarController, include_camera: bool = true) -> void:
 	car.gearbox.manual = str(get_value("gearbox")) == "manual"
 	car.active_aero.automatic = str(get_value("active_aero")) == "automatic"
 	car.abs_enabled = bool(get_value("abs"))
+	car.traction_control.set_level(int(get_value("traction_control")))
 	var steering: Dictionary = _data.get("steering", {})
 	var profile = steering.get("assisted" if bool(get_value("steering_assist")) else "direct", {})
 	if profile is Dictionary:
@@ -139,6 +151,10 @@ func _sanitize(key: String, value):
 			if not (value is int or value is float):
 				return int(fallback)
 			return clampi(int(value), 0, CarController.CAMERA_MODES.size() - 1)
+		"traction_control":
+			if not (value is int or value is float):
+				return int(fallback)
+			return clampi(int(value), 0, TRACTION_LEVELS - 1)
 		"steering_assist", "abs", "fullscreen", "tutorial_seen":
 			return value if value is bool else fallback
 	if key in VOLUME_BUSES:

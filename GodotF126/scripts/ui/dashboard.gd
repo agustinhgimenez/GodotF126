@@ -4,7 +4,8 @@ extends Control
 ## velocímetro digital con aguja analógica. Todo se dibuja en _draw().
 ## Luces: se encienden de izquierda a derecha entre shift_light_start_rpm y el
 ## punto de cambio de la caja (la lógica de colores está en HudDraw).
-## Abajo (Paso 29): modo de la aero activa y energía del modo adelantamiento.
+## Abajo (Paso 29): modo de la aero activa y energía del modo adelantamiento; a la derecha
+## (Paso 31) el nivel del control de tracción (naranja cuando corta).
 ## Arriba del velocímetro (Paso 30): reparto de frenada y luz del ABS (naranja cuando
 ## actúa, roja si una rueda se bloquea, apagada sin ABS).
 
@@ -100,11 +101,12 @@ func _draw_brakes(rect: Rect2) -> void:
 	_draw_text_centered("ABS" if _car.abs_enabled else "SIN ABS", lamp.get_center() + Vector2(0, 1), 12, text_color)
 
 
-## Modo recta / curva (verde abierto; contorno en zona de recta) y barra de energía para
-## adelantar (azul cuando está activo).
+## Modo recta / curva (verde abierto; contorno en zona de recta), barra de energía para
+## adelantar (azul cuando está activo) y luz del control de tracción.
 func _draw_aero_row(rect: Rect2) -> void:
 	var aero := _car.active_aero
-	var half := (rect.size.x - 12.0) * 0.5
+	var tc_width := 64.0
+	var half := (rect.size.x - tc_width - 24.0) * 0.5
 	var mode_rect := Rect2(rect.position, Vector2(half, rect.size.y))
 	var label := aero.mode_label()
 	var open := label == "RECTA"
@@ -119,6 +121,13 @@ func _draw_aero_row(rect: Rect2) -> void:
 	var fill_color := COLOR_OVERTAKE if aero.overtake_active else Color(COLOR_OVERTAKE, 0.45)
 	draw_rect(Rect2(energy_rect.position, Vector2(energy_rect.size.x * aero.energy_ratio(), energy_rect.size.y)), fill_color)
 	_draw_text_centered("ADELANTAR %d %%" % roundi(aero.energy_ratio() * 100.0), energy_rect.get_center() + Vector2(0, 1), 15)
+
+	var tc_rect := Rect2(Vector2(rect.end.x - tc_width, rect.position.y), Vector2(tc_width, rect.size.y))
+	var level := _car.traction_control.level
+	var cutting := _car.is_tc_active()
+	draw_rect(tc_rect, COLOR_ABS if cutting else HudDraw.COLOR_OFF)
+	_draw_text_centered("TC %d" % level if level > 0 else "SIN TC", tc_rect.get_center() + Vector2(0, 1),
+		15 if level > 0 else 12, Color.BLACK if cutting else COLOR_DIM)
 
 
 func _draw_shift_lights(rect: Rect2) -> void:
