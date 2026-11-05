@@ -20,6 +20,8 @@ const DEFAULT_KEYS := {
 	"toggle_gearbox": [KEY_M],
 	"aero_mode": [KEY_F],
 	"overtake": [KEY_G],
+	"brake_bias_rearward": [KEY_Z],
+	"brake_bias_forward": [KEY_X],
 }
 
 const FALLBACK_DRIVER := {"id": "colapinto", "name": "Franco Colapinto", "number": 43, "country": "AR"}

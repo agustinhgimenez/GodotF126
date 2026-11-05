@@ -15,6 +15,8 @@ signal wall_hit(strength: float)
 
 ## Cámara del auto (o de la pista) activa: true = cámaras de TV de la pista (Paso 18).
 signal camera_mode_applied(external: bool)
+## Nuevo reparto de frenada (fracción adelante, Paso 30).
+signal brake_bias_changed(front_share: float)
 
 ## "view": chase = sigue el giro del auto con retraso; onboard = pegada al auto (T-cam, capot);
 ## cockpit = pegada al auto con volante, brazos, espejos y casco; external = cámaras de TV
@@ -41,7 +43,8 @@ const CHASSIS_KEYS := {
 	"suspension": {"front_axle_z": "front_axle_z", "rear_axle_z": "rear_axle_z", "half_track": "half_track",
 		"travel": "suspension_travel"},
 	"tyres": {"mu": "tyre_mu", "rear_grip_factor": "rear_grip_factor"},
-	"brakes": {"force": "brake_force", "front_share": "brake_front_share"},
+	"brakes": {"force": "brake_force", "front_share": "brake_front_share", "bias_min": "brake_bias_min",
+		"bias_max": "brake_bias_max", "bias_step": "brake_bias_step"},
 	"steering": {"max_deg": "max_steer_deg", "min_deg": "min_steer_deg"},
 }
 
@@ -86,10 +89,16 @@ const CHASSIS_KEYS := {
 @export var tyre_mu: float = 1.75              ## agarre mecánico (la carga aerodinámica se suma a la carga)
 @export var rear_grip_factor: float = 1.08
 @export var brake_force: float = 30000.0       ## N totales con el freno a fondo (en el piso, sin bloquear)
+## Reparto de frenada (fracción adelante); se ajusta en carrera entre brake_bias_min y
+## brake_bias_max de a brake_bias_step (Paso 30).
 @export var brake_front_share: float = 0.58
-## Provisorios hasta el ABS (Paso 30) y el control de tracción (Paso 31): no dejan que las
-## ruedas pasen del deslizamiento de pico al frenar o al acelerar.
-@export var brake_limiter: bool = true
+@export var brake_bias_min: float = 0.45
+@export var brake_bias_max: float = 0.75
+@export var brake_bias_step: float = 0.01
+## ABS (Paso 30, opción del jugador). Sin ABS las ruedas se pueden bloquear.
+@export var abs_enabled: bool = true
+## Provisorio hasta el control de tracción (Paso 31): no deja que las traseras pasen del
+## deslizamiento de pico al acelerar.
 @export var traction_limiter: bool = true
 
 @export_group("Cámara")
@@ -113,6 +122,7 @@ var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
 var wheels: Array[CarWheel] = []
 var tyre := TyreModel.new()
+var abs_model := AbsModel.new()
 ## Modo recta / curva y modo adelantamiento (Paso 29).
 var active_aero := ActiveAero.new()
 ## m/s² en ejes del auto (x derecha, y arriba, −z adelante), suavizada; la usa el panel de cargas.
@@ -228,9 +238,16 @@ func _configure_chassis(data: Dictionary) -> void:
 	var tyre_data = data.get("tyres", {})
 	if tyre_data is Dictionary:
 		tyre.configure(tyre_data)
+	var brakes = data.get("brakes", {})
+	if brakes is Dictionary:
+		var abs_data = brakes.get("abs", {})
+		if abs_data is Dictionary:
+			abs_model.configure(abs_data)
+	brake_bias_min = clampf(brake_bias_min, 0.0, 1.0)
+	brake_bias_max = clampf(brake_bias_max, brake_bias_min, 1.0)
+	brake_front_share = clampf(brake_front_share, brake_bias_min, brake_bias_max)
 	var limiters = data.get("limiters", {})
 	if limiters is Dictionary:
-		brake_limiter = bool(limiters.get("brake", brake_limiter))
 		traction_limiter = bool(limiters.get("traction", traction_limiter))
 
 
@@ -278,6 +295,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		active_aero.toggle_straight()
 	elif event.is_action_pressed("overtake"):
 		active_aero.toggle_overtake()
+	elif event.is_action_pressed("brake_bias_forward"):
+		adjust_brake_bias(1)
+	elif event.is_action_pressed("brake_bias_rearward"):
+		adjust_brake_bias(-1)
+
+
+## Mueve el reparto de frenada `steps` pasos (positivo = más adelante).
+func adjust_brake_bias(steps: int) -> void:
+	var share := clampf(snappedf(brake_front_share + steps * brake_bias_step, 0.001), brake_bias_min, brake_bias_max)
+	if share != brake_front_share:
+		brake_front_share = share
+		brake_bias_changed.emit(share)
 
 
 func cycle_camera() -> void:
@@ -486,7 +515,7 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 			wheel.measure(basis_now, velocity + spin.cross(arm), tyre.slip_floor)
 			var t := torques[i]
 			var force := wheel.update_tyre(tyre, t.x, t.y, absf(t.z), wheel_radius,
-				traction_limiter, brake_limiter and t.z >= 0.0, h)
+				traction_limiter, abs_model if abs_enabled and t.z >= 0.0 else null, h)
 			step_force += force
 			step_torque += arm.cross(force)
 		velocity += step_force / mass * h
@@ -749,6 +778,22 @@ func get_wheel_slip() -> float:
 		if wheel.in_contact and absf(wheel.long_speed) > 1.0:
 			slip = maxf(slip, absf(wheel.slip_ratio))
 	return slip
+
+
+## El ABS está soltando el freno de alguna rueda.
+func is_abs_active() -> bool:
+	for wheel in wheels:
+		if wheel.abs_active:
+			return true
+	return false
+
+
+## Alguna rueda bloqueada (frenando sin ABS o con el freno de mano).
+func is_any_wheel_locked() -> bool:
+	for wheel in wheels:
+		if wheel.is_locked():
+			return true
+	return false
 
 
 ## Ángulo entre hacia dónde apunta el auto y hacia dónde se mueve (derrape).

@@ -1,18 +1,21 @@
 class_name WheelLoadsPanel
 extends Control
 ## Panel de cargas por rueda (Paso 27, tecla F3): el auto visto desde arriba con la carga de
-## cada rueda (N y % del peso, color según cuánto más o menos que quieto), κ y deriva; abajo
+## cada rueda (N y % del peso, color según cuánto más o menos que quieto), κ y deriva (o
+## "BLOQUEADA" / la presión que deja el ABS, Paso 30); abajo
 ## el reparto por eje y por lado, la aceleración, cabeceo y rolido, la carga aerodinámica y el
-## arrastre (Paso 28), el modo de la aero activa con ClA y CdA (Paso 29), y la transferencia de peso medida (sin la carga aerodinámica) contra la
+## arrastre (Paso 28), el modo de la aero activa con ClA y CdA (Paso 29), el reparto de
+## frenada y el ABS (Paso 30), y la transferencia de peso medida (sin la carga aerodinámica) contra la
 ## de la cuenta (CarController.theoretical_transfer()).
 
-const SIZE := Vector2(330, 450)
+const SIZE := Vector2(330, 474)
 const BG := Color(0.04, 0.05, 0.07, 0.78)
 const TEXT := Color(0.9, 0.92, 0.95)
 const DIM := Color(0.6, 0.64, 0.7)
 const LIGHT := Color(0.25, 0.5, 1.0)
 const HEAVY := Color(1.0, 0.35, 0.25)
 const NEUTRAL := Color(0.3, 0.32, 0.36)
+const LOCKED := Color(1.0, 0.9, 0.2)
 ## Posición de cada rueda en el dibujo (mismo orden que CarController.wheels: DI, DD, TI, TD).
 const WHEEL_SPOTS := [Vector2(85, 70), Vector2(245, 70), Vector2(85, 205), Vector2(245, 205)]
 const WHEEL_BOX := Vector2(110, 82)
@@ -62,8 +65,13 @@ func _draw() -> void:
 		draw_rect(rect, Color(1, 1, 1, 0.25), false, 1.0)
 		HudDraw.draw_text_centered(self, font, "%d N" % roundi(wheel.wheel_load), spot + Vector2(0, -22), 17, TEXT, 3)
 		HudDraw.draw_text_centered(self, font, "%d %%" % roundi(wheel.wheel_load / weight * 100.0), spot + Vector2(0, -2), 14, TEXT, 3)
-		HudDraw.draw_text_centered(self, font, "κ %.2f · %.1f°" % [wheel.slip_ratio, rad_to_deg(wheel.slip_angle)],
-			spot + Vector2(0, 20), 13, DIM, 3)
+		var tag := "BLOQUEADA" if wheel.is_locked() else ("ABS %d %%" % roundi(wheel.brake_pressure * 100.0) if wheel.abs_active else "")
+		if tag.is_empty():
+			HudDraw.draw_text_centered(self, font, "κ %.2f · %.1f°" % [wheel.slip_ratio, rad_to_deg(wheel.slip_angle)],
+				spot + Vector2(0, 20), 13, DIM, 3)
+		else:
+			HudDraw.draw_text_centered(self, font, tag, spot + Vector2(0, 20), 13,
+				LOCKED if wheel.is_locked() else Dashboard.COLOR_ABS, 3)
 
 	var loads := PackedFloat32Array()
 	for wheel in _car.wheels:
@@ -82,6 +90,7 @@ func _draw() -> void:
 		"Cabeceo %.2f° · rolido %.2f°" % [_car.get_pitch_deg(), _car.get_roll_deg()],
 		"Carga aero %d N · arrastre %d N" % [roundi(_car.downforce), roundi(_car.drag_force)],
 		"Modo %s · ClA %.2f · CdA %.2f" % [_car.active_aero.mode_label().to_lower(), _car.get_cla(), _car.get_cda()],
+		"Frenos: reparto %d %% adelante · ABS %s" % [roundi(_car.brake_front_share * 100.0), "sí" if _car.abs_enabled else "no"],
 		"Transf. adelante %+d N (cuenta %+d)" % [roundi(front - static_front - front_aero), roundi(theory.x)],
 		"Transf. derecha %+d N (cuenta %+d)" % [roundi(right - total * 0.5), roundi(theory.y)],
 	]

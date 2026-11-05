@@ -4,6 +4,7 @@
     "gearbox": "manual",
     "steering_assist": true,
     "active_aero": "automatic",
+    "abs": true,
     "camera": 0,
     "master_volume": 80,
     "engine_volume": 100,

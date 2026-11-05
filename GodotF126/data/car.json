@@ -43,8 +43,15 @@
       "lateral": { "B": 15, "C": 1.45, "E": -0.5 },
       "longitudinal": { "B": 15.5, "C": 1.5, "E": -0.3 }
     },
-    "brakes": { "force": 30000, "front_share": 0.58 },
-    "limiters": { "brake": true, "traction": true },
+    "brakes": {
+      "force": 30000,
+      "front_share": 0.58,
+      "bias_min": 0.45,
+      "bias_max": 0.75,
+      "bias_step": 0.01,
+      "abs": { "release_slip": 0.14, "apply_slip": 0.08, "release_rate": 15, "apply_rate": 4, "min_speed": 2 }
+    },
+    "limiters": { "traction": true },
     "steering": { "max_deg": 22, "min_deg": 3 }
   },
   "engine": {

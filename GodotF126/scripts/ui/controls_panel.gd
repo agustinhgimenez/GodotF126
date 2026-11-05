@@ -30,15 +30,16 @@ func _ready() -> void:
 			_add_section(section)
 	if not with_back:
 		return
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 6)
-	add_child(spacer)
-	_back = UiKit.make_button("Volver", accent, Vector2(200, 42), 20)
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 14)
+	add_child(footer)
+	_back = UiKit.make_button("Volver", accent, Vector2(200, 40), 20)
 	_back.pressed.connect(func() -> void: closed.emit())
-	add_child(_back)
+	footer.add_child(_back)
 	var hint := UiKit.make_label("Esc para volver", 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
-	add_child(hint)
+	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(hint)
 
 
 func open() -> void:

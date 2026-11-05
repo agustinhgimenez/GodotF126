@@ -5,10 +5,13 @@ extends Control
 ## Luces: se encienden de izquierda a derecha entre shift_light_start_rpm y el
 ## punto de cambio de la caja (la lógica de colores está en HudDraw).
 ## Abajo (Paso 29): modo de la aero activa y energía del modo adelantamiento.
+## Arriba del velocímetro (Paso 30): reparto de frenada y luz del ABS (naranja cuando
+## actúa, roja si una rueda se bloquea, apagada sin ABS).
 
 const SIZE := Vector2(440, 284)
 const COLOR_STRAIGHT := Color(0.2, 0.9, 0.4)
 const COLOR_OVERTAKE := Color(0.3, 0.6, 1.0)
+const COLOR_ABS := Color(1.0, 0.6, 0.1)
 const COLOR_PANEL := Color(0.0, 0.0, 0.0, 0.55)
 const COLOR_NEEDLE := Color(1.0, 0.3, 0.1)
 const COLOR_DIM := Color(1.0, 1.0, 1.0, 0.7)
@@ -76,6 +79,25 @@ func _draw() -> void:
 	_draw_speedometer(Vector2(125, 150), 88.0)
 	_draw_gear_panel(Rect2(250, 52, 170, 186))
 	_draw_aero_row(Rect2(20, 248, SIZE.x - 40, 24))
+	_draw_brakes(Rect2(20, 50, 210, 22))
+
+
+## Reparto de frenada a la izquierda y luz del ABS a la derecha, en las esquinas de arriba
+## del velocímetro.
+func _draw_brakes(rect: Rect2) -> void:
+	HudDraw.draw_text_centered(self, _font, "BB %d" % roundi(_car.brake_front_share * 100.0),
+		rect.position + Vector2(24, rect.size.y * 0.5), 15, COLOR_DIM)
+	var lamp := Rect2(rect.end.x - 58, rect.position.y, 58, rect.size.y)
+	var color := HudDraw.COLOR_OFF
+	var text_color := COLOR_DIM
+	if _car.is_any_wheel_locked():
+		color = HudDraw.COLOR_RED
+		text_color = Color.WHITE
+	elif _car.abs_enabled and _car.is_abs_active():
+		color = COLOR_ABS
+		text_color = Color.BLACK
+	draw_rect(lamp, color)
+	_draw_text_centered("ABS" if _car.abs_enabled else "SIN ABS", lamp.get_center() + Vector2(0, 1), 12, text_color)
 
 
 ## Modo recta / curva (verde abierto; contorno en zona de recta) y barra de energía para

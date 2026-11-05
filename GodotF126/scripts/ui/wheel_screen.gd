@@ -64,6 +64,8 @@ func _draw() -> void:
 	else:
 		_text("CURVA" if aero_label == "CURVA" else "RECTA", Vector2(212, 98), 12,
 			COLOR_FASTER if aero_label == "RECTA" else COLOR_DIM)
+	_text("BB%d" % roundi(_car.brake_front_share * 100.0), Vector2(212, 114), 12,
+		COLOR_SLOWER if _car.is_any_wheel_locked() else COLOR_DIM)
 	if _timer != null:
 		_text(LapTimer.format_time(_timer.current_time if _timer.running else -1.0), Vector2(160, 114), 14)
 

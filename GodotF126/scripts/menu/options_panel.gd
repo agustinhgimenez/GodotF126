@@ -14,6 +14,7 @@ const CHOICES := [
 	["gearbox", "Caja de cambios", ["manual", "automatic"], ["Manual (E/Q)", "Automática"]],
 	["steering_assist", "Dirección asistida", [true, false], ["Sí", "No"]],
 	["active_aero", "Modo recta (aero activa)", ["automatic", "manual"], ["Automático", "Manual (F)"]],
+	["abs", "ABS", [true, false], ["Sí", "No"]],
 	["camera", "Cámara inicial", [0, 1, 2, 3, 4, 5], ["TV", "Cercana", "Cockpit", "T-cam", "Capot", "De pista"]],
 	["quality", "Calidad gráfica", ["low", "medium", "high"], ["Baja", "Media", "Alta"]],
 	["time_of_day", "Hora de la carrera", ["sunset", "day"], ["Atardecer", "Día"]],
@@ -38,26 +39,27 @@ var _buttons: Array[Button] = []
 func _ready() -> void:
 	add_theme_constant_override("separation", 2)
 	add_child(UiKit.make_label("Opciones", 26))
-	for choice in CHOICES.slice(0, 4):
+	for choice in CHOICES.slice(0, 5):
 		_add_choice(choice)
 	for volume in VOLUMES:
 		_add_volume(volume[0], volume[1])
-	for choice in CHOICES.slice(4):
+	for choice in CHOICES.slice(5):
 		_add_choice(choice)
 
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
 	add_child(actions)
-	var reset := _make_button("Restablecer", Vector2(200, 42))
+	var reset := _make_button("Restablecer", Vector2(170, 40))
 	reset.pressed.connect(_on_reset_pressed)
 	actions.add_child(reset)
-	var back := _make_button("Volver", Vector2(200, 42))
+	var back := _make_button("Volver", Vector2(170, 40))
 	back.pressed.connect(func() -> void: closed.emit())
 	actions.add_child(back)
 
-	var hint := UiKit.make_label("← → para cambiar · Esc para volver · se guarda solo", 16)
+	var hint := UiKit.make_label("← → cambiar · Esc volver\nse guarda solo", 15)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
-	add_child(hint)
+	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	actions.add_child(hint)
 	refresh()
 
 

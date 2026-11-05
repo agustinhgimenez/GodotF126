@@ -66,8 +66,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 27 | Transferencia de peso en frenada, aceleración y curva | ✅ |
 | 28 | **Aerodinámica**: carga y resistencia que crecen con la velocidad | ✅ |
 | 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | ✅ |
-| 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | ⏳ Siguiente |
-| 31 | Diferencial y **control de tracción** con niveles | |
+| 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | ✅ |
+| 31 | Diferencial y **control de tracción** con niveles | ⏳ Siguiente |
 | 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | |
 | 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | |
 | 34 | Combustible: el peso baja vuelta a vuelta | |
@@ -517,3 +517,26 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   **En la vuelta casi no se nota** (todas las variantes quedan dentro de ±0,2 s, lo que ya varía entre corridas): el limitador corta en 8ª a ~194 km/h y el auto llega igual a esa velocidad en la recta principal. Con una 8ª más larga (sólo en la prueba: 257 km/h en el limitador), 600 m a fondo desde 150 km/h tardan **9,87 s en modo recta contra 10,23 s** en modo curva: el modo recta va a rendir de verdad cuando se ajuste la caja en el setup del Paso 35. Capturas: `informes/capturas/paso29-modo-recta.png` (recta principal a 181 km/h con los dos modos activos y el panel F3), `paso29-opciones.png`, `paso29-controles.png`.
 - **Cómo probar**: F5 → Jugar. Al salir de la última curva hacia la recta principal, a fondo, la fila del tablero pasa a "MODO RECTA" en verde; al frenar para la curva 1 vuelve a "MODO CURVA". G activa el modo adelantamiento y la barra azul se vacía. En Opciones se puede pasar a manual y abrir los alerones con F.
+
+### Paso 30 — Frenos: reparto ajustable, bloqueo de ruedas y ABS opcional
+- **ABS** (`AbsModel`, opción nueva "ABS", por defecto Sí): reemplaza al limitador provisorio de los Pasos 25–26, que era un ABS perfecto e instantáneo. Ahora cada rueda tiene una **presión de freno** (0–1): cuando empieza a bloquearse (deslizamiento de frenada −κ > 0,14) el ABS la suelta a 15 por segundo, y cuando recupera el giro (−κ < 0,08) la vuelve a apretar a 4 por segundo. La rueda cicla alrededor del pico de la curva del neumático: frena un poco menos que el limitador (61–62 m contra 60 m desde 194 km/h) y sigue doblando. Debajo de 2 m/s no actúa, así el auto se detiene. Corre dentro de los sub-pasos de los neumáticos.
+- **Sin ABS las ruedas se bloquean**: con teclado el freno va a fondo de golpe y el freno total (30.000 N) es más de lo que agarran los dos ejes, así que se bloquean las cuatro ruedas: el auto frena menos (76 m desde 194 km/h), chirría y casi no dobla.
+- **Reparto de frenada ajustable** en carrera: **Z** lo pasa atrás y **X** adelante, de a 1 % entre 45 % y 75 % (arranca en 58 %; vale para la sesión). Con el reparto muy atrás se bloquean primero las traseras y el auto se cruza; muy adelante se bloquean las delanteras y el auto sigue derecho. A fondo con ABS casi no cambia la distancia; se nota frenando a medias o sin ABS.
+- **HUD**: arriba del velocímetro el reparto ("BB 58") y una luz "ABS" (naranja cuando actúa, roja si una rueda se bloquea; "SIN ABS" con la opción apagada). El volante muestra "BB58" (en rojo con una rueda bloqueada), el panel F3 marca cada rueda "BLOQUEADA" o con la presión que deja el ABS y suma una línea con el reparto y el ABS, y aparece un mensaje al cambiar el reparto.
+- Para que entraran la fila del ABS y la de Z / X, los botones de abajo de Opciones y Controles quedaron en una sola fila con el texto de ayuda al costado: Opciones termina en 717 de 720 px en el menú (707 en la pausa) y Controles en 710 (700 en la pausa).
+- Datos en `"brakes"` de `"chassis"` en `data/car.json`: `bias_min`, `bias_max`, `bias_step` y el bloque `"abs"` (`release_slip`, `apply_slip`, `release_rate`, `apply_rate`, `min_speed`). Salió `"brake"` de `"limiters"` (queda `"traction"` hasta el Paso 31).
+- **Verificación** (física a 60 Hz):
+
+| Frenada a fondo | Con ABS | Sin ABS |
+|---|---|---|
+| 194 → 0 km/h, reparto 50 / 58 / 65 / 72 % | 62,2 / 61,9 / 62,3 / 62,8 m | 76,4 / 76,4 / 76,2 / 73,4 m (cuatro ruedas bloqueadas ~2,9 s) |
+| 97 → 0 km/h, reparto 58 % | 20,9 m | 24,2 m |
+| Frenar en curva a 120 km/h (1 s) | baja a 68 km/h y el auto gira 28° | baja a 62 km/h y gira sólo 8° (bloqueado) |
+
+| Sin ABS, freno a medias | Reparto 45 % | Reparto 58 % | Reparto 72 % |
+|---|---|---|---|
+| Recta, 50 % de freno desde 150 km/h | se bloquean las traseras (0,78 s); 84 km/h al final | no se bloquea nada; 74 km/h al final | se bloquean las delanteras (0,82 s); 88 km/h al final |
+| Curva, 60 % de freno a 120 km/h | **el auto se cruza** (derrape de 40°) | gira 7° | las delanteras bloqueadas: no dobla (0°) |
+
+  El ABS hace unos 20 ciclos por frenada larga, con la presión media adelante entre 43 y 64 % según el reparto. El freno de mano sigue bloqueando las traseras con ABS. Siguen igual las pruebas de los Pasos 25–29 (0–100 en 2,72 s, 1,53 / 1,83 / 2,31 g en curva, transferencia 98–102 %, aero y aero activa) y la vuelta con piloto automático: **1:40.117** sin aero activa y 1:40.167 con modo recta, sin salidas, golpes ni reinicios. Capturas: `informes/capturas/paso30-frenada-abs.png` (ABS actuando a 139 km/h), `paso30-bloqueo.png` (sin ABS y reparto 45 %: ruedas bloqueadas y derrape), `paso30-opciones.png`, `paso30-controles.png`.
+- **Cómo probar**: F5 → Jugar → F3. Frenando fuerte se enciende la luz ABS naranja y las ruedas del panel muestran el ABS trabajando. En Opciones poner ABS en No: frenando a fondo las ruedas quedan "BLOQUEADA" y el auto no dobla. Con Z bajar el reparto a 45 % y frenar en una curva: el auto se cruza.

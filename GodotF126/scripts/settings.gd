@@ -108,11 +108,12 @@ func apply_global() -> void:
 		DisplayServer.window_set_mode(mode)
 
 
-## Caja, dirección, aero activa, cámara inicial y espejos del auto de carrera.
+## Caja, dirección, aero activa, ABS, cámara inicial y espejos del auto de carrera.
 ## Con `include_camera` en false (opciones desde la pausa) se respeta la cámara actual.
 func apply_to_car(car: CarController, include_camera: bool = true) -> void:
 	car.gearbox.manual = str(get_value("gearbox")) == "manual"
 	car.active_aero.automatic = str(get_value("active_aero")) == "automatic"
+	car.abs_enabled = bool(get_value("abs"))
 	var steering: Dictionary = _data.get("steering", {})
 	var profile = steering.get("assisted" if bool(get_value("steering_assist")) else "direct", {})
 	if profile is Dictionary:
@@ -138,7 +139,7 @@ func _sanitize(key: String, value):
 			if not (value is int or value is float):
 				return int(fallback)
 			return clampi(int(value), 0, CarController.CAMERA_MODES.size() - 1)
-		"steering_assist", "fullscreen", "tutorial_seen":
+		"steering_assist", "abs", "fullscreen", "tutorial_seen":
 			return value if value is bool else fallback
 	if key in VOLUME_BUSES:
 		if not (value is int or value is float):

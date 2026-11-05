@@ -48,6 +48,9 @@ var spin_angle: float = 0.0
 var slip_ratio: float = 0.0
 ## (longitudinal, lateral) en N que el neumático le hizo al auto en el último cuadro.
 var force: Vector2 = Vector2.ZERO
+## Fracción del par de freno que deja pasar el ABS y si está soltando (Paso 30).
+var brake_pressure: float = 1.0
+var abs_active: bool = false
 
 var _query: PhysicsRayQueryParameters3D
 
@@ -70,6 +73,13 @@ func reset(travel: float) -> void:
 	slip_angle = 0.0
 	slip_ratio = 0.0
 	spin = 0.0
+	brake_pressure = 1.0
+	abs_active = false
+
+
+## Rueda apoyada que gira mucho más lento que el piso (frenando, −κ > 0,5).
+func is_locked() -> bool:
+	return in_contact and absf(long_speed) > 3.0 and -slip_ratio * signf(long_speed) > 0.5
 
 
 ## Tira el rayo (sin pegarle al propio auto) y calcula la carga.
@@ -112,14 +122,20 @@ func measure(body_basis: Basis, velocity: Vector3, slip_floor: float) -> void:
 
 ## Integra el giro de la rueda y devuelve la fuerza del neumático (N, en el mundo).
 ## drive_torque: N·m del motor (con signo); brake_torque: N·m que se oponen al giro (frenos,
-## freno motor, rodadura). limit_drive / limit_brake: no dejan pasar κ del pico (provisorio
-## hasta los Pasos 30 y 31). La rueda se integra en forma implícita (con la pendiente de la
+## freno motor, rodadura). limit_drive: no deja pasar κ del pico acelerando (provisorio hasta
+## el Paso 31). abs_model: con ABS (Paso 30) modula el par de freno; null = sin ABS (la rueda
+## se puede bloquear). La rueda se integra en forma implícita (con la pendiente de la
 ## curva): una rueda liviana contra un neumático rígido oscilaría.
 func update_tyre(tyre: TyreModel, mu: float, drive_torque: float, brake_torque: float, radius: float,
-		limit_drive: bool, limit_brake: bool, delta: float) -> Vector3:
+		limit_drive: bool, abs_model: AbsModel, delta: float) -> Vector3:
 	var grip := mu * tyre.load_factor(wheel_load, static_load) * wheel_load
 	var v_ref := maxf(absf(long_speed), tyre.slip_floor)
 	slip_ratio = (spin * radius - long_speed) / v_ref
+	if abs_model != null and brake_torque > 0.0:
+		brake_torque *= abs_model.modulate(self, delta)
+	else:
+		brake_pressure = 1.0
+		abs_active = false
 	var now := tyre.forces(slip_ratio, slip_angle, grip)
 	var ahead := tyre.forces(slip_ratio + 0.01, slip_angle, grip)
 	var slope := maxf((ahead.x - now.x) / 0.01, 0.0) * radius * radius / v_ref
@@ -133,8 +149,6 @@ func update_tyre(tyre: TyreModel, mu: float, drive_torque: float, brake_torque: 
 		spin = minf(spin, rolling + max_slip)
 	elif limit_drive and drive_torque < 0.0:
 		spin = maxf(spin, rolling - max_slip)
-	if limit_brake and brake_torque > 0.0:
-		spin = maxf(spin, rolling - max_slip) if rolling > 0.0 else minf(spin, rolling + max_slip)
 
 	slip_ratio = (spin * radius - long_speed) / v_ref
 	var result := tyre.forces(slip_ratio, slip_angle, grip)
@@ -148,4 +162,6 @@ func update_free_spin(inertia: float, drive_torque: float, brake_torque: float, 
 	spin += drive_torque * delta / inertia
 	spin = move_toward(spin, 0.0, brake_torque * delta / inertia)
 	slip_ratio = 0.0
+	brake_pressure = 1.0
+	abs_active = false
 	spin_angle = wrapf(spin_angle + spin * delta, 0.0, TAU)
