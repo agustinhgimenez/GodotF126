@@ -6,10 +6,11 @@ extends Control
 ## el reparto por eje y por lado, la aceleración, cabeceo y rolido, la carga aerodinámica y el
 ## arrastre (Paso 28), el modo de la aero activa con ClA y CdA (Paso 29), el reparto de
 ## frenada y el ABS (Paso 30), el control de tracción y el par que pasa el diferencial
-## (Paso 31), y la transferencia de peso medida (sin la carga aerodinámica) contra la
+## (Paso 31), el ERS (modo, carga, potencia desplegada / recuperada y energía recuperada en la
+## vuelta, Paso 32), y la transferencia de peso medida (sin la carga aerodinámica) contra la
 ## de la cuenta (CarController.theoretical_transfer()).
 
-const SIZE := Vector2(330, 498)
+const SIZE := Vector2(330, 522)
 const BG := Color(0.04, 0.05, 0.07, 0.78)
 const TEXT := Color(0.9, 0.92, 0.95)
 const DIM := Color(0.6, 0.64, 0.7)
@@ -95,6 +96,8 @@ func _draw() -> void:
 		"Frenos: reparto %d %% adelante · ABS %s" % [roundi(_car.brake_front_share * 100.0), "sí" if _car.abs_enabled else "no"],
 		"TC %s · par %d %% · dif. %+d N·m" % [str(tc.level) if tc.level > 0 else "no", roundi(tc.torque_factor * 100.0),
 			roundi(_car.differential.transferred)],
+		"ERS %s %d %% · +%d / −%d kW · vuelta %.1f MJ" % [_car.ers.mode()["short"], roundi(_car.ers.soc() * 100.0),
+			roundi(_car.ers.deploy_power / 1000.0), roundi(_car.ers.harvest_power / 1000.0), _car.ers.lap_harvested / 1e6],
 		"Transf. adelante %+d N (cuenta %+d)" % [roundi(front - static_front - front_aero), roundi(theory.x)],
 		"Transf. derecha %+d N (cuenta %+d)" % [roundi(right - total * 0.5), roundi(theory.y)],
 	]

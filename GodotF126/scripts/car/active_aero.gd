@@ -9,8 +9,9 @@ extends RefCounted
 ##   los alerones tardan transition_time en moverse.
 ##   Automático: se abre a fondo con el acelerador. Manual: lo abre y cierra la tecla.
 ## - Modo adelantamiento: potencia eléctrica extra con un presupuesto de energía por vuelta
-##   (se recarga al cruzar la línea). En 2026 sólo vale a menos de 1 s del auto de adelante.
-##   TODO (rivales, Fase F): pedir esa distancia; la energía saldrá de la batería del ERS (Paso 32).
+##   (se recarga al cruzar la línea); la energía sale además de la batería del ERS (Paso 32):
+##   con la batería vacía no se activa. En 2026 sólo vale a menos de 1 s del auto de adelante.
+##   TODO (rivales, Fase F): pedir esa distancia.
 
 signal overtake_changed(active: bool)
 ## No se pudo activar el modo adelantamiento (sin energía).

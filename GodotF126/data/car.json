@@ -1,4 +1,4 @@
-{
+﻿{
   "description": "Datos del monoplaza. Valores aproximados para un modelo de 4 ruedas jugable; no son datos oficiales.",
   "mass_kg": 800,
   "wheel_radius": 0.36,
@@ -54,6 +54,18 @@
     "differential": { "preload_nm": 100, "power_lock": 0.25, "coast_lock": 0.1 },
     "traction_control": { "slip_levels": [0.3, 0.16, 0.09], "gain": 40, "max_error": 5 },
     "steering": { "max_deg": 22, "min_deg": 3 }
+  },
+  "ers": {
+    "battery_mj": 4.0,
+    "deploy_kw": 350,
+    "harvest_kw": 350,
+    "lap_harvest_mj": 8.5,
+    "default_mode": 1,
+    "modes": [
+      { "name": "Ataque", "short": "ATQ", "deploy": 1.0, "lift_kw": 0 },
+      { "name": "Normal", "short": "NOR", "deploy": 0.35, "lift_kw": 0 },
+      { "name": "Recarga", "short": "REC", "deploy": 0.0, "lift_kw": 150 }
+    ]
   },
   "engine": {
     "idle_rpm": 4000,

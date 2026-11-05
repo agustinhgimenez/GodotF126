@@ -68,8 +68,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 29 | **Aero activa 2026**: modo recta (baja resistencia) / modo curva, y **modo adelantamiento** | ✅ |
 | 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | ✅ |
 | 31 | Diferencial y **control de tracción** con niveles | ✅ |
-| 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | ⏳ Siguiente |
-| 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | |
+| 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | ✅ |
+| 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | ⏳ Siguiente |
 | 34 | Combustible: el peso baja vuelta a vuelta | |
 | 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | |
 | 36 | Daños: alerón delantero roto reduce la carga, pinchazos | |
@@ -565,3 +565,30 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   Con el diferencial abierto la trasera de adentro patina mucho más que la de afuera (κ 0,94 contra 0,60 con TC 1; 0,36 contra 0,04 con TC 3); cuanto más bloqueado, más parejas y más se cruza la cola con poco TC. En una curva constante a 90 km/h con medio acelerador, el diferencial bloqueado subvira un poco: el auto gira 38° en 1 s (1,49 g) contra 40–41° (1,58–1,60 g) abierto o normal. En la largada en recta el diferencial no cambia nada (las dos ruedas giran igual). La tecla T pasa 2 → 3 → 0 → 1 → 2.
   Siguen igual las pruebas de los Pasos 25–30 (0–100 en 2,78 s con TC 3, frenada de 61,5 m, 1,47 / 1,82 / 2,33 g en curva, transferencia 97–100 %, aero activa, ABS y reparto). **La vuelta con piloto automático** (a todo o nada) da **1:41.35** con TC 3, 1:41.12 con TC 2 y 1:41.75 con TC 1, sin salidas, golpes ni reinicios: ~1,2 s más que con el limitador ideal (1:40.117), que dejaba cada rueda justo en el pico sin cortarle par a la otra. Con diferencial abierto da 1:41.32 y bloqueado 1:41.52. Sin TC el piloto automático se cruza en las salidas lentas (9 salidas de pista): con TC apagado hay que dosificar el acelerador. Capturas: `informes/capturas/paso31-tc-actuando.png` (TC 2 cortando en la salida de una curva, par al 28 %), `paso31-sin-tc.png` (sin TC: la cola se cruza, derrape de 57°), `paso31-opciones.png`, `paso31-controles.png`.
 - **Cómo probar**: F5 → Jugar → F3. En una curva lenta, a fondo en 2ª: la luz "TC 3" se pone naranja y el auto sale derecho. Con T pasar a "SIN TC" y repetir: las traseras patinan y la cola se cruza. En TC 1 se puede salir derrapando un poco.
+
+### Paso 32 — ERS 2026: batería, recuperación y despliegue
+- **ERS** (`Ers`, datos en `"ers"` de `data/car.json`): batería de **4 MJ** útiles y MGU-K en el eje trasero de **350 kW** desplegando y recuperando, con un tope de **8,5 MJ recuperados por vuelta** (se renueva al cruzar la línea). Arranca con la batería llena.
+- **Despliegue**: acelerando, el MGU-K suma potencia (fracción del modo × 350 kW × acelerador) mientras haya energía, sin cambio en curso ni corte del limitador y sólo hacia adelante. Pasa por el control de tracción: lo que el TC corta no se gasta. Debajo de 10 m/s la fuerza está topada (P / 10 m/s, igual que el modo adelantamiento) y se cobra lo que de verdad entrega.
+- **Recuperación** con freno por cable: frenando, el MGU-K toma el lugar de una parte del freno hidráulico trasero, así que **el par total no cambia** (la frenada, el reparto y el ABS quedan iguales). Recupera lo que frenan las traseras, hasta 350 kW: si se bloquean (sin ABS) casi no recupera. En modo Recarga además frena al levantar el pie (150 kW, como más freno motor).
+- **Modos** (tecla **V**): **Ataque** (despliega 100 %), **Normal** (35 %, unos 120 kW; por defecto) y **Recarga** (no despliega y recupera al levantar). Normal quedó elegido para que en la vuelta la batería quede pareja.
+- **Modo adelantamiento** (Paso 29): su potencia extra ahora también sale de la batería; con la batería vacía no se activa ("Batería vacía") y se apaga solo si se vacía. Sigue con su presupuesto de 0,5 MJ por vuelta.
+- **HUD**: en el tablero la barra del medio de la fila de abajo pasa a ser la batería ("ERS 48 % NOR"; amarilla, más fuerte desplegando y celeste recuperando) y con el modo adelantamiento activo vuelve a mostrar la energía para adelantar en azul. El volante tiene una barra de batería debajo de la de RPM y abajo a la izquierda el modo y la carga ("NOR 81"). El panel F3 suma una línea con el modo, la carga, la potencia desplegada / recuperada y lo recuperado en la vuelta, y aparece un mensaje al cambiar de modo. La tecla V va en la misma fila que T en Controles (sigue terminando en 709 de 720 px).
+- **Verificación** (física a 60 Hz):
+
+| Aceleración (automática, batería llena) | Recarga (sin ERS) | Normal | Ataque |
+|---|---|---|---|
+| 0–100 km/h | 2,83 s | 2,85 s | 2,83 s |
+| 0–160 km/h | 4,80 s | 4,48 s | 4,43 s |
+| 0–185 km/h | 5,85 s en 164 m | 5,22 s en 135 m | **4,93 s en 122 m** |
+| Potencia máx. / energía gastada | 0 kW | 122 kW / 0,34 MJ | 350 kW / 0,63 MJ |
+
+| Vuelta con piloto automático (sin aero activa) | Vuelta 1 | Vuelta 2 | Vuelta 3 | Batería al final de cada vuelta | Por vuelta |
+|---|---|---|---|---|---|
+| Sin desplegar (batería llena, Recarga) | 1:42.767 | 1:41.350 | 1:41.367 | 100 % | — |
+| **Normal** | 1:42.483 | **1:40.983** | 1:40.917 | 84 / 82 / 81 / 81 % | despliega 2,8 MJ, recupera 2,8 MJ |
+| Ataque | 1:42.417 | 1:41.167 | 1:41.217 | 21 / 0 / 0 % | despliega 5,9 → 2,7 MJ, recupera 2,8 MJ |
+| Recarga desde 20 % | 1:43.983 | 1:41.333 | | 100 % (recuperó 3,2 MJ) | |
+
+  Frenando a fondo desde 194 km/h la distancia no cambia (61,9 m con ABS) y se recuperan **0,41 MJ** con picos de 350 kW; sin ABS, 76,4 m y sólo 0,05 MJ (traseras bloqueadas). Levantando el pie 2 s a 180 km/h: en Ataque y Normal baja a 148 km/h; en Recarga a 121 km/h y recupera 0,29 MJ. Con el tope de la vuelta cumplido o la batería llena no recupera; en la vuelta siguiente sí. La tecla V pasa Normal → Recarga → Ataque → Normal.
+  **El ERS rinde poco en la vuelta (~0,4 s)** por la misma razón que el modo recta del Paso 29: con la caja actual el limitador corta en 8ª a ~194 km/h y en las salidas lentas manda la tracción; donde más se nota es entre 100 y 185 km/h (0–185 en 4,93 s en Ataque contra 5,85 s). Va a pesar más cuando el setup del Paso 35 permita alargar la caja. Una recuperación al levantar el pie en el modo Normal (60 kW) costaba ~1 s por vuelta al piloto automático, que levanta en las curvas largas: quedó sólo en Recarga. Con aero activa y modo adelantamiento: 1:41.067 / 1:41.083 (batería 86 / 76 %). Siguen igual las pruebas de los Pasos 25–31 (0–100 en 2,78 s, frenada 61,0–61,9 m, 1,47 / 1,82 g en curva, ABS, reparto, TC); en la prueba del Paso 29 la aceleración 100–185 km/h ahora es más rápida porque Normal despliega. Capturas: `informes/capturas/paso32-recuperando.png` (frenando a 146 km/h: recupera 332 kW, barra celeste), `paso32-volante.png` (cockpit en Ataque, barra de batería en el volante), `paso32-controles.png`.
+- **Cómo probar**: F5 → Jugar → F3. Frenando, la barra "ERS" del tablero se pone celeste y sube; acelerando en Ataque (V) baja rápido. En Recarga, levantar el pie frena más y carga la batería. En la vista cockpit (C) el volante muestra la barra de la batería.

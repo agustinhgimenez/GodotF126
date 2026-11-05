@@ -1,7 +1,8 @@
 class_name WheelScreen
 extends Control
 ## Pantalla del volante (Paso 6). Se dibuja dentro de un SubViewport y se muestra
-## como textura en el volante 3D: marcha, velocidad, RPM, modo, vuelta y delta.
+## como textura en el volante 3D: marcha, velocidad, RPM, modo, vuelta y delta. Debajo de la
+## barra de RPM, la batería del ERS (Paso 32), y abajo a la izquierda su modo y carga.
 
 const SIZE := Vector2i(256, 128)
 const COLOR_BG := Color(0.02, 0.02, 0.03)
@@ -44,6 +45,13 @@ func _draw() -> void:
 	draw_rect(bar, HudDraw.COLOR_OFF)
 	var fill := Vector2(bar.size.x * _car.engine.get_rpm_ratio(), bar.size.y)
 	draw_rect(Rect2(bar.position, fill), HudDraw.rpm_bar_color(_car, shift_light_start_rpm))
+
+	var ers := _car.ers
+	var battery := Rect2(8, 19, SIZE.x - 16, 4)
+	draw_rect(battery, HudDraw.COLOR_OFF)
+	var ers_color := Dashboard.COLOR_HARVEST if ers.harvest_power > 1000.0 else Dashboard.COLOR_ERS
+	draw_rect(Rect2(battery.position, Vector2(battery.size.x * ers.soc(), battery.size.y)), ers_color)
+	_text("%s %d" % [ers.mode()["short"], roundi(ers.soc() * 100.0)], Vector2(44, 122), 11, ers_color)
 
 	_text(_car.get_gear_label(), Vector2(128, 66), 70)
 	_text("%d" % roundi(_car.get_speed_kmh()), Vector2(44, 56), 30)

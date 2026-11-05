@@ -6,6 +6,7 @@ extends RigidBody3D
 ## deslizamiento. Motor y caja son componentes (Pasos 3 y 4): el par llega a las ruedas
 ## traseras según la marcha (adelante en 1–8, atrás en R, nada en N) a través del
 ## diferencial y del control de tracción (Paso 31), y las RPM salen del giro de esas ruedas.
+## El ERS (Paso 32) suma la potencia del MGU-K y recupera energía frenando.
 ## El auto avanza sobre su eje -Z. En caja automática S con el auto quieto pone R.
 
 signal was_reset
@@ -125,6 +126,8 @@ var abs_model := AbsModel.new()
 ## Diferencial trasero y control de tracción (Paso 31; el nivel lo pone Settings).
 var differential := Differential.new()
 var traction_control := TractionControl.new()
+## Batería y MGU-K (Paso 32).
+var ers := Ers.new()
 ## Modo recta / curva y modo adelantamiento (Paso 29).
 var active_aero := ActiveAero.new()
 ## m/s² en ejes del auto (x derecha, y arriba, −z adelante), suavizada; la usa el panel de cargas.
@@ -190,6 +193,9 @@ func configure(data: Dictionary) -> void:
 	var chassis_data = data.get("chassis", {})
 	if chassis_data is Dictionary:
 		_configure_chassis(chassis_data)
+	var ers_data = data.get("ers", {})
+	if ers_data is Dictionary:
+		ers.configure(ers_data)
 	var engine_data = data.get("engine", {})
 	if engine_data is Dictionary:
 		engine.configure(engine_data)
@@ -299,7 +305,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("aero_mode"):
 		active_aero.toggle_straight()
 	elif event.is_action_pressed("overtake"):
-		active_aero.toggle_overtake()
+		if ers.is_empty() and not active_aero.overtake_active:
+			active_aero.overtake_denied.emit("Batería vacía")
+		else:
+			active_aero.toggle_overtake()
+	elif event.is_action_pressed("ers_mode"):
+		ers.cycle_mode()
 	elif event.is_action_pressed("brake_bias_forward"):
 		adjust_brake_bias(1)
 	elif event.is_action_pressed("brake_bias_rearward"):
@@ -411,9 +422,15 @@ func _physics_process(delta: float) -> void:
 	var pedals := _map_pedals(throttle, brake)
 	_update_powertrain(pedals.x, delta)
 	_update_steering(steer_input, delta)
-	active_aero.update(pedals.x, pedals.y, _steer, forward_speed, _overtake_power(pedals.x), delta)
+	var overtake := _overtake_power(pedals.x)
+	var electric := _ers_deploy(pedals.x) + overtake
+	active_aero.update(pedals.x, pedals.y, _steer, forward_speed, overtake, delta)
 	_apply_aero()
-	_apply_wheel_forces(pedals.x, pedals.y, handbrake, delta)
+	var harvest := _apply_wheel_forces(pedals.x, pedals.y, handbrake, electric, delta)
+	# Debajo de 10 m/s la fuerza eléctrica está topada (P / 10): entrega F · v, no P.
+	ers.update(electric * traction_control.torque_factor * clampf(forward_speed / 10.0, 0.0, 1.0), harvest, delta)
+	if ers.is_empty() and active_aero.overtake_active:
+		active_aero.toggle_overtake()
 	_update_wheel_meshes()
 	_update_camera(delta)
 
@@ -478,15 +495,22 @@ func _update_steering(steer_input: float, delta: float) -> void:
 ## de mano las traseras se bloquean (y al patinar casi no agarran de costado).
 ## Los neumáticos se calculan en TYRE_SUBSTEPS sub-pasos: en cada uno se predice cómo cambian
 ## la velocidad y el giro del auto con esas fuerzas, y al cuerpo se le aplica el promedio.
-func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: float) -> void:
+## `electric`: W del MGU-K y del modo adelantamiento. Devuelve los W de frenada de las traseras
+## que puede recuperar el ERS (los frenos traseros, que el freno por cable reparte entre el
+## MGU-K y el hidráulico sin cambiar el total, más lo que frena el MGU-K al levantar el pie).
+func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, electric: float, delta: float) -> float:
 	var space := get_world_3d().direct_space_state
 	var center := global_transform * center_of_mass
 	var corner_mass := mass * 0.25
-	var drive_torque := _drive_force(throttle) * wheel_radius * 0.5
+	var drive_torque := _drive_force(throttle, electric) * wheel_radius * 0.5
 	var engine_brake := 0.0
 	var direction := float(gearbox.get_direction())
 	if throttle == 0.0 and direction != 0.0 and forward_speed * direction > 0.0:
 		engine_brake = engine.get_engine_brake_accel() * mass * wheel_radius * 0.5
+	var lift_torque := 0.0
+	if throttle == 0.0 and brake == 0.0 and not handbrake and direction > 0.0 and forward_speed > 5.0:
+		lift_torque = ers.lift_power() * 0.5 / (forward_speed / wheel_radius)
+	var harvest := 0.0
 	var grounded: Array[CarWheel] = []
 	var torques: Array[Vector3] = []
 	for wheel in wheels:
@@ -501,7 +525,8 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 		var locked := false
 		if not wheel.front:
 			torque = drive_torque
-			brake_torque += engine_brake
+			harvest += (brake_force * brake * share * 0.5 * wheel_radius * wheel.brake_pressure + lift_torque) * absf(wheel.spin)
+			brake_torque += engine_brake + lift_torque
 			if handbrake:
 				brake_torque += mu * wheel.static_load * MAX_HANDBRAKE_FACTOR * wheel_radius
 				locked = true
@@ -514,7 +539,7 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 		torques.append(Vector3(mu, torque, brake_torque if not locked else -brake_torque))
 	if grounded.is_empty():
 		traction_control.reset()
-		return
+		return harvest
 	var rear_left := grounded.find(wheels[2])
 	var rear_right := grounded.find(wheels[3])
 
@@ -554,6 +579,7 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, delta: 
 		total_torque += step_torque
 	apply_central_force(total_force / TYRE_SUBSTEPS)
 	apply_torque(total_torque / TYRE_SUBSTEPS)
+	return harvest
 
 
 ## Mayor deslizamiento de las traseras apoyadas en el sentido del par del motor (0 sin par).
@@ -625,8 +651,9 @@ func _apply_chassis_links() -> void:
 				wheel.wheel_load = maxf(wheel.wheel_load + bar * side + wheel.link_force, 0.0)
 
 
-## N de empuje entre las dos ruedas traseras (negativo en R).
-func _drive_force(throttle: float) -> float:
+## N de empuje entre las dos ruedas traseras (negativo en R). `electric`: W del ERS y del
+## modo adelantamiento (sólo hacia adelante).
+func _drive_force(throttle: float, electric: float) -> float:
 	var direction := float(gearbox.get_direction())
 	if throttle <= 0.0 or direction == 0.0 or gearbox.is_shifting():
 		return 0.0
@@ -637,14 +664,25 @@ func _drive_force(throttle: float) -> float:
 	if direction < 0.0:
 		force = minf(force, reverse_acceleration * mass)
 	else:
-		force += _overtake_power(throttle) / maxf(forward_speed, 10.0)
+		force += electric / maxf(forward_speed, 10.0)
 	return force * direction
 
 
-## W extra del modo adelantamiento: sólo hacia adelante, acelerando y sin el corte del limitador.
+## Se puede sumar potencia eléctrica: hacia adelante, sin cambio en curso ni corte del limitador.
+func _can_deploy() -> bool:
+	return gearbox.get_direction() > 0 and not gearbox.is_shifting() and not engine.is_cutting()
+
+
+## W que despliega el MGU-K según el modo del ERS.
+func _ers_deploy(throttle: float) -> float:
+	if throttle <= 0.0 or not _can_deploy():
+		return 0.0
+	return ers.deploy_request(throttle)
+
+
+## W extra del modo adelantamiento (de la batería del ERS).
 func _overtake_power(throttle: float) -> float:
-	if not active_aero.overtake_active or gearbox.get_direction() <= 0 or gearbox.is_shifting() \
-			or engine.is_cutting():
+	if not active_aero.overtake_active or ers.is_empty() or not _can_deploy():
 		return 0.0
 	return active_aero.overtake_power * throttle
 
@@ -739,6 +777,7 @@ func reset_to_spawn() -> void:
 		wheel.reset(suspension_travel)
 	active_aero.reset()
 	traction_control.reset()
+	ers.reset()
 	engine.reset()
 	gearbox.reset()
 	_snap_camera()

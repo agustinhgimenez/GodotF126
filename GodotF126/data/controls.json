@@ -10,7 +10,7 @@
         { "actions": ["handbrake"], "text": "Freno de mano" },
         { "actions": ["aero_mode", "overtake"], "text": "Modo recta (manual) · adelantamiento" },
         { "actions": ["brake_bias_rearward", "brake_bias_forward"], "text": "Reparto de frenada: más atrás / más adelante" },
-        { "actions": ["traction_control"], "text": "Control de tracción: cambiar nivel (0–3)" }
+        { "actions": ["traction_control", "ers_mode"], "text": "Control de tracción (0–3) · modo del ERS" }
       ]
     },
     {
@@ -42,7 +42,8 @@
     "G activa el modo adelantamiento: potencia extra con energía limitada por vuelta.",
     "Sin ABS, frenar a fondo bloquea las ruedas: el auto frena menos y no dobla.",
     "Con el reparto de frenada muy atrás se bloquean primero las traseras y el auto se cruza.",
-    "Con el control de tracción bajo o apagado (T), dosificá el acelerador al salir de las curvas lentas."
+    "Con el control de tracción bajo o apagado (T), dosificá el acelerador al salir de las curvas lentas.",
+    "V cambia el modo del ERS: Ataque gasta la batería rápido, Recarga la llena al levantar el pie y al frenar."
   ],
   "loading": {
     "min_seconds": 1.2

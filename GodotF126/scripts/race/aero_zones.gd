@@ -4,7 +4,8 @@ extends Node
 ## la línea de largada en sentido de carrera (negativo = antes de la línea; una zona puede
 ## cruzar la línea). Cada cuadro de física le dice al auto si está dentro de una
 ## (ActiveAero.in_zone) con el índice del centerline que calcula TrackLimits. Al empezar cada
-## vuelta recarga la energía del modo adelantamiento.
+## vuelta recarga la energía del modo adelantamiento y renueva el tope de recuperación del
+## ERS (Paso 32).
 
 ## {"name", "from", "to"} con from / to ya entre 0 y el largo de la pista.
 var zones: Array[Dictionary] = []
@@ -26,7 +27,9 @@ func configure(data: Dictionary) -> void:
 func setup(track: BakuTrack, car: CarController, limits: TrackLimits, timer: LapTimer) -> void:
 	_car = car
 	_limits = limits
-	timer.lap_started.connect(func(_lap: int) -> void: car.active_aero.refill())
+	timer.lap_started.connect(func(_lap: int) -> void:
+		car.active_aero.refill()
+		car.ers.new_lap())
 	var n := track.centerline.size()
 	var start := track.start_index()
 	distances.resize(n)

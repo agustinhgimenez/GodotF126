@@ -4,8 +4,10 @@ extends Control
 ## velocímetro digital con aguja analógica. Todo se dibuja en _draw().
 ## Luces: se encienden de izquierda a derecha entre shift_light_start_rpm y el
 ## punto de cambio de la caja (la lógica de colores está en HudDraw).
-## Abajo (Paso 29): modo de la aero activa y energía del modo adelantamiento; a la derecha
-## (Paso 31) el nivel del control de tracción (naranja cuando corta).
+## Abajo (Paso 29): modo de la aero activa; en el medio la batería del ERS con su modo (Paso
+## 32: amarilla, más fuerte desplegando y celeste recuperando) o, con el modo adelantamiento
+## activo, la energía que le queda (azul); a la derecha (Paso 31) el nivel del control de
+## tracción (naranja cuando corta).
 ## Arriba del velocímetro (Paso 30): reparto de frenada y luz del ABS (naranja cuando
 ## actúa, roja si una rueda se bloquea, apagada sin ABS).
 
@@ -13,6 +15,8 @@ const SIZE := Vector2(440, 284)
 const COLOR_STRAIGHT := Color(0.2, 0.9, 0.4)
 const COLOR_OVERTAKE := Color(0.3, 0.6, 1.0)
 const COLOR_ABS := Color(1.0, 0.6, 0.1)
+const COLOR_ERS := Color(0.95, 0.8, 0.15)
+const COLOR_HARVEST := Color(0.2, 0.8, 0.9)
 const COLOR_PANEL := Color(0.0, 0.0, 0.0, 0.55)
 const COLOR_NEEDLE := Color(1.0, 0.3, 0.1)
 const COLOR_DIM := Color(1.0, 1.0, 1.0, 0.7)
@@ -101,8 +105,8 @@ func _draw_brakes(rect: Rect2) -> void:
 	_draw_text_centered("ABS" if _car.abs_enabled else "SIN ABS", lamp.get_center() + Vector2(0, 1), 12, text_color)
 
 
-## Modo recta / curva (verde abierto; contorno en zona de recta), barra de energía para
-## adelantar (azul cuando está activo) y luz del control de tracción.
+## Modo recta / curva (verde abierto; contorno en zona de recta), batería del ERS (o energía
+## para adelantar con el modo activo) y luz del control de tracción.
 func _draw_aero_row(rect: Rect2) -> void:
 	var aero := _car.active_aero
 	var tc_width := 64.0
@@ -118,9 +122,15 @@ func _draw_aero_row(rect: Rect2) -> void:
 
 	var energy_rect := Rect2(rect.position + Vector2(half + 12.0, 0), Vector2(half, rect.size.y))
 	draw_rect(energy_rect, HudDraw.COLOR_OFF)
-	var fill_color := COLOR_OVERTAKE if aero.overtake_active else Color(COLOR_OVERTAKE, 0.45)
-	draw_rect(Rect2(energy_rect.position, Vector2(energy_rect.size.x * aero.energy_ratio(), energy_rect.size.y)), fill_color)
-	_draw_text_centered("ADELANTAR %d %%" % roundi(aero.energy_ratio() * 100.0), energy_rect.get_center() + Vector2(0, 1), 15)
+	var ers := _car.ers
+	if aero.overtake_active:
+		draw_rect(Rect2(energy_rect.position, Vector2(energy_rect.size.x * aero.energy_ratio(), energy_rect.size.y)), COLOR_OVERTAKE)
+		_draw_text_centered("ADELANTAR %d %%" % roundi(aero.energy_ratio() * 100.0), energy_rect.get_center() + Vector2(0, 1), 15)
+	else:
+		var fill_color := COLOR_HARVEST if ers.harvest_power > 1000.0 else Color(COLOR_ERS, 0.85 if ers.deploy_power > 1000.0 else 0.5)
+		draw_rect(Rect2(energy_rect.position, Vector2(energy_rect.size.x * ers.soc(), energy_rect.size.y)), fill_color)
+		_draw_text_centered("ERS %d %% %s" % [roundi(ers.soc() * 100.0), ers.mode()["short"]], energy_rect.get_center() + Vector2(0, 1), 15,
+			Color.BLACK if ers.soc() > 0.6 else Color.WHITE)
 
 	var tc_rect := Rect2(Vector2(rect.end.x - tc_width, rect.position.y), Vector2(tc_width, rect.size.y))
 	var level := _car.traction_control.level
