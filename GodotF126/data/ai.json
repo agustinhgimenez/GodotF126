@@ -1,5 +1,5 @@
 {
-  "description": "IA (Paso 44). 'driver': cómo maneja AiDriver sobre la línea de trazada (data/tracks.json → racing_line): mira 'lookahead_min' m o 'lookahead_time' s adelante para doblar (ganancia 'steer_gain'), toma la velocidad objetivo 'speed_lookahead' m + 'speed_lookahead_time' s adelante, acelera proporcional al error ('throttle_band' m/s de mantener a fondo) y frena desde 'brake_deadband' m/s de más ('brake_band' hasta fondo). 'pace' (0,5–1) baja la velocidad en curvas y frenadas. Si en 'stuck_time' s avanza menos de 'stuck_progress' m por la pista, o va de contramano (más de 90°) 'wrong_way_time' s, vuelve a la línea. 'car': ayudas y compuesto del auto de la IA (setup por defecto). 'practice_rival': el rival de práctica (tecla I): piloto ('' = el primero de otro equipo) y metros detrás del jugador donde aparece.",
+  "description": "IA (Pasos 44–45). 'driver': cómo maneja AiDriver sobre la línea de trazada (data/tracks.json → racing_line): mira 'lookahead_min' m o 'lookahead_time' s adelante para doblar (ganancia 'steer_gain'), toma la velocidad objetivo 'speed_lookahead' m + 'speed_lookahead_time' s adelante, acelera proporcional al error ('throttle_band' m/s de mantener a fondo) y frena desde 'brake_deadband' m/s de más ('brake_band' hasta fondo). 'pace' (0,5–1) baja la velocidad en curvas y frenadas. Si en 'stuck_time' s avanza menos de 'stuck_progress' m por la pista, o va de contramano (más de 90°) 'wrong_way_time' s, vuelve a la línea. Tráfico (Paso 45): mira al de adelante a menos de 'overtake_range' m; en su carril no se le acerca a menos de 'follow_gap' m (velocidad del otro + (distancia − follow_gap) × 'follow_gain'); para pasar se pone a 'lane_clear' m de costado del otro, con el centro a 'edge_margin' m o más de la línea blanca, moviéndose 'lane_rate' m/s de costado, y fuera de la línea en curvas va al 'off_line_pace' de la objetivo; con un auto a menos de 'defend_time' s atrás defiende una vez por recta. Arranca la pasada en recta a menos de 'pass_start_gap' m o 'pass_start_time' s de la frenada; si abandona, espera 'pass_cooldown' s. Al seguir prevé 'follow_predict' s de la línea del otro, salvo que se esté tirando por adentro a menos de 'dive_gap' m (ahí el de adelante le deja lugar); por adentro, en la frenada, frena a 'pass_brake_bonus' × la objetivo. Cede 'yield_margin' m/s (el doble al que se tira por adentro) al que está al lado; si un auto adelante está o va a estar en 'squeeze_time' s a menos de un ancho de costado, va 'squeeze_margin' m/s más lento que él; con el volante a fondo y fuera de su carril levanta 'understeer_lift' m/s. 'levels': ritmo, 'mistake' (cada vuelta cada curva sale entre 1 − mistake y 1 + mistake/4 de la objetivo, con semilla fija), 'pass_margin' (m/s más rápido que el de adelante, en su lugar, para intentar pasarlo) y 'defend'. 'default_level' = el de la opción 'ai_level' si no hay otra. 'traffic': RaceTraffic (rebufo: hasta 'slip_max' menos de CdA pegado al de adelante y en línea, nada a 'slip_range' m, sólo arriba de 'slip_min_speed_kmh'; contacto = el centro del otro a menos de 'car_length' adelante/atrás y 'car_width' de costado, medido en el marco del auto; deben coincidir con la caja de choque de scenes/car.tscn). 'car': ayudas, compuesto y sub-pasos de neumáticos del auto de la IA (setup por defecto). 'practice_rival': rivales de práctica (tecla I, hasta 'max'): piloto del primero ('' = el primero de otro equipo; los siguientes, de otros equipos) y metros detrás del jugador donde aparece.",
   "driver": {
     "lookahead_min": 10.0,
     "lookahead_time": 0.55,
@@ -13,17 +13,56 @@
     "stuck_progress": 5.0,
     "stuck_time": 3.0,
     "wrong_way_time": 2.0,
-    "off_track_margin": 1.0
+    "off_track_margin": 1.0,
+    "overtake_range": 60.0,
+    "follow_gap": 8.0,
+    "follow_time": 0.1,
+    "follow_decel": 25.0,
+    "follow_gain": 1.0,
+    "lane_clear": 2.6,
+    "edge_margin": 1.2,
+    "lane_rate": 2.5,
+    "off_line_pace": 0.97,
+    "pass_cooldown": 2.0,
+    "yield_margin": 1.5,
+    "follow_predict": 0.8,
+    "pass_brake_bonus": 1.0,
+    "dive_gap": 14,
+    "understeer_lift": 2.5,
+    "squeeze_margin": 5,
+    "squeeze_time": 0.4,
+    "pass_start_gap": 30.0,
+    "pass_start_time": 2.5,
+    "defend_time": 1.0
+  },
+  "default_level": "medium",
+  "levels": {
+    "easy": { "name": "Fácil", "pace": 0.88, "mistake": 0.05, "pass_margin": 1.8, "defend": false },
+    "medium": { "name": "Medio", "pace": 0.93, "mistake": 0.03, "pass_margin": 1.2, "defend": true },
+    "hard": { "name": "Difícil", "pace": 0.97, "mistake": 0.02, "pass_margin": 0.8, "defend": true },
+    "expert": { "name": "Experto", "pace": 1.0, "mistake": 0.01, "pass_margin": 0.5, "defend": true }
+  },
+  "traffic": {
+    "slip_range": 30.0,
+    "slip_max": 0.25,
+    "slip_lateral": 1.5,
+    "slip_min_speed_kmh": 120.0,
+    "car_length": 6.0,
+    "car_width": 1.9,
+    "scan_range": 150.0
   },
   "car": {
     "steer_response": 8.0,
     "steer_limit": 1.0,
     "abs": true,
     "traction_control": 3,
-    "compound": "medium"
+    "compound": "medium",
+    "tyre_substeps": 8,
+    "setup": {}
   },
   "practice_rival": {
     "driver_id": "",
-    "spawn_behind": 40.0
+    "spawn_behind": 40.0,
+    "max": 3
   }
 }

@@ -7,8 +7,16 @@ extends Node
 ## proporcionales al error; `pace` (0,5–1) baja la velocidad en curvas y frenadas (no en las
 ## rectas). Cuenta vueltas, tiempos, salidas de pista y golpes, y si queda trabado o de
 ## contramano vuelve a la línea. Bloque "driver" de data/ai.json.
+## Paso 45: niveles (bloque "levels": ritmo, errores al azar por curva con semilla fija, ganas de
+## pasar y si defiende) y tráfico (RaceTraffic): no se le acerca de atrás al auto que tiene en
+## su carril a menos de `follow_gap` m; si el de adelante es más lento se corre al costado
+## (mejor por adentro de la próxima curva, nunca por afuera si todavía no está al lado) y vuelve
+## a la línea al pasarlo; con alguien al lado le deja `lane_clear` m; con un auto a menos de
+## `defend_time` s atrás hace una sola defensa por recta hacia el lado de adentro.
 
 signal lap_completed(lap: int, time: float)
+
+const LEVELS := ["easy", "medium", "hard", "expert"]
 
 var lookahead_min: float = 10.0
 var lookahead_time: float = 0.55
@@ -28,6 +36,56 @@ var wrong_way_time: float = 2.0
 ## Afuera de la pista = el centro del auto a más de media pista + `off_track_margin` m.
 var off_track_margin: float = 1.0
 
+## Nivel: cada vuelta cada curva sale con un factor al azar entre 1 − mistake y 1 + mistake / 4
+## sobre la velocidad objetivo (semilla `seed_value` + vuelta). Intenta pasar si en el lugar del
+## de adelante iría `pass_margin` m/s más rápido que él.
+var level: String = "expert"
+var mistake: float = 0.0
+var pass_margin: float = 1.0
+var defend: bool = true
+var seed_value: int = 0
+
+## Tráfico: mira al de adelante a menos de `overtake_range` m. Si está en su carril (a menos de
+## un ancho de auto + 0,4 m de costado de donde va a pasar él por ese punto) no se le acerca a
+## menos de `follow_gap` m + `follow_time` s: con más lugar, la velocidad desde la que frenaría
+## hasta la del otro con `follow_decel` m/s² en ese lugar; con menos, la del otro − lo que falta ×
+## `follow_gain`. Ganas de pasar = cuánto más rápido doblaría él donde está el de adelante,
+## mientras el otro frena o dobla (promedio de ~2 s). Para pasar
+## se pone a `lane_clear` m de costado del otro, con el centro a no menos de `edge_margin` m de la
+## línea blanca, moviéndose `lane_rate` m/s de costado; fuera de la línea en curvas va al
+## `off_line_pace` de la objetivo. Si abandona, espera `pass_cooldown` s. El que está siendo
+## pasado y ya tiene al otro al lado le cede: no pasa de la velocidad del otro − `yield_margin`.
+## Mientras no está al lado, cuenta que el otro va a seguir su línea los próximos
+## `follow_predict` s. Pasando por adentro, frena `pass_brake_bonus` más tarde (objetivo × factor
+## en la frenada, no en la curva). Tirándose por adentro a menos de `dive_gap` m de otro auto de
+## la IA sigue aunque empiece la curva: el otro le deja lugar.
+var overtake_range: float = 60.0
+var follow_gap: float = 8.0
+var follow_time: float = 0.1
+var follow_decel: float = 10.0
+var follow_gain: float = 1.0
+var lane_clear: float = 2.6
+var edge_margin: float = 1.2
+var lane_rate: float = 1.5
+var off_line_pace: float = 0.97
+var pass_cooldown: float = 2.0
+var yield_margin: float = 1.5
+var follow_predict: float = 0.8
+var pass_brake_bonus: float = 1.04
+var dive_gap: float = 14.0
+## Con el volante a tope y a más de 0,5 m de donde quiere ir (a 8 m/s o más): objetivo =
+## velocidad − esto, hasta que vuelve a doblar.
+var understeer_lift: float = 2.5
+## Con otro auto adelante superpuesto (o a menos de 3 m) que ahora o en `squeeze_time` s (con
+## las velocidades de costado) queda a menos de 0,6 m de costado, no pasa de su velocidad − esto.
+var squeeze_margin: float = 5.0
+var squeeze_time: float = 0.4
+## La maniobra empieza en recta, con el de adelante a menos de `pass_start_gap` m y la frenada
+## a menos de `pass_start_time` s (hasta ahí aprovecha el rebufo).
+var pass_start_gap: float = 30.0
+var pass_start_time: float = 2.5
+var defend_time: float = 1.0
+
 ## Índice del centerline donde está el auto y desplazamiento lateral (+ derecha).
 var index: int = -1
 var lateral: float = 0.0
@@ -45,9 +103,30 @@ var wall_hits: int = 0
 var recoveries: int = 0
 var max_lateral: float = 0.0
 
+## Tráfico: autos en pista (null = maneja solo, como en el Paso 44).
+var traffic: RaceTraffic
+## Carril propio (para pasar o defender): lateral absoluto al que apunta (+ derecha), hacia
+## dónde se mueve y cuánto pesa contra la línea (1 = va por el carril; al terminar baja a 0 en
+## ~1,5 s y vuelve a la línea). `shift` = cuánto se aparta de la línea donde está el auto.
+var lane_now: float = 0.0
+var lane_goal: float = 0.0
+var lane_weight: float = 0.0
+var shift: float = 0.0
+## Auto que está intentando pasar (null si ninguno) y de qué lado (−1 izq., +1 der.).
+var passing: CarController = null
+var pass_side: float = 0.0
+var passes: int = 0
+var aborted_passes: int = 0
+var defences: int = 0
+## s que pasó frenado por el auto de adelante (velocidad limitada por debajo de la objetivo).
+var held_time: float = 0.0
+
 var car: CarController
 var _track: BakuTrack
 var _line: RacingLine
+## Velocidad objetivo por índice y máxima con el setup y el compuesto de su auto.
+var _speeds: PackedFloat32Array = PackedFloat32Array()
+var _top: float = 0.0
 var _start: int = 0
 var _total: float = 0.0
 var _last_lap_distance: float = -1.0
@@ -55,13 +134,36 @@ var _off: bool = false
 var _window: float = 0.0
 var _window_start: float = 0.0
 var _wrong_for: float = 0.0
+var _slot: int = -1
+var _ahead_car: CarController = null
+var _deficit: float = 0.0
+var _cooldown: float = 0.0
+var _defending: bool = false
+var _defended: bool = false
+var _defend_lateral: float = 0.0
+## La pasada va por adentro de la curva que venía; ya entró a una curva; ya salió (se terminó
+## el tirarse por adentro).
+var _pass_inside: bool = false
+var _pass_cornered: bool = false
+var _dive_done: bool = false
+var _rng := RandomNumberGenerator.new()
+## Por índice: curva a la que pertenece (la más cercana por índice; −1 sin curvas) y lado de
+## adentro de la próxima curva (−1 izquierda, +1 derecha).
+var _corner_of: PackedInt32Array = PackedInt32Array()
+var _corner_factor: PackedFloat32Array = PackedFloat32Array()
+var _inside: PackedFloat32Array = PackedFloat32Array()
+var _apexes: PackedInt32Array = PackedInt32Array()
 
 
 func configure(data: Dictionary) -> void:
 	for key in ["lookahead_min", "lookahead_time", "steer_gain", "speed_lookahead", "speed_lookahead_time",
-			"throttle_band", "brake_deadband", "brake_band", "stuck_progress", "stuck_time", "wrong_way_time", "off_track_margin"]:
+			"throttle_band", "brake_deadband", "brake_band", "stuck_progress", "stuck_time", "wrong_way_time", "off_track_margin",
+			"overtake_range", "follow_gap", "follow_time", "follow_decel", "follow_gain", "lane_clear", "edge_margin", "lane_rate",
+			"pass_cooldown", "yield_margin", "follow_predict", "dive_gap", "understeer_lift", "squeeze_margin", "squeeze_time", "pass_start_gap", "pass_start_time", "defend_time"]:
 		if data.has(key):
 			set(key, maxf(float(data[key]), 0.0))
+	off_line_pace = clampf(float(data.get("off_line_pace", off_line_pace)), 0.5, 1.0)
+	pass_brake_bonus = clampf(float(data.get("pass_brake_bonus", pass_brake_bonus)), 1.0, 1.2)
 	set_pace(float(data.get("pace", pace)))
 
 
@@ -69,16 +171,45 @@ func set_pace(value: float) -> void:
 	pace = clampf(value, 0.5, 1.0)
 
 
-func setup(driven: CarController, track: BakuTrack, line: RacingLine) -> void:
+## Nivel `id` del bloque "levels" de data/ai.json (si no está, queda como estaba).
+func set_level(id: String, levels: Dictionary) -> void:
+	var data = levels.get(id, {})
+	if not data is Dictionary or data.is_empty():
+		return
+	level = id
+	set_pace(float(data.get("pace", pace)))
+	mistake = clampf(float(data.get("mistake", mistake)), 0.0, 0.3)
+	pass_margin = maxf(float(data.get("pass_margin", pass_margin)), 0.0)
+	defend = bool(data.get("defend", defend))
+	_new_lap_factors()
+
+
+static func level_name(id: String, levels: Dictionary) -> String:
+	var data = levels.get(id, {})
+	return str(data.get("name", id)) if data is Dictionary else id
+
+
+func setup(driven: CarController, track: BakuTrack, line: RacingLine, cars: RaceTraffic = null) -> void:
 	car = driven
 	_track = track
 	_line = line
+	traffic = cars
+	car.set_meta("ai", true)
 	_start = track.checkpoint_indices[0] if not track.checkpoint_indices.is_empty() else track.start_index()
 	var n := line.distances.size()
 	_total = line.distances[n - 1] + track.centerline[n - 1].distance_to(track.centerline[0])
+	refresh_speeds()
+	_find_corners()
+	_new_lap_factors()
 	car.wall_hit.connect(func(strength: float) -> void:
 		if strength > 0.05:
 			wall_hits += 1)
+
+
+## Recalcula sus velocidades objetivo (después de cambiarle el setup o el compuesto).
+func refresh_speeds() -> void:
+	_speeds = _line.speeds_for(car)
+	_top = car.get_top_speed()
 
 
 ## Pone el auto sobre la línea en el índice `i`, mirando hacia adelante, a `speed` m/s.
@@ -95,6 +226,10 @@ func place_at(i: int, speed: float = 0.0) -> void:
 	_window = 0.0
 	_window_start = _last_lap_distance
 	_wrong_for = 0.0
+	shift = 0.0
+	lane_weight = 0.0
+	passing = null
+	_defending = false
 
 
 ## Metros desde la meta hasta el índice i (0 a largo de la pista).
@@ -114,8 +249,9 @@ func _physics_process(delta: float) -> void:
 	lateral = located.y
 	max_lateral = maxf(max_lateral, absf(lateral))
 	var v := car.forward_speed
+	_traffic(delta)
 	car.ai_inputs = Vector3(0.0, 0.0, _steer(v))
-	var pedals := _pedals(v)
+	var pedals := _pedals(v, delta)
 	car.ai_inputs.x = pedals.x
 	car.ai_inputs.y = pedals.y
 	_track_progress(delta)
@@ -124,24 +260,298 @@ func _physics_process(delta: float) -> void:
 
 func _steer(v: float) -> float:
 	var look_at := _track.index_at_distance(index, maxf(lookahead_min, v * lookahead_time))
-	var to_target := _line.points[look_at] - car.global_position
+	var aim := _line.points[look_at]
+	var wanted := _desired_lateral(look_at)
+	if wanted != _line.offsets[look_at]:
+		aim = _track.edge_point(look_at, wanted, 0.0)
+	var to_target := aim - car.global_position
 	to_target.y = 0.0
 	var forward := -car.global_transform.basis.z
 	forward.y = 0.0
 	return clampf(forward.signed_angle_to(to_target, Vector3.UP) * steer_gain, -1.0, 1.0)
 
 
+## Lateral que planea llevar en el índice j: la línea mezclada con su carril, dentro de la pista.
+func _planned_lateral(j: int) -> float:
+	if lane_weight <= 0.0:
+		return _line.offsets[j]
+	var limit := maxf(_track.half_width(j) - edge_margin, 0.0)
+	return clampf(lerpf(_line.offsets[j], lane_now, lane_weight), -limit, limit)
+
+
+## Lateral al que apunta en el índice j: el planeado, dejándole `lane_clear` m al auto que
+## tenga al lado.
+func _desired_lateral(j: int) -> float:
+	var wanted := _planned_lateral(j)
+	if traffic == null or _slot < 0:
+		return wanted
+	var adjusted := wanted
+	for k in traffic.cars.size():
+		if k == _slot or (absf(traffic.gap(_slot, k)) > traffic.car_length and not _diver(k)):
+			continue
+		var other := traffic.lateral[k]
+		if absf(other - lateral) > lane_clear + 1.0 and not _diver(k):
+			continue
+		var room := lane_clear + (1.5 if _diver(k) else 0.0)
+		if other >= lateral:
+			adjusted = minf(adjusted, other - room)
+		else:
+			adjusted = maxf(adjusted, other + room)
+	if adjusted == wanted:
+		return wanted
+	var edge := _track.half_width(j) - 0.8
+	return clampf(adjusted, -edge, edge)
+
+
 ## (acelerador, freno) según el error contra la velocidad objetivo.
-func _pedals(v: float) -> Vector2:
+func _pedals(v: float, delta: float = 0.0) -> Vector2:
 	var ahead := _track.index_at_distance(index, speed_lookahead + maxf(v, 0.0) * speed_lookahead_time)
-	var line_speed := _line.target_speed[ahead]
-	target = line_speed if line_speed >= _line.top_speed * 0.98 else line_speed * pace
+	var line_speed := _speeds[ahead]
+	var wanted := _desired_lateral(index)
+	var off_line := absf(wanted - _line.offsets[index]) > 0.5
+	if line_speed >= _top * 0.98:
+		target = line_speed
+	else:
+		target = line_speed * pace * _corner_factor_at(ahead)
+		if off_line:
+			target *= off_line_pace
+		if passing != null and _pass_inside and _track.corner_mask[index] <= 0.0:
+			target *= pass_brake_bonus
+	var limit := minf(_follow_limit(v), _yield_limit())
+	var drift := absf(lateral - wanted)
+	if v < 8.0:
+		pass
+	elif absf(car.steer_raw) > 0.97 and drift > 0.5:
+		limit = minf(limit, maxf(v - understeer_lift, 0.0))
+	elif _side_by_side() and drift > 1.0:
+		limit = minf(limit, v)
+	if limit < target:
+		target = limit
+		held_time += delta
 	speed_error = target - v
 	var throttle := clampf(0.5 + speed_error / maxf(throttle_band, 0.1), 0.0, 1.0)
 	var brake := clampf((-speed_error - brake_deadband) / maxf(brake_band, 0.1), 0.0, 1.0)
 	if brake > 0.0:
 		throttle = 0.0
 	return Vector2(throttle, brake)
+
+
+## Velocidad máxima para no acercarse de atrás al auto que tiene en su carril (el de ahora o
+## el que va a llevar al pasar por donde está el otro). Mientras no esté al lado, cuenta que el
+## otro puede volver a su línea: también está en el carril si la línea pasa por ahí.
+func _follow_limit(v: float) -> float:
+	if traffic == null or _slot < 0:
+		return INF
+	var j := traffic.nearest(_slot, true, overtake_range)
+	if j < 0:
+		return INF
+	var their_i := traffic.index[j]
+	var lane := _planned_lateral(their_i)
+	var width := traffic.car_width + 0.4
+	var near := absf(traffic.lateral[j] - lane) < width or absf(traffic.lateral[j] - lateral) < width
+	if not near and traffic.gap(_slot, j) >= traffic.car_length and not _diving_on(j):
+		var n := _line.offsets.size()
+		var span := posmod(_track.index_at_distance(their_i, maxf(traffic.speed[j], 0.0) * follow_predict + 5.0) - their_i, n)
+		for step in range(0, span + 1, 3):
+			var k := (their_i + step) % n
+			if absf(_line.offsets[k] - _planned_lateral(k)) < width:
+				near = true
+				break
+	if not near:
+		return INF
+	var room := traffic.gap(_slot, j) - (follow_gap + follow_time * maxf(v, 0.0))
+	var their := maxf(traffic.speed[j], 0.0)
+	if room >= 0.0:
+		return sqrt(their * their + 2.0 * follow_decel * room)
+	return maxf(their + room * follow_gain, 0.0)
+
+
+## Le cede el lugar al auto que tiene al lado y ya está adelante, o que lo está pasando y ya
+## tiene la trompa por la mitad de este.
+func _yield_limit() -> float:
+	if traffic == null or _slot < 0:
+		return INF
+	var limit := INF
+	for k in traffic.cars.size():
+		if k == _slot:
+			continue
+		var g := traffic.gap(_slot, k)
+		if g > traffic.car_length + 3.0 or g < -traffic.car_length * 0.5:
+			continue
+		var side := absf(traffic.lateral[k] - lateral)
+		var soon := absf(traffic.lateral[k] + traffic.side_speed[k] * squeeze_time
+				- lateral - traffic.side_speed[_slot] * squeeze_time)
+		var close := minf(side, soon) < traffic.car_width + 0.6
+		if g > 0.0 and close:
+			limit = minf(limit, maxf(traffic.speed[k] - squeeze_margin, 0.0))
+			continue
+		if traffic.cars[k] == passing or g > traffic.car_length or side > lane_clear + 0.8:
+			continue
+		if g <= 0.0 and close:
+			continue
+		var other := traffic.cars[k]
+		if g > 0.0 or (other.has_meta("passing") and other.get_meta("passing") == car):
+			var margin := yield_margin * (2.0 if _diver(k) else 1.0)
+			limit = minf(limit, maxf(traffic.speed[k] - margin, 0.0))
+	return limit
+
+
+## Hay otro auto al lado (se superponen a lo largo).
+func _side_by_side() -> bool:
+	if traffic == null or _slot < 0:
+		return false
+	for k in traffic.cars.size():
+		if k != _slot and absf(traffic.gap(_slot, k)) < traffic.car_length \
+				and absf(traffic.lateral[k] - lateral) < lane_clear + 1.5:
+			return true
+	return false
+
+
+func _corner_factor_at(i: int) -> float:
+	var c := _corner_of[i] if i < _corner_of.size() else -1
+	return _corner_factor[c] if c >= 0 and c < _corner_factor.size() else 1.0
+
+
+## Adelantar y defender: decide `shift_goal` y mueve `shift` hacia ahí.
+func _traffic(delta: float) -> void:
+	_slot = traffic.slot(car) if traffic != null else -1
+	if _slot < 0:
+		lane_weight = move_toward(lane_weight, 0.0, delta / 1.5)
+		shift = _planned_lateral(index) - _line.offsets[index]
+		return
+	var top := _top * 0.98
+	var v := maxf(car.forward_speed, 0.0)
+	var on_straight := _speeds[index] >= top
+	var in_corner := _track.corner_mask[index] > 0.0
+	if in_corner:
+		_defended = false
+	_cooldown = maxf(_cooldown - delta, 0.0)
+	var ahead := traffic.nearest(_slot, true, overtake_range)
+	var ahead_car: CarController = traffic.cars[ahead] if ahead >= 0 else null
+	if ahead_car != _ahead_car:
+		_ahead_car = ahead_car
+		_deficit = 0.0
+	if ahead >= 0:
+		var their_v := maxf(traffic.speed[ahead], 0.0)
+		var there := _speeds[_track.index_at_distance(traffic.index[ahead], speed_lookahead + their_v * speed_lookahead_time)]
+		if there < top * 0.9:
+			_deficit = lerpf(_deficit, there * pace - their_v, clampf(delta / 2.0, 0.0, 1.0))
+
+	if passing != null:
+		_continue_pass(in_corner)
+	elif ahead >= 0 and _deficit > pass_margin and _cooldown <= 0.0 and on_straight \
+			and traffic.gap(_slot, ahead) < pass_start_gap:
+		if _speeds[_track.index_at_distance(index, v * pass_start_time + 10.0)] < top:
+			_start_pass(ahead)
+	car.set_meta("passing", passing)
+	if passing == null and defend:
+		_defend(on_straight)
+	var active := passing != null or _defending
+	if passing != null:
+		var j := traffic.slot(passing)
+		var limit := maxf(_track.half_width(traffic.index[j]) - edge_margin, 0.0)
+		var clear := lane_clear + (1.2 if _pass_inside else 0.0)
+		lane_goal = clampf(traffic.lateral[j] + pass_side * clear, -limit, limit)
+	elif _defending:
+		lane_goal = _defend_lateral
+	if active:
+		if lane_weight < 1.0:
+			lane_now = _planned_lateral(index) if lane_weight > 0.0 else lateral
+			lane_weight = 1.0
+		lane_now = move_toward(lane_now, lane_goal, lane_rate * delta)
+	else:
+		lane_weight = move_toward(lane_weight, 0.0, delta / 1.5)
+	shift = _planned_lateral(index) - _line.offsets[index]
+	_overtake_mode(on_straight)
+
+
+## Se tira por adentro a menos de `dive_gap` m de otro auto de la IA (que le va a dejar lugar).
+func _diving_on(j: int) -> bool:
+	if passing == null or traffic.cars[j] != passing or not passing.has_meta("ai"):
+		return false
+	return _pass_inside and not _dive_done and traffic.gap(_slot, j) < dive_gap
+
+
+## El auto que se le tira por adentro a menos de `dive_gap` m (ya lo tiene que respetar).
+func _diver(k: int) -> bool:
+	var other := traffic.cars[k]
+	if not other.has_meta("passing") or other.get_meta("passing") != car:
+		return false
+	var g := -traffic.gap(_slot, k)
+	return g > -traffic.car_length * 1.5 and g < dive_gap
+
+
+func _pass_lateral_ok(j: int, side: float) -> bool:
+	return absf(traffic.lateral[j] + side * lane_clear) <= _track.half_width(traffic.index[j]) - edge_margin
+
+
+## Lado de pasada: el que tenga lugar junto al otro; si entran los dos, el de adentro de la
+## próxima curva.
+func _start_pass(j: int) -> void:
+	var inside := _inside[traffic.index[j]]
+	for side in [inside, -inside]:
+		if _pass_lateral_ok(j, side):
+			passing = traffic.cars[j]
+			pass_side = side
+			_pass_inside = side == inside
+			_pass_cornered = false
+			_dive_done = false
+			_defending = false
+			return
+
+
+## Termina al quedar un auto y 2 m adelante. Abandona si se queda atrás, si junto al otro ya no
+## hay lugar o si llega a la curva sin estar al lado.
+func _continue_pass(in_corner: bool) -> void:
+	var j := traffic.slot(passing)
+	if j < 0:
+		passing = null
+		return
+	var g := traffic.gap(_slot, j)
+	if g < -(traffic.car_length + 2.0):
+		passes += 1
+		passing = null
+		return
+	if in_corner:
+		_pass_cornered = true
+	elif _pass_cornered:
+		_dive_done = true
+	var alongside := g < traffic.car_length or _diving_on(j)
+	var abort := g > overtake_range + 20.0
+	abort = abort or (not alongside and (in_corner or not _pass_lateral_ok(j, pass_side)))
+	if abort:
+		aborted_passes += 1
+		passing = null
+		_cooldown = pass_cooldown
+
+
+## Una sola defensa por recta: con un auto a menos de `defend_time` s atrás (y todavía no al
+## lado) se corre hacia adentro de la próxima curva hasta que empieza a frenar.
+func _defend(on_straight: bool) -> void:
+	if _defending and not on_straight:
+		_defending = false
+	if _defending or _defended or not on_straight:
+		return
+	var behind := traffic.nearest(_slot, false, overtake_range)
+	if behind < 0:
+		return
+	var g := -traffic.gap(_slot, behind)
+	if g < traffic.car_length + 1.0 or g / maxf(traffic.speed[behind], 10.0) > defend_time:
+		return
+	_defending = true
+	_defended = true
+	defences += 1
+	_defend_lateral = _inside[index] * maxf(_track.half_width(index) * 0.45, 0.0)
+
+
+## Modo adelantamiento mientras pasa en recta (si RaceTraffic dice que está a menos de 1 s).
+func _overtake_mode(on_straight: bool) -> void:
+	var aero := car.active_aero
+	var want := passing != null and on_straight
+	if want and not aero.overtake_active and aero.energy > 0.0 and aero.gap_ahead >= 0.0 and aero.gap_ahead <= aero.max_gap:
+		aero.toggle_overtake()
+	elif not want and aero.overtake_active:
+		aero.toggle_overtake()
 
 
 func _track_progress(delta: float) -> void:
@@ -157,6 +567,8 @@ func _track_progress(delta: float) -> void:
 			lap_completed.emit(laps, lap_time)
 		timing = true
 		lap_time = 0.0
+		car.active_aero.refill()
+		_new_lap_factors()
 	_last_lap_distance = distance
 	var off := absf(lateral) > _track.half_width(index) + off_track_margin
 	if off and not _off:
@@ -186,6 +598,54 @@ func _recover() -> void:
 	recoveries += 1
 	timing = false
 	place_at(index)
+
+
+## Curvas = mínimos locales de la velocidad objetivo (< 85 % de la máxima, a 60+ puntos entre
+## sí); cada índice pertenece a la curva más cercana. Lado de adentro de la próxima curva: el
+## lado donde la línea toca el vértice (signo de su lateral ahí).
+func _find_corners() -> void:
+	var n := _speeds.size()
+	var minima := PackedInt32Array()
+	for i in n:
+		var v := _speeds[i]
+		if v > _top * 0.85:
+			continue
+		var is_min := true
+		for o in range(-30, 31):
+			if _speeds[posmod(i + o, n)] < v:
+				is_min = false
+				break
+		if is_min and (minima.is_empty() or i - minima[minima.size() - 1] > 60):
+			minima.append(i)
+	_corner_of.resize(n)
+	for i in n:
+		var best := -1
+		var best_d := n
+		for c in minima.size():
+			var d := absi(posmod(i - minima[c] + n / 2, n) - n / 2)
+			if d < best_d:
+				best_d = d
+				best = c
+		_corner_of[i] = best
+	_corner_factor.resize(minima.size())
+	_corner_factor.fill(1.0)
+	_apexes = minima
+	_inside.resize(n)
+	var side := -1.0
+	var is_apex := {}
+	for m in minima:
+		is_apex[m] = true
+	for k in 2 * n:
+		var i := n - 1 - (k % n)
+		if is_apex.has(i) and _line.offsets[i] != 0.0:
+			side = signf(_line.offsets[i])
+		_inside[i] = side
+
+
+func _new_lap_factors() -> void:
+	_rng.seed = hash([seed_value, laps])
+	for c in _corner_factor.size():
+		_corner_factor[c] = 1.0 + mistake * (_rng.randf() * 1.25 - 1.0)
 
 
 func summary() -> String:

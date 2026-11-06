@@ -145,6 +145,10 @@ var steer_raw: float = 0.0
 ## cámara ni el reinicio con R y no suena. `ai_inputs` = (acelerador, freno, dirección −1 der. a 1 izq.).
 var ai_controlled: bool = false
 var ai_inputs: Vector3 = Vector3.ZERO
+## Paso 45: fracción del CdA que se ahorra en el rebufo de otro auto (la escribe RaceTraffic).
+var slipstream: float = 0.0
+## Sub-pasos de los neumáticos de este auto (TYRE_SUBSTEPS; los rivales pueden usar menos).
+var tyre_substeps: int = TYRE_SUBSTEPS
 ## 0–1: cuánto está pisando un piano (lo escribe TrackLimits; lo usa CarAudioFx).
 var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
@@ -658,7 +662,7 @@ func _update_steering(steer_input: float, delta: float) -> void:
 ## (mitad cada una, menos lo que corta el control de tracción, más o menos lo que pasa el
 ## diferencial), los frenos repartidos entre los ejes, rodadura y freno motor; con freno
 ## de mano las traseras se bloquean (y al patinar casi no agarran de costado).
-## Los neumáticos se calculan en TYRE_SUBSTEPS sub-pasos: en cada uno se predice cómo cambian
+## Los neumáticos se calculan en tyre_substeps sub-pasos: en cada uno se predice cómo cambian
 ## la velocidad y el giro del auto con esas fuerzas, y al cuerpo se le aplica el promedio.
 ## `electric`: W del MGU-K y del modo adelantamiento. Devuelve los W de frenada de las traseras
 ## que puede recuperar el ERS (los frenos traseros, que el freno por cable reparte entre el
@@ -715,10 +719,11 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, electri
 	var inverse_inertia := PhysicsServer3D.body_get_direct_state(get_rid()).inverse_inertia_tensor
 	var velocity := linear_velocity
 	var spin := angular_velocity
-	var h := delta / TYRE_SUBSTEPS
+	var substeps := maxi(tyre_substeps, 1)
+	var h := delta / substeps
 	var total_force := Vector3.ZERO
 	var total_torque := Vector3.ZERO
-	for step in TYRE_SUBSTEPS:
+	for step in substeps:
 		var step_force := Vector3.ZERO
 		var step_torque := Vector3.ZERO
 		var factor := traction_control.modulate(_drive_slip(drive_torque), h)
@@ -745,8 +750,8 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, electri
 		spin += inverse_inertia * step_torque * h
 		total_force += step_force
 		total_torque += step_torque
-	apply_central_force(total_force / TYRE_SUBSTEPS)
-	apply_torque(total_torque / TYRE_SUBSTEPS)
+	apply_central_force(total_force / substeps)
+	apply_torque(total_torque / substeps)
 	return harvest
 
 
@@ -829,7 +834,7 @@ func is_bottoming() -> bool:
 
 
 func get_cda() -> float:
-	return cda * active_aero.cda_scale()
+	return cda * active_aero.cda_scale() * (1.0 - slipstream)
 
 
 ## Agarre total disponible en m/s² (μ × (peso + carga aerodinámica) / masa).

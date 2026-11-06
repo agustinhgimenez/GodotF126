@@ -51,10 +51,16 @@ var telemetry: TelemetryRecorder
 var live_delta: LiveDelta
 ## Auto fantasma de la vuelta de referencia (Paso 43; opción "ghost", tecla H).
 var ghost: GhostCar
-## Rival de práctica manejado por la IA (Paso 44; tecla I, sólo en práctica). null si no hay.
+## Rivales de práctica manejados por la IA (Paso 44; tecla I, sólo en práctica, hasta
+## practice_rival.max; nivel = opción "ai_level"). ai_car / ai_driver / ai_name: el último que
+## se sumó (null si no hay).
+var ai_cars: Array[CarController] = []
+var ai_drivers: Array[AiDriver] = []
 var ai_car: CarController
 var ai_driver: AiDriver
 var ai_name: String = ""
+## Autos en pista (Paso 45): rebufo, distancia al de adelante y contactos.
+var traffic: RaceTraffic
 var _car_data: Dictionary = {}
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
@@ -132,6 +138,14 @@ func _ready() -> void:
 	add_child(racing_line)
 	racing_line.mode = str(Settings.get_value("racing_line"))
 	racing_line.setup(track, car, track_limits)
+	traffic = RaceTraffic.new()
+	traffic.name = "RaceTraffic"
+	var traffic_data = DataLoader.load_json(AI_PATH).get("traffic", {})
+	if traffic_data is Dictionary:
+		traffic.configure(traffic_data)
+	add_child(traffic)
+	traffic.setup(track, racing_line)
+	traffic.add_car(car)
 	telemetry = TelemetryRecorder.new()
 	telemetry.name = "Telemetry"
 	telemetry.configure(DataLoader.load_json(TelemetryRecorder.DATA_PATH))
@@ -252,28 +266,36 @@ func _unhandled_input(event: InputEvent) -> void:
 			else " (aparece cuando haya una vuelta válida)"
 		hud.show_message("Auto fantasma: %s%s" % ["sí" if on else "no", note], 1.5)
 	elif event.is_action_pressed("ai_rival") and car.controls_enabled and not GameState.is_time_trial():
-		if ai_car == null:
+		var ai_data := DataLoader.load_json(AI_PATH)
+		var most := int(ai_data.get("practice_rival", {}).get("max", 3))
+		if ai_cars.size() < most:
 			spawn_ai_rival()
-			hud.show_message("Rival IA en pista: %s (I lo saca)" % ai_name, 2.0)
+			hud.show_message("Rival IA %d/%d: %s · %s%s" % [ai_cars.size(), most, ai_name,
+				AiDriver.level_name(ai_driver.level, ai_data.get("levels", {})),
+				" (I los saca)" if ai_cars.size() == most else ""], 2.0)
 		else:
 			remove_ai_rival()
-			hud.show_message("Rival IA fuera", 1.5)
+			hud.show_message("Rivales IA fuera", 1.5)
 
 
-## Suma un auto manejado por la IA `practice_rival.spawn_behind` m detrás del jugador, sobre la
-## línea y a la velocidad del jugador (sin pasar la objetivo de la línea).
-func spawn_ai_rival() -> AiDriver:
-	remove_ai_rival()
+## Suma un auto manejado por la IA detrás del jugador (`practice_rival.spawn_behind` m, o más
+## atrás si ahí ya hay otro), sobre la línea y a la velocidad del jugador (sin pasar la objetivo
+## de la línea), con el nivel `level` (vacío = la opción "ai_level").
+func spawn_ai_rival(level: String = "") -> AiDriver:
 	var ai_data := DataLoader.load_json(AI_PATH)
 	var rival_data: Dictionary = ai_data.get("practice_rival", {})
 	var car_info: Dictionary = ai_data.get("car", {})
 	ai_car = CAR_SCENE.instantiate() as CarController
-	ai_car.name = "AiRival"
+	ai_car.name = "AiRival%d" % (ai_cars.size() + 1)
 	ai_car.ai_controlled = true
 	add_child(ai_car)
 	ai_car.configure(_car_data)
 	var default_setup := CarSetup.new()
 	default_setup.configure(DataLoader.load_json(CarSetup.DATA_PATH))
+	var setup_values = car_info.get("setup", {})
+	if setup_values is Dictionary:
+		for id in setup_values:
+			default_setup.set_value(str(id), float(setup_values[id]))
 	ai_car.apply_setup(default_setup)
 	ai_car.fit_tyres(str(car_info.get("compound", "medium")))
 	ai_car.fill_fuel(car.fuel.kg)
@@ -283,41 +305,75 @@ func spawn_ai_rival() -> AiDriver:
 	ai_car.traction_control.set_level(int(car_info.get("traction_control", 3)))
 	ai_car.steer_response = float(car_info.get("steer_response", ai_car.steer_response))
 	ai_car.steer_limit = float(car_info.get("steer_limit", ai_car.steer_limit))
-	var rival := _pick_rival(str(rival_data.get("driver_id", "")))
+	ai_car.tyre_substeps = clampi(int(car_info.get("tyre_substeps", CarController.TYRE_SUBSTEPS)), 1, CarController.TYRE_SUBSTEPS)
+	var rival := _pick_rival(str(rival_data.get("driver_id", "")) if ai_cars.is_empty() else "")
 	ai_name = str(rival["driver"].get("name", "IA"))
+	ai_car.set_meta("driver_id", str(rival["driver"].get("id", "")))
+	ai_car.set_meta("team_id", str(rival["team"].get("id", "")))
 	ai_car.set_livery(DataLoader.team_primary(rival["team"]), DataLoader.team_secondary(rival["team"]),
 		UiKit.number_text(rival["driver"].get("number", "")))
 	ai_driver = AiDriver.new()
-	ai_driver.name = "AiDriver"
+	ai_driver.name = "AiDriver%d" % (ai_cars.size() + 1)
 	var driver_data = ai_data.get("driver", {})
 	if driver_data is Dictionary:
 		ai_driver.configure(driver_data)
+	ai_driver.seed_value = ai_cars.size() + 1
 	add_child(ai_driver)
-	ai_driver.setup(ai_car, track, racing_line)
+	traffic.add_car(ai_car)
+	ai_driver.setup(ai_car, track, racing_line, traffic)
+	if level.is_empty():
+		level = str(Settings.get_value("ai_level"))
+	ai_driver.set_level(level, ai_data.get("levels", {}))
+	ai_cars.append(ai_car)
+	ai_drivers.append(ai_driver)
 	var here := int(track.locate(car.global_position, track_limits.index).x)
-	var at := track.index_at_distance(here, -float(rival_data.get("spawn_behind", 40.0)))
+	var behind := float(rival_data.get("spawn_behind", 40.0))
+	var at := track.index_at_distance(here, -behind)
+	for attempt in 20:
+		if not _spot_taken(at):
+			break
+		behind += 20.0
+		at = track.index_at_distance(here, -behind)
 	ai_driver.place_at(at, minf(maxf(car.forward_speed, 0.0), racing_line.target_speed[at]))
 	return ai_driver
 
 
+## Ya hay un auto a menos de 15 m (por la pista) del índice i.
+func _spot_taken(i: int) -> bool:
+	var at := racing_line.distances[i]
+	for k in traffic.cars.size():
+		var d := absf(fposmod(racing_line.distances[traffic.index[k]] - at, traffic.lap_length()))
+		if minf(d, traffic.lap_length() - d) < 15.0:
+			return true
+	return false
+
+
+## Saca a todos los rivales de la IA.
 func remove_ai_rival() -> void:
-	if ai_driver != null:
-		ai_driver.queue_free()
-	if ai_car != null:
-		ai_car.queue_free()
+	for driver in ai_drivers:
+		driver.queue_free()
+	for rival in ai_cars:
+		traffic.remove_car(rival)
+		rival.queue_free()
+	ai_drivers.clear()
+	ai_cars.clear()
 	ai_driver = null
 	ai_car = null
 
 
-## El piloto de `driver_id` o, si está vacío, el primero de otro equipo que el del jugador.
+## El piloto de `driver_id` o, si está vacío, el primero de un equipo que no sea el del jugador
+## ni el de otro rival ya en pista.
 func _pick_rival(driver_id: String) -> Dictionary:
 	var grid := DataLoader.load_json(DataLoader.GRID_PATH)
 	if not driver_id.is_empty():
 		var found := DataLoader.find_driver(grid, driver_id)
 		if not found.is_empty():
 			return found
+	var used: Array[String] = [str(selected_team.get("id", ""))]
+	for rival in ai_cars:
+		used.append(str(rival.get_meta("team_id", "")))
 	for team in grid.get("teams", []):
-		if str(team.get("id", "")) == str(selected_team.get("id", "")):
+		if str(team.get("id", "")) in used:
 			continue
 		for driver in team.get("drivers", []):
 			return {"driver": driver, "team": team}
@@ -364,6 +420,10 @@ func _on_setting_changed(key: String) -> void:
 	rumble.intensity = float(Settings.get_value("vibration")) / 100.0
 	racing_line.set_mode(str(Settings.get_value("racing_line")))
 	ghost.enabled = bool(Settings.get_value("ghost"))
+	if (key == "ai_level" or key.is_empty()) and not ai_drivers.is_empty():
+		var levels = DataLoader.load_json(AI_PATH).get("levels", {})
+		for driver in ai_drivers:
+			driver.set_level(str(Settings.get_value("ai_level")), levels)
 	if key == "time_of_day" or key.is_empty():
 		_apply_lighting()
 	else:

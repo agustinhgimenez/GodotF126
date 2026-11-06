@@ -10,8 +10,8 @@ extends RefCounted
 ##   Automático: se abre a fondo con el acelerador. Manual: lo abre y cierra la tecla.
 ## - Modo adelantamiento: potencia eléctrica extra con un presupuesto de energía por vuelta
 ##   (se recarga al cruzar la línea); la energía sale además de la batería del ERS (Paso 32):
-##   con la batería vacía no se activa. En 2026 sólo vale a menos de 1 s del auto de adelante.
-##   TODO (rivales, Fase F): pedir esa distancia.
+##   con la batería vacía no se activa. Como en 2026, sólo se activa a menos de max_gap s del
+##   auto de adelante (gap_ahead, lo escribe RaceTraffic; solo en pista vale siempre).
 
 signal overtake_changed(active: bool)
 ## No se pudo activar el modo adelantamiento (sin energía).
@@ -26,10 +26,13 @@ var open_throttle: float = 0.9     ## acelerador para abrirlo en automático
 var min_speed: float = 120.0 / 3.6 ## m/s
 var overtake_power: float = 100000.0  ## W extra
 var overtake_energy: float = 500000.0 ## J por vuelta
+var max_gap: float = 1.0              ## s al auto de adelante para activarlo
 
 ## Lo escriben el auto (opción del jugador) y AeroZones.
 var automatic: bool = true
 var in_zone: bool = false
+## s al auto de adelante (INF si no hay nadie cerca; −1 si es el único auto en pista).
+var gap_ahead: float = -1.0
 
 ## Estado: modo recta pedido, cuánto están abiertos los alerones (0 curva – 1 recta) y
 ## modo adelantamiento.
@@ -55,6 +58,7 @@ func configure(data: Dictionary) -> void:
 	if overtake_data is Dictionary:
 		overtake_power = float(overtake_data.get("extra_power_kw", overtake_power / 1000.0)) * 1000.0
 		overtake_energy = float(overtake_data.get("energy_mj", overtake_energy / 1e6)) * 1e6
+		max_gap = maxf(float(overtake_data.get("max_gap_s", max_gap)), 0.0)
 	energy = overtake_energy
 
 
@@ -69,6 +73,8 @@ func toggle_overtake() -> void:
 		_set_overtake(false)
 	elif energy <= 0.0:
 		overtake_denied.emit("Sin energía para adelantar")
+	elif gap_ahead > max_gap:
+		overtake_denied.emit("A más de %s s del auto de adelante" % ("%.1f" % max_gap).replace(".", ",").trim_suffix(",0"))
 	else:
 		_set_overtake(true)
 

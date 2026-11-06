@@ -91,8 +91,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Paso | Contenido | Estado |
 |---|---|---|
 | 44 | IA que sigue la trazada con velocidad objetivo según curvatura | ✅ |
-| 45 | IA con niveles de dificultad, defensa y adelantamientos | ⏳ Siguiente |
-| 46 | Colisiones entre autos y penalizaciones | |
+| 45 | IA con niveles de dificultad, defensa y adelantamientos | ✅ |
+| 46 | Colisiones entre autos y penalizaciones | ⏳ Siguiente |
 | 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | |
 | 48 | Pit lane con limitador de velocidad y paradas en boxes | |
 | 49 | Estrategia: cambio de compuesto, radio del ingeniero | |
@@ -909,3 +909,32 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   Para comparar: el piloto automático de las pruebas (todo o nada en los pedales) da ~1:17,0 en la misma línea; la IA, con pedales proporcionales, 1:16,5. La primera corrida marcó dos cosas que se corrigieron: el rescate por "casi quieto" no saltaba con el auto de contramano (moviéndose, pero para atrás), ahora mira cuánto avanza por la pista; y la fila nueva del panel de controles lo hacía de 536 px en un lugar de 510 (ahora 509). **El costo es un aviso para el Paso 47**: con 22 autos serían ~60 ms de física por cuadro; habrá que simplificar a los autos lejanos (menos pasos de física, sin desgaste ni temperatura, o un modelo cinemático sobre la línea) y medirlo en la PC del laboratorio. **Sin la IA nada cambió**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050. Capturas: `informes/capturas/paso44-ia.png` (la IA sola en la recta, cámara de seguimiento, sin HUD), `paso44-jugador-sigue.png` (el jugador a 170 km/h siguiendo a la IA, 21 m adelante) y `paso44-controles.png` (panel de controles con L · H · I).
 - **Cómo probar**: F5, práctica libre, apretar I y dejarla pasar o seguirla.
+
+### Paso 45 — IA con niveles de dificultad, defensa y adelantamientos
+- **Niveles** (`data/ai.json` → `levels`; opción **"Nivel de la IA"** en el panel de opciones, por defecto Medio): cada uno tiene ritmo, error, margen para pasar y si defiende. Fácil 0,88 / ±5 % / no defiende; Medio 0,93 / ±3 %; Difícil 0,97 / ±2 %; Experto 1,0 / ±1 %. El **error** es por curva y por vuelta (entre 1 − error y 1 + error/4 de la objetivo) con semilla fija: la misma corrida da lo mismo. Cambiar la opción cambia a los rivales que ya están en pista. La IA calcula su velocidad objetivo con su propio auto (`RacingLine.speeds_for`).
+- **Tráfico** (`RaceTraffic`, nuevo): sabe dónde está cada auto sobre la línea (índice, distancia por la pista, lateral y velocidad lateral), y de ahí salen:
+  - **Rebufo**: pegado y en línea con el de adelante, hasta **25 % menos de CdA** (nada a 30 m, sólo arriba de 120 km/h; `CarController.slipstream`).
+  - **Distancia en segundos al de adelante** para el **modo adelantamiento**: como en 2026, sólo se activa a menos de 1 s (`car.json` → `max_gap_s`); solo en pista vale siempre. Si no, avisa "A más de 1 s del auto de adelante".
+  - **Contactos**: el centro del otro auto dentro de la caja de choque (6 × 1,9 m), medido en el marco del auto.
+- **La IA en tráfico** (`AiDriver`):
+  - **Sigue** al de adelante sin acercarse a menos de 8 m en su carril, previendo 0,8 s de la línea del otro.
+  - **Pasa** cuando va más rápido que el de adelante por el margen de su nivel: arranca en recta, cerca del otro o de la frenada, se abre a 2,6 m de costado (con el centro a 1,2 m o más de la línea blanca) y aprovecha el rebufo y el modo adelantamiento. Si no sale, abandona y espera 2 s. **Por adentro** puede tirarse a menos de 14 m en la frenada: el de adelante le deja lugar.
+  - **Defiende** (Medio, Difícil, Experto) una vez por recta si alguien está a menos de 1 s atrás.
+  - **No se toca**: cede al que está al lado (el doble al que se tira por adentro); si un auto adelante está o va a estar en 0,4 s a menos de un ancho de costado, va 5 m/s más lento que él; con el volante a fondo y fuera de su carril levanta 2,5 m/s.
+- **Tecla I**: suma hasta **3 rivales** de equipos distintos (con Colapinto: Norris, Russell, Leclerc), con el nivel de la opción, más atrás si el lugar está ocupado; la cuarta vez los saca. Cada auto puede usar menos **sub-pasos de neumáticos** (`ai.json` → `car.tyre_substeps`) para abaratar rivales.
+- **Verificación** (`paso45_ai.gd`; el jugador congelado lejos y fuera del tráfico, cámara que sigue a la IA):
+
+| Prueba | Resultado |
+|---|---|
+| Niveles, 1 vuelta lanzada sola | Fácil **1:21.550**, Medio **1:19.267**, Difícil **1:17.600**, Experto **1:16.500**; Medio otra vez 1:19.283; sin salidas, golpes ni rescates |
+| Experto 80 m detrás de un Fácil | lo alcanza, toma el rebufo (17 %), usa el modo adelantamiento y lo pasa a los 54,8 s; **0 contactos**, como mucho a 1,3 m de costado lado a lado |
+| Experto 30 m detrás de un Medio, 2 vueltas | 11 defensas del Medio, 7 intentos abandonados y 1 pasada; **0 contactos**, sin salidas ni golpes |
+| Dos Expertos a 25 m, 1 vuelta | no pasa (5 abandonos), mínimo 9,6 m en el mismo carril; **0 contactos** |
+| Rebufo en la recta más larga | 150 → 180 km/h en 3,87 s solo, 3,72 s con 13 %, 3,68 s con 25 % |
+| Modo adelantamiento | solo sí; rival detrás no; a 0,84 s sí; a 2,52 s no |
+| Tecla I y opción | 3 rivales de 3 equipos con el nivel de la opción; cambiarla los cambia; la cuarta I los saca |
+| Costo | tráfico 365 µs por cuadro con 4 autos; decisión de la IA 25 µs; Experto con 4 sub-pasos 1:16.517 (con 8: 1:16.500) |
+| Panel de opciones | 505 px con la fila nueva (lugar: 510) |
+
+  **Pasar es difícil entre niveles parecidos en Bakú**: el limitador deja a todos a ~192–198 km/h en las rectas, así que el rebufo casi no suma y las pasadas son en la frenada y por adentro. Es lo esperable: el Experto pasa al Fácil enseguida, al Medio le cuesta y a otro Experto no. Lo que más trabajo dio fue no tocarse: la métrica de contacto medida por la pista fallaba en curvas (ahora mide en el marco del auto con la caja real), y hubo que agregar el lugar para el que se tira por adentro, la predicción de quién se cierra y la levantada con el auto subvirando. Probado aparte (`paso45_dbg3.gd`) en seis combinaciones de niveles y distancias: limpias salvo un toque leve (0,07) en Fácil contra Medio. La medida de física por auto es ruidosa con `--fixed-fps` (+1,0 ms con 8 sub-pasos, +2,6 con 4: no es creíble); vale la del Paso 44 (~2,2–2,8 ms por auto) y el aviso para el Paso 47. **Nada cambió en el manejo del jugador**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050; la prueba del Paso 44 sigue bien (ahora con el rival en Experto: 1:16.600, ritmo 0,9 al 90 % en curvas). Capturas: `informes/capturas/paso45-rebufo.png` (el Experto a 14 m en el rebufo del Fácil, 128 km/h), `paso45-adelantamiento.png` (lado a lado entrando a la curva, 77 contra 61 km/h) y `paso45-opciones.png` (panel con "Nivel de la IA").
+- **Cómo probar**: F5, práctica libre, en Opciones elegir el nivel, apretar I tres veces y seguir a los rivales; con uno a menos de 1 s adelante, probar el modo adelantamiento.

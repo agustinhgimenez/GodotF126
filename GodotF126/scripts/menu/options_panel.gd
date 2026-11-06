@@ -7,7 +7,7 @@ extends VBoxContainer
 signal closed
 
 const LABEL_WIDTH := 250.0
-const CONTROL_SIZE := Vector2(250, 31)
+const CONTROL_SIZE := Vector2(250, 28)
 
 ## [clave, texto, [valores], [textos de cada valor]]
 const CHOICES := [
@@ -19,6 +19,7 @@ const CHOICES := [
 	["camera", "Cámara inicial", [0, 1, 2, 3, 4, 5], ["TV", "Cercana", "Cockpit", "T-cam", "Capot", "De pista"]],
 	["quality", "Calidad gráfica", ["low", "medium", "high"], ["Baja", "Media", "Alta"]],
 	["time_of_day", "Hora de la carrera", ["sunset", "day"], ["Atardecer", "Día"]],
+	["ai_level", "Nivel de la IA", ["easy", "medium", "hard", "expert"], ["Fácil", "Medio", "Difícil", "Experto"]],
 	["fullscreen", "Pantalla completa", [false, true], ["No", "Sí"]],
 ]
 const VOLUMES := [

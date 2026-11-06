@@ -183,29 +183,38 @@ func _compute_path() -> void:
 
 
 func _compute_speeds() -> void:
-	var n := points.size()
-	var compound: Dictionary = _car.tyres.compound()
-	var mu := _car.tyre_mu * float(compound.get("grip", 1.0))
-	var aero := 0.5 * _car.air_density * _car.cla / _car.mass
-	var drag := 0.5 * _car.air_density * _car.cda / _car.mass
+	target_speed = speeds_for(_car)
 	top_speed = _car.get_top_speed()
-	target_speed.resize(n)
+
+
+## Velocidad objetivo por índice para el auto `car` (agarre, aero y velocidad máxima de su
+## setup y compuesto); la IA del Paso 45 la calcula con su propio auto.
+func speeds_for(car: CarController) -> PackedFloat32Array:
+	var n := points.size()
+	var compound: Dictionary = car.tyres.compound()
+	var mu := car.tyre_mu * float(compound.get("grip", 1.0))
+	var aero := 0.5 * car.air_density * car.cla / car.mass
+	var drag := 0.5 * car.air_density * car.cda / car.mass
+	var top := car.get_top_speed()
+	var speeds := PackedFloat32Array()
+	speeds.resize(n)
 	for i in n:
 		var lateral := grip_fraction * mu
 		var room := curvature[i] - lateral * aero
-		var v := top_speed
+		var v := top
 		if room > 0.0:
-			v = minf(sqrt(lateral * G / room), top_speed)
-		target_speed[i] = v
+			v = minf(sqrt(lateral * G / room), top)
+		speeds[i] = v
 	# Frenada hacia atrás (dos vueltas: la pista es cerrada).
 	for lap in 2:
 		for k in n:
 			var i := n - 1 - k
 			var next := (i + 1) % n
-			var v_next := target_speed[next]
+			var v_next := speeds[next]
 			var decel := brake_fraction * mu * (G + aero * v_next * v_next) + drag * v_next * v_next
 			var ds := Vector2(points[next].x - points[i].x, points[next].z - points[i].z).length()
-			target_speed[i] = minf(target_speed[i], sqrt(v_next * v_next + 2.0 * decel * ds))
+			speeds[i] = minf(speeds[i], sqrt(v_next * v_next + 2.0 * decel * ds))
+	return speeds
 
 
 func _build_mesh() -> void:

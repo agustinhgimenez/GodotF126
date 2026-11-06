@@ -15,6 +15,7 @@
     "time_of_day": "sunset",
     "racing_line": "braking",
     "ghost": true,
+    "ai_level": "medium",
     "fullscreen": false,
     "tutorial_seen": false,
     "bindings": {},
