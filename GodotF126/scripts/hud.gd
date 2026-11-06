@@ -1,6 +1,7 @@
 class_name RaceHUD
 extends CanvasLayer
-## HUD: tablero (Dashboard), piloto/equipo, pista, tiempos por vuelta y sectores.
+## HUD: tablero (Dashboard), neumáticos (TyrePanel), piloto/equipo, pista, tiempos por vuelta
+## y sectores.
 
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_SLOWER := Color(1.0, 0.85, 0.2)
@@ -28,6 +29,7 @@ var _message_label: Label
 var _start_lights: StartLightsDisplay
 var _start_hint: Label
 var _wheel_loads: WheelLoadsPanel
+var _tyres: TyrePanel
 
 
 func _ready() -> void:
@@ -38,6 +40,7 @@ func bind_car(car: CarController) -> void:
 	_car = car
 	_dashboard.bind_car(car)
 	_wheel_loads.bind_car(car)
+	_tyres.bind_car(car)
 	car.camera_changed.connect(func(mode_name: String) -> void: show_message(mode_name, 1.2))
 	car.gearbox.shift_denied.connect(func(reason: String) -> void: show_message(reason, 1.2, COLOR_SLOWER))
 	car.gearbox.mode_changed.connect(_on_gearbox_mode_changed)
@@ -270,6 +273,13 @@ func _build_ui() -> void:
 	_place(_dashboard, Vector4(1, 1, 1, 1),
 		Vector4(-Dashboard.SIZE.x - 24, -Dashboard.SIZE.y - 20, -24, -20))
 	root.add_child(_dashboard)
+
+	# A la izquierda del tablero, arriba de la ayuda: neumáticos (Paso 33).
+	_tyres = TyrePanel.new()
+	_tyres.name = "Tyres"
+	_place(_tyres, Vector4(1, 1, 1, 1), Vector4(-Dashboard.SIZE.x - 36 - TyrePanel.SIZE.x, -96 - TyrePanel.SIZE.y,
+		-Dashboard.SIZE.x - 36, -96))
+	root.add_child(_tyres)
 
 	# Centro: mensajes y aviso de derrape.
 	_message_label = _make_label(30, HORIZONTAL_ALIGNMENT_CENTER)

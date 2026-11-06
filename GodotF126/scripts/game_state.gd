@@ -10,6 +10,8 @@ var selected_driver_id: String = ""
 var selected_mode: String = ""
 ## Vueltas del contrarreloj; 0 = la default_laps del modo.
 var lap_count: int = 0
+## Compuesto de neumáticos ("tyre_compounds" de data/car.json); vacío = el de por defecto.
+var tyre_compound: String = ""
 
 
 func is_time_trial() -> bool:

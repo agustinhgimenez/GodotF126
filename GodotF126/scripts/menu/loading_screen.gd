@@ -134,6 +134,12 @@ func _read_session() -> void:
 	if mode_id == GameState.MODE_TIME_TRIAL:
 		var laps := GameState.lap_count if GameState.lap_count > 0 else int(mode.get("default_laps", 3))
 		_mode_text += " · %d %s" % [laps, "vuelta" if laps == 1 else "vueltas"]
+	var compounds = DataLoader.load_json(DataLoader.CAR_PATH).get("tyre_compounds", {})
+	if compounds is Dictionary:
+		var compound_id := GameState.tyre_compound if not GameState.tyre_compound.is_empty() else str(compounds.get("default", ""))
+		for compound in compounds.get("compounds", []):
+			if compound is Dictionary and str(compound.get("id", "")) == compound_id:
+				_mode_text += " · neumático %s" % str(compound.get("name", "")).to_lower()
 
 
 func _fill_texts() -> void:

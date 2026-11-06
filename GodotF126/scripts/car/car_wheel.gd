@@ -51,6 +51,11 @@ var force: Vector2 = Vector2.ZERO
 ## Fracción del par de freno que deja pasar el ABS y si está soltando (Paso 30).
 var brake_pressure: float = 1.0
 var abs_active: bool = false
+## °C de la banda de rodadura, desgaste 0–1 y J de deslizamiento juntados en los sub-pasos
+## del cuadro (Paso 33; los maneja TyreCompounds y no se borran con reset()).
+var temperature: float = 70.0
+var wear: float = 0.0
+var slip_energy: float = 0.0
 
 var _query: PhysicsRayQueryParameters3D
 
@@ -124,7 +129,8 @@ func measure(body_basis: Basis, velocity: Vector3, slip_floor: float) -> void:
 ## drive_torque: N·m del motor (con signo); brake_torque: N·m que se oponen al giro (frenos,
 ## freno motor, rodadura). abs_model: con ABS (Paso 30) modula el par de freno; null = sin
 ## ABS (la rueda se puede bloquear). El control de tracción y el diferencial (Paso 31) ya
-## vienen dentro de drive_torque. La rueda se integra en forma implícita (con la pendiente
+## vienen dentro de drive_torque; mu ya trae el compuesto, la temperatura y el desgaste
+## (Paso 33), y la energía que disipa el deslizamiento se suma en slip_energy. La rueda se integra en forma implícita (con la pendiente
 ## de la curva): una rueda liviana contra un neumático rígido oscilaría.
 func update_tyre(tyre: TyreModel, mu: float, drive_torque: float, brake_torque: float, radius: float,
 		abs_model: AbsModel, delta: float) -> Vector3:
@@ -145,6 +151,7 @@ func update_tyre(tyre: TyreModel, mu: float, drive_torque: float, brake_torque: 
 	slip_ratio = (spin * radius - long_speed) / v_ref
 	var result := tyre.forces(slip_ratio, slip_angle, grip)
 	force = result
+	slip_energy += (absf(result.x * (spin * radius - long_speed)) + absf(result.y * lat_speed)) * delta
 	spin_angle = wrapf(spin_angle + spin * delta, 0.0, TAU)
 	return forward * result.x + right * result.y
 

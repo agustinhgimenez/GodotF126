@@ -3,8 +3,8 @@ extends Node3D
 ## El auto real (car.tscn en modo exhibición) gira sobre una plataforma, con música
 ## generada por código. Jugar abre ModeSelect (práctica libre / contrarreloj, Paso 16) y
 ## después DriverSelect (escudería → piloto); mientras se recorren las tarjetas el auto, el
-## aro y la luz toman el color del equipo. Al confirmar se guardan el modo y el piloto en
-## GameState y se carga la carrera a través de la pantalla de carga (Paso 24).
+## aro y la luz toman el color del equipo. Al confirmar se guardan el modo, el compuesto de
+## neumáticos (Paso 33) y el piloto en GameState y se carga la carrera a través de la pantalla de carga (Paso 24).
 
 const LOADING_SCENE := "res://scenes/loading.tscn"
 const FALLBACK_TEAM_COLOR := Color("#FF87BC")
@@ -119,9 +119,10 @@ func _show_modes() -> void:
 	_modes.open()
 
 
-func _on_mode_confirmed(mode_id: String, laps: int) -> void:
+func _on_mode_confirmed(mode_id: String, laps: int, compound_id: String) -> void:
 	GameState.selected_mode = mode_id
 	GameState.lap_count = laps
+	GameState.tyre_compound = compound_id
 	_modes.visible = false
 	_select.visible = true
 	_select.open()
@@ -254,7 +255,9 @@ func _build_ui() -> void:
 	_modes.name = "ModeSelect"
 	UiKit.place(_modes, Vector4(0, 0, 0, 0), Vector4(80, 210, 640, 560))
 	root.add_child(_modes)
-	_modes.setup(DataLoader.load_json(DataLoader.MODES_PATH), GameState.selected_mode, GameState.lap_count)
+	var compounds = DataLoader.load_json(DataLoader.CAR_PATH).get("tyre_compounds", {})
+	_modes.setup(DataLoader.load_json(DataLoader.MODES_PATH), GameState.selected_mode, GameState.lap_count,
+		compounds if compounds is Dictionary else {}, GameState.tyre_compound)
 	_modes.confirmed.connect(_on_mode_confirmed)
 	_modes.cancelled.connect(_on_modes_cancelled)
 

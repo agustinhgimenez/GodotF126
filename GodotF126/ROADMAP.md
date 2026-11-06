@@ -69,8 +69,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 30 | Frenos: reparto delantero/trasero ajustable, bloqueo de ruedas, ABS opcional | ✅ |
 | 31 | Diferencial y **control de tracción** con niveles | ✅ |
 | 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | ✅ |
-| 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | ⏳ Siguiente |
-| 34 | Combustible: el peso baja vuelta a vuelta | |
+| 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | ✅ |
+| 34 | Combustible: el peso baja vuelta a vuelta | ⏳ Siguiente |
 | 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | |
 | 36 | Daños: alerón delantero roto reduce la carga, pinchazos | |
 | 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | |
@@ -592,3 +592,39 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   Frenando a fondo desde 194 km/h la distancia no cambia (61,9 m con ABS) y se recuperan **0,41 MJ** con picos de 350 kW; sin ABS, 76,4 m y sólo 0,05 MJ (traseras bloqueadas). Levantando el pie 2 s a 180 km/h: en Ataque y Normal baja a 148 km/h; en Recarga a 121 km/h y recupera 0,29 MJ. Con el tope de la vuelta cumplido o la batería llena no recupera; en la vuelta siguiente sí. La tecla V pasa Normal → Recarga → Ataque → Normal.
   **El ERS rinde poco en la vuelta (~0,4 s)** por la misma razón que el modo recta del Paso 29: con la caja actual el limitador corta en 8ª a ~194 km/h y en las salidas lentas manda la tracción; donde más se nota es entre 100 y 185 km/h (0–185 en 4,93 s en Ataque contra 5,85 s). Va a pesar más cuando el setup del Paso 35 permita alargar la caja. Una recuperación al levantar el pie en el modo Normal (60 kW) costaba ~1 s por vuelta al piloto automático, que levanta en las curvas largas: quedó sólo en Recarga. Con aero activa y modo adelantamiento: 1:41.067 / 1:41.083 (batería 86 / 76 %). Siguen igual las pruebas de los Pasos 25–31 (0–100 en 2,78 s, frenada 61,0–61,9 m, 1,47 / 1,82 g en curva, ABS, reparto, TC); en la prueba del Paso 29 la aceleración 100–185 km/h ahora es más rápida porque Normal despliega. Capturas: `informes/capturas/paso32-recuperando.png` (frenando a 146 km/h: recupera 332 kW, barra celeste), `paso32-volante.png` (cockpit en Ataque, barra de batería en el volante), `paso32-controles.png`.
 - **Cómo probar**: F5 → Jugar → F3. Frenando, la barra "ERS" del tablero se pone celeste y sube; acelerando en Ataque (V) baja rápido. En Recarga, levantar el pie frena más y carga la batería. En la vista cockpit (C) el volante muestra la barra de la batería.
+
+### Paso 33 — Neumáticos: compuestos, temperatura y desgaste
+- **Compuestos** (`TyreCompounds`, datos en `"tyre_compounds"` de `data/car.json`): **blando** (agarre × 1,025, ventana 60–105 °C, se gasta rápido), **medio** (× 1,0, 70–120 °C; por defecto) y **duro** (× 0,975, 85–130 °C, dura mucho). Se eligen antes de salir en la pantalla de modo, con una tarjeta "Neumáticos ‹ Medio ›" (← → o Enter); el compuesto queda en `GameState` y se ve en la pantalla de carga, arriba a la derecha en carrera y en los resultados.
+- **Temperatura por rueda**: sube con la potencia que disipa el deslizamiento (|Fx × velocidad de patinada| + |Fy × velocidad lateral|, sumada en los sub-pasos de los neumáticos) y con la de rodar (la carcasa), y baja hacia la temperatura de la pista (35 °C), más rápido cuanto más rápido va el auto. Salen de las mantas a 70 °C. Dentro de la ventana el agarre no cambia; afuera baja en forma cuadrática (20 % a 50 °C de la ventana).
+- **Desgaste por rueda**: proporcional a la energía de deslizamiento (MJ) según el compuesto, +5 % por cada °C pasado de la ventana; gastado del todo pierde un 15 % de agarre. "Volver a la pista" (R) no cambia los neumáticos; Reiniciar sí (juego nuevo).
+- **HUD**: a la izquierda del tablero, el compuesto (círculo con su color y letra) y las 4 ruedas con °C y desgaste, pintadas celeste (fría), verde (en la ventana) o roja (pasada). En el panel F3 cada rueda suma una franja con la temperatura y el desgaste.
+- **Verificación** (física a 60 Hz; temperatura y desgaste fijos durante cada medición):
+
+| Agarre | Factor | Frenada 180 → 0 km/h | Curva a 120 km/h |
+|---|---|---|---|
+| Medio a 90 °C, nuevo | 1,000 | 55,6 m | 1,83 g |
+| Blando a 90 °C | 1,025 | **54,2 m** | **1,88 g** |
+| Duro a 100 °C | 0,975 | 57,0 m | 1,79 g |
+| Medio frío (30 °C) | 0,872 | 63,9 m | 1,61 g |
+| Duro frío (50 °C) | 0,879 | 63,3 m | 1,64 g |
+| Medio pasado (145 °C) | 0,950 | 58,3 m | 1,74 g |
+| Blando pasado (130 °C) | 0,974 | 57,3 m | 1,77 g |
+| Medio gastado 50 % / 100 % | 0,925 / 0,850 | 60,4 / 65,3 m | 1,71 / 1,60 g |
+
+| Calor (medio, desde 90 °C) | Delanteras | Traseras |
+|---|---|---|
+| Largada a fondo 3 s **sin TC** | 89 °C | **131 °C**, 1,7 % gastadas |
+| Largada a fondo 3 s con TC 3 | 89 °C | 91 °C |
+| Frenada 180 → 0 sin ABS (bloqueadas) | 103 °C, 0,6 % | 105 °C, 0,6 % |
+| Frenada 180 → 0 con ABS | 90 °C, 0,1 % | 93 °C, 0,2 % |
+| Trompo con freno de mano a 100 km/h | 90–91 °C | 96–100 °C, 0,4 % |
+
+| Tanda de 9 vueltas con piloto automático exigente* | Vuelta 2 | Vuelta 5 | Vuelta 9 | Traseras (vuelta 9) | Gastado por vuelta (traseras) |
+|---|---|---|---|---|---|
+| Blando | **1:30.367** | 1:30.783 | 1:30.933 | 116 °C (pasado) | 3,7 % |
+| Medio | 1:30.783 | 1:30.683 | 1:30.900 | 116 °C | 1,5 % |
+| Duro | 1:31.067 | 1:31.150 | 1:31.200 | 116 °C | 0,9 % |
+
+  \*El piloto automático de siempre dobla a 0,7 g; para la tanda dobla a 1,1 g (1:30,7 la vuelta). Las delanteras quedan en 85–88 °C y las traseras en ~116 °C, porque el deslizamiento al acelerar las calienta más. El blando es el más rápido al principio, pero atrás se pasa de su ventana, se gasta casi el triple que el duro y en 7 vueltas pierde ~0,5 s; a la vuelta 9 ya va igual que el medio. El duro es el más lento pero casi no cambia. (La vuelta 1 no está en la tabla: arranca desde la largada, y ya antes de este paso era ~1,5 s más lenta.)
+  Con el piloto automático de siempre y el medio: **1:42.450 / 1:41.150 / 1:41.017** (Paso 32: 1:42.483 / 1:40.983 / 1:40.917), sin salidas, golpes ni reinicios; batería en 82 %. Siguen igual las pruebas de los Pasos 25, 30 y 32 (0–100 en 2,78 s, frenada 61,0 m desde 192 km/h, 1,47 g a 60 km/h, tabla de frenadas con y sin ABS, ERS); a 120 km/h la curva da 1,84 g (1,82 g con la temperatura y el desgaste apagados: en esa prueba las traseras llegan algo calientes y gastadas de la aceleración anterior). Las largadas del Paso 31 se corren una tras otra con las mismas gomas y la primera es sin TC, así que ahora las siguientes salen con las traseras calientes: 0–100 en 3,40 / 3,37 / 3,20 / 2,82 s con TC 0 / 1 / 2 / 3. Capturas: `informes/capturas/paso33-neumaticos.png` (blando en tanda larga: delanteras en la ventana, traseras pasadas y gastadas, panel F3 abierto) y `paso33-modos.png` (elección del compuesto).
+- **Cómo probar**: F5 → Jugar → en la tarjeta "Neumáticos" elegir con ← → → modo → piloto. En carrera, el panel de neumáticos (a la izquierda del tablero) arranca en 70 °C; en 1–2 vueltas las traseras pasan los 100 °C. Una largada sin TC (T hasta "SIN TC") las pone rojas. Con el duro, las primeras curvas se sienten con menos agarre (frío).

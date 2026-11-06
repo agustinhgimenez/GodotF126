@@ -74,6 +74,7 @@ func _ready() -> void:
 
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	car.configure(car_data)
+	car.fit_tyres(GameState.tyre_compound)
 	Settings.apply_to_car(car)
 	_apply_lighting()
 	car.spawn_transform = track.get_spawn_transform()
@@ -133,6 +134,7 @@ func _setup_mode() -> void:
 			laps = int(mode.get("default_laps", 3))
 		lap_timer.lap_limit = laps
 		mode_name = "%s · %d %s" % [mode_name, laps, "vuelta" if laps == 1 else "vueltas"]
+	mode_name += " · neumático %s" % str(car.tyres.compound()["name"]).to_lower()
 	hud.set_track_name("%s\n%s" % [track_name, mode_name])
 	_standing_start = bool(mode.get("standing_start", false))
 	var start_data = modes.get("start_lights", {})

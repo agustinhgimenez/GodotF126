@@ -6,7 +6,8 @@ extends RigidBody3D
 ## deslizamiento. Motor y caja son componentes (Pasos 3 y 4): el par llega a las ruedas
 ## traseras según la marcha (adelante en 1–8, atrás en R, nada en N) a través del
 ## diferencial y del control de tracción (Paso 31), y las RPM salen del giro de esas ruedas.
-## El ERS (Paso 32) suma la potencia del MGU-K y recupera energía frenando.
+## El ERS (Paso 32) suma la potencia del MGU-K y recupera energía frenando. El agarre de
+## cada rueda depende del compuesto, su temperatura y su desgaste (TyreCompounds, Paso 33).
 ## El auto avanza sobre su eje -Z. En caja automática S con el auto quieto pone R.
 
 signal was_reset
@@ -122,6 +123,8 @@ var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
 var wheels: Array[CarWheel] = []
 var tyre := TyreModel.new()
+## Compuesto, temperatura y desgaste (Paso 33; el compuesto lo elige GameState).
+var tyres := TyreCompounds.new()
 var abs_model := AbsModel.new()
 ## Diferencial trasero y control de tracción (Paso 31; el nivel lo pone Settings).
 var differential := Differential.new()
@@ -196,6 +199,9 @@ func configure(data: Dictionary) -> void:
 	var ers_data = data.get("ers", {})
 	if ers_data is Dictionary:
 		ers.configure(ers_data)
+	var compounds_data = data.get("tyre_compounds", {})
+	if compounds_data is Dictionary:
+		tyres.configure(compounds_data)
 	var engine_data = data.get("engine", {})
 	if engine_data is Dictionary:
 		engine.configure(engine_data)
@@ -288,7 +294,15 @@ func _build_wheels() -> void:
 		var wheel := CarWheel.new(mount, is_front, get_node_or_null(str(spec[0])) as Node3D)
 		wheel.static_load = weight * (front_share if is_front else 1.0 - front_share) * 0.5
 		wheel.reset(suspension_travel)
+		tyres.fit(wheel)
 		wheels.append(wheel)
+
+
+## Juego nuevo del compuesto `id` (vacío = el de por defecto) en las 4 ruedas.
+func fit_tyres(id: String) -> void:
+	tyres.select(id)
+	for wheel in wheels:
+		tyres.fit(wheel)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -431,6 +445,8 @@ func _physics_process(delta: float) -> void:
 	ers.update(electric * traction_control.torque_factor * clampf(forward_speed / 10.0, 0.0, 1.0), harvest, delta)
 	if ers.is_empty() and active_aero.overtake_active:
 		active_aero.toggle_overtake()
+	for wheel in wheels:
+		tyres.update(wheel, forward_speed, delta)
 	_update_wheel_meshes()
 	_update_camera(delta)
 
@@ -518,7 +534,7 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, electri
 		wheel.update_suspension(self, space, suspension_travel, wheel_radius, spring_stiffness[axle], damper[axle], delta)
 	_apply_chassis_links()
 	for wheel in wheels:
-		var mu := tyre_mu * (1.0 if wheel.front else rear_grip_factor)
+		var mu := tyre_mu * (1.0 if wheel.front else rear_grip_factor) * tyres.grip_factor(wheel)
 		var share := brake_front_share if wheel.front else 1.0 - brake_front_share
 		var brake_torque := (brake_force * brake * share * 0.5 + rolling_resistance * corner_mass) * wheel_radius
 		var torque := 0.0
