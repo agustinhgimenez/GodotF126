@@ -217,6 +217,20 @@ func speeds_for(car: CarController) -> PackedFloat32Array:
 	return speeds
 
 
+## Con el mismo modelo que speeds_for, para caminos fuera de la línea (Paso 46): velocidad de
+## curva de `car` con curvatura `k` (1/m) y desaceleración de frenada (m/s²) a `v` m/s.
+func corner_speed(car: CarController, k: float) -> float:
+	var mu := car.tyre_mu * float(car.tyres.compound().get("grip", 1.0))
+	var lateral := grip_fraction * mu
+	var room := absf(k) - lateral * 0.5 * car.air_density * car.cla / car.mass
+	return sqrt(lateral * G / room) if room > 0.0 else INF
+
+
+func brake_decel(car: CarController, v: float) -> float:
+	var mu := car.tyre_mu * float(car.tyres.compound().get("grip", 1.0))
+	return brake_fraction * mu * (G + 0.5 * car.air_density * car.cla / car.mass * v * v) + 0.5 * car.air_density * car.cda / car.mass * v * v
+
+
 func _build_mesh() -> void:
 	var n := points.size()
 	if n < 3:

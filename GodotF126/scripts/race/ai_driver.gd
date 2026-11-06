@@ -80,6 +80,8 @@ var understeer_lift: float = 2.5
 ## las velocidades de costado) queda a menos de 0,6 m de costado, no pasa de su velocidad − esto.
 var squeeze_margin: float = 5.0
 var squeeze_time: float = 0.4
+## Paso 46: metros que mira adelante la velocidad de curva de su carril (0 = no la mira).
+var lane_look: float = 40.0
 ## La maniobra empieza en recta, con el de adelante a menos de `pass_start_gap` m y la frenada
 ## a menos de `pass_start_time` s (hasta ahí aprovecha el rebufo).
 var pass_start_gap: float = 30.0
@@ -100,6 +102,8 @@ var best_lap: float = -1.0
 var timing: bool = false
 var off_tracks: int = 0
 var wall_hits: int = 0
+## Toques con otros autos (Paso 46; los golpes contra muros no los cuentan).
+var car_hits: int = 0
 var recoveries: int = 0
 var max_lateral: float = 0.0
 
@@ -159,7 +163,7 @@ func configure(data: Dictionary) -> void:
 	for key in ["lookahead_min", "lookahead_time", "steer_gain", "speed_lookahead", "speed_lookahead_time",
 			"throttle_band", "brake_deadband", "brake_band", "stuck_progress", "stuck_time", "wrong_way_time", "off_track_margin",
 			"overtake_range", "follow_gap", "follow_time", "follow_decel", "follow_gain", "lane_clear", "edge_margin", "lane_rate",
-			"pass_cooldown", "yield_margin", "follow_predict", "dive_gap", "understeer_lift", "squeeze_margin", "squeeze_time", "pass_start_gap", "pass_start_time", "defend_time"]:
+			"pass_cooldown", "yield_margin", "follow_predict", "dive_gap", "understeer_lift", "squeeze_margin", "squeeze_time", "lane_look", "pass_start_gap", "pass_start_time", "defend_time"]:
 		if data.has(key):
 			set(key, maxf(float(data[key]), 0.0))
 	off_line_pace = clampf(float(data.get("off_line_pace", off_line_pace)), 0.5, 1.0)
@@ -204,6 +208,18 @@ func setup(driven: CarController, track: BakuTrack, line: RacingLine, cars: Race
 	car.wall_hit.connect(func(strength: float) -> void:
 		if strength > 0.05:
 			wall_hits += 1)
+	car.car_hit.connect(_on_car_hit)
+
+
+## Después de un toque con otro auto deja la pasada y espera `pass_cooldown` s para otra.
+func _on_car_hit(_other: CarController, strength: float) -> void:
+	if strength <= 0.05:
+		return
+	car_hits += 1
+	if passing != null:
+		aborted_passes += 1
+		passing = null
+	_cooldown = pass_cooldown
 
 
 ## Recalcula sus velocidades objetivo (después de cambiarle el setup o el compuesto).
@@ -212,12 +228,14 @@ func refresh_speeds() -> void:
 	_top = car.get_top_speed()
 
 
-## Pone el auto sobre la línea en el índice `i`, mirando hacia adelante, a `speed` m/s.
-func place_at(i: int, speed: float = 0.0) -> void:
+## Pone el auto en el índice `i`, mirando hacia adelante, a `speed` m/s: sobre la línea o, con
+## `offset`, a esos metros del centro (+ derecha).
+func place_at(i: int, speed: float = 0.0, offset: float = NAN) -> void:
 	var n := _track.centerline.size()
 	i = posmod(i, n)
 	var heading := Basis.looking_at(_track.flat_tangent(i), Vector3.UP)
-	car.spawn_transform = Transform3D(heading, _track.edge_point(i, _line.offsets[i], 0.0) + Vector3(0, 0.6, 0))
+	var side := _line.offsets[i] if is_nan(offset) else offset
+	car.spawn_transform = Transform3D(heading, _track.edge_point(i, side, 0.0) + Vector3(0, 0.6, 0))
 	car.reset_to_spawn()
 	if speed > 0.0:
 		car.linear_velocity = -heading.z * speed
@@ -317,7 +335,7 @@ func _pedals(v: float, delta: float = 0.0) -> Vector2:
 			target *= off_line_pace
 		if passing != null and _pass_inside and _track.corner_mask[index] <= 0.0:
 			target *= pass_brake_bonus
-	var limit := minf(_follow_limit(v), _yield_limit())
+	var limit := minf(minf(_follow_limit(v), _yield_limit()), _lane_limit())
 	var drift := absf(lateral - wanted)
 	if v < 8.0:
 		pass
@@ -334,6 +352,35 @@ func _pedals(v: float, delta: float = 0.0) -> Vector2:
 	if brake > 0.0:
 		throttle = 0.0
 	return Vector2(throttle, brake)
+
+
+## Por su carril (pasando o defendiendo) la curva puede ser más cerrada que la de la línea:
+## velocidad para llegar a cada punto de los próximos `lane_look` m (cada 5 m) a la de curva del
+## camino que planea (curvatura con los puntos 5 m antes y después), frenando como la línea.
+func _lane_limit() -> float:
+	if lane_weight <= 0.0 or lane_look <= 0.0:
+		return INF
+	var count := int(lane_look / 5.0) + 3
+	var path := PackedVector3Array()
+	var j := _track.index_at_distance(index, -5.0)
+	for s in count:
+		path.append(_track.edge_point(j, _planned_lateral(j), 0.0))
+		j = _track.index_at_distance(j, 5.0)
+	var best := INF
+	for s in range(1, count - 1):
+		var a := Vector2(path[s - 1].x, path[s - 1].z)
+		var b := Vector2(path[s].x, path[s].z)
+		var c := Vector2(path[s + 1].x, path[s + 1].z)
+		var sides := a.distance_to(b) * b.distance_to(c) * c.distance_to(a)
+		if sides < 0.001:
+			continue
+		var k := 2.0 * absf((b - a).cross(c - a)) / sides
+		var corner := _line.corner_speed(car, k) * pace
+		if corner == INF:
+			continue
+		var d := (s - 1) * 5.0
+		best = minf(best, sqrt(corner * corner + 2.0 * _line.brake_decel(car, corner) * d))
+	return best
 
 
 ## Velocidad máxima para no acercarse de atrás al auto que tiene en su carril (el de ahora o
@@ -367,7 +414,8 @@ func _follow_limit(v: float) -> float:
 
 
 ## Le cede el lugar al auto que tiene al lado y ya está adelante, o que lo está pasando y ya
-## tiene la trompa por la mitad de este.
+## tiene la trompa por la mitad de este. Paso 46: si al lado de otro se le está yendo encima
+## (más rápido que el otro hacia él), levanta `squeeze_margin` m/s para cerrar la trayectoria.
 func _yield_limit() -> float:
 	if traffic == null or _slot < 0:
 		return INF
@@ -382,6 +430,12 @@ func _yield_limit() -> float:
 		var soon := absf(traffic.lateral[k] + traffic.side_speed[k] * squeeze_time
 				- lateral - traffic.side_speed[_slot] * squeeze_time)
 		var close := minf(side, soon) < traffic.car_width + 0.6
+		var toward := signf(traffic.lateral[k] - lateral)
+		var mine := traffic.side_speed[_slot] * toward
+		var theirs := -traffic.side_speed[k] * toward
+		if absf(g) < traffic.car_length and soon < traffic.car_width + 0.6 and mine > 0.5 and mine > theirs and mine + theirs > 0.3:
+			limit = minf(limit, maxf(traffic.speed[_slot] - squeeze_margin, 0.0))
+			continue
 		if g > 0.0 and close:
 			limit = minf(limit, maxf(traffic.speed[k] - squeeze_margin, 0.0))
 			continue
@@ -649,5 +703,5 @@ func _new_lap_factors() -> void:
 
 
 func summary() -> String:
-	return "%d vueltas · mejor %s · salidas %d · golpes %d · rescates %d" % [laps,
-		LapTimer.format_time(best_lap) if best_lap > 0.0 else "--", off_tracks, wall_hits, recoveries]
+	return "%d vueltas · mejor %s · salidas %d · golpes %d · toques %d · rescates %d" % [laps,
+		LapTimer.format_time(best_lap) if best_lap > 0.0 else "--", off_tracks, wall_hits, car_hits, recoveries]

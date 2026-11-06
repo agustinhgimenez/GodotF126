@@ -42,7 +42,7 @@ var current_invalid: bool = false
 var invalid_reason: String = ""
 ## Récord de la pista antes de empezar la sesión (para saber si se batió).
 var record_before_session: float = -1.0
-## Segundos sumados al total (largada en falso, Paso 17) y motivo.
+## Segundos sumados al total (largada en falso, Paso 17; choques, Paso 46) y motivos.
 var penalty: float = 0.0
 var penalty_reason: String = ""
 ## Reacción en la largada detenida (segundos desde el apagado); -1 = no hubo o se saltó.
@@ -93,7 +93,7 @@ func start_now() -> void:
 
 func add_penalty(seconds: float, reason: String) -> void:
 	penalty += seconds
-	penalty_reason = reason
+	penalty_reason = reason if penalty_reason.is_empty() else "%s, %s" % [penalty_reason, reason]
 
 
 ## Anula la validez de la vuelta en curso (se sigue cronometrando). Los mejores sectores

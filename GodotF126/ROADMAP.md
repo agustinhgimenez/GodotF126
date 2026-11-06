@@ -92,8 +92,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 |---|---|---|
 | 44 | IA que sigue la trazada con velocidad objetivo según curvatura | ✅ |
 | 45 | IA con niveles de dificultad, defensa y adelantamientos | ✅ |
-| 46 | Colisiones entre autos y penalizaciones | ⏳ Siguiente |
-| 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | |
+| 46 | Colisiones entre autos y penalizaciones | ✅ |
+| 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | ⏳ Siguiente |
 | 48 | Pit lane con limitador de velocidad y paradas en boxes | |
 | 49 | Estrategia: cambio de compuesto, radio del ingeniero | |
 | 50 | Banderas amarilla y azul, **Safety Car** | |
@@ -938,3 +938,29 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   **Pasar es difícil entre niveles parecidos en Bakú**: el limitador deja a todos a ~192–198 km/h en las rectas, así que el rebufo casi no suma y las pasadas son en la frenada y por adentro. Es lo esperable: el Experto pasa al Fácil enseguida, al Medio le cuesta y a otro Experto no. Lo que más trabajo dio fue no tocarse: la métrica de contacto medida por la pista fallaba en curvas (ahora mide en el marco del auto con la caja real), y hubo que agregar el lugar para el que se tira por adentro, la predicción de quién se cierra y la levantada con el auto subvirando. Probado aparte (`paso45_dbg3.gd`) en seis combinaciones de niveles y distancias: limpias salvo un toque leve (0,07) en Fácil contra Medio. La medida de física por auto es ruidosa con `--fixed-fps` (+1,0 ms con 8 sub-pasos, +2,6 con 4: no es creíble); vale la del Paso 44 (~2,2–2,8 ms por auto) y el aviso para el Paso 47. **Nada cambió en el manejo del jugador**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050; la prueba del Paso 44 sigue bien (ahora con el rival en Experto: 1:16.600, ritmo 0,9 al 90 % en curvas). Capturas: `informes/capturas/paso45-rebufo.png` (el Experto a 14 m en el rebufo del Fácil, 128 km/h), `paso45-adelantamiento.png` (lado a lado entrando a la curva, 77 contra 61 km/h) y `paso45-opciones.png` (panel con "Nivel de la IA").
 - **Cómo probar**: F5, práctica libre, en Opciones elegir el nivel, apretar I tres veces y seguir a los rivales; con uno a menos de 1 s adelante, probar el modo adelantamiento.
+
+### Paso 46 — Colisiones entre autos y penalizaciones
+- **Toques entre autos** (`CarController.car_hit(otro, golpe)`): el auto ahora distingue si chocó contra un muro o contra otro auto. Los dos dañan igual (el alerón con la trompa y los pinchazos con las ruedas, como en el Paso 36) y sacuden la cámara, suenan y vibran; `wall_hit` queda sólo para los muros. También avisa el primer cuadro de un toque suave, para saber cuándo empezó.
+- **Comisarios** (`RaceStewards`, datos en `data/stewards.json`): cada toque abre un incidente y a los 0,3 s se juzga con cómo venían los autos entre 0,3 y 0,05 s antes (el rebote no cuenta):
+  - **De atrás** (los centros a más de 0,6 largos por la pista): culpa del de atrás si venía 1 m/s o más rápido.
+  - **De costado** (superpuestos): culpa del que se movía hacia el otro a 0,8 m/s o más y 0,5 m/s más que el otro hacia él.
+  - Si no, **incidente de carrera**, sin acción.
+  - **Golpe** = el mayor entre la velocidad perdida en el toque y la velocidad con que se acercaban, sobre 15 m/s (como los muros). Menos de 0,05 es un roce y no se investiga.
+  - **Sanción**: con golpe de 0,25 o más (unos 4 m/s), **5 s**; si no, **advertencia**, y a la tercera también 5 s.
+- **El jugador**: sus penalizaciones van al cronómetro (`lap_timer.add_penalty`, que ahora junta los motivos: "Largada en falso, Choque por detrás a Lando Norris") y salen en los resultados. El HUD avisa todo lo que lo toca a él ("Advertencia 1/3 a Colapinto: …", "Toque entre Colapinto y Norris: sin acción") y las penalizaciones de los demás ("Penalización 5 s a Russell: choque por detrás a Norris"), con el apellido para que entre en pantalla. Los segundos y las advertencias de la IA quedan en los comisarios (`penalty_of()`, `warnings_of()`) para la carrera del Paso 47.
+- **La IA** cuenta los toques aparte de los golpes a muros, después de un toque deja la pasada y espera 2 s, y tiene dos reglas nuevas para no tocarse: al lado de otro, si se le va encima más rápido que el otro hacia ella, levanta 5 m/s; y por su carril (pasando o defendiendo) mira 40 m adelante la curvatura del camino que de verdad va a hacer y frena para esa curva (`RacingLine.corner_speed()` y `brake_decel()`, el mismo modelo que la línea). `place_at()` acepta un lateral (para las pruebas y la grilla).
+- **Verificación** (`paso46_collisions.gd`; los autos de la IA "a mano", con el piloto apagado, para provocar cada caso):
+
+| Prueba | Resultado |
+|---|---|
+| De atrás a 15 m/s contra un auto parado | culpa del de atrás, golpe 1,0, **5 s**; su alerón al 40 %, el del otro intacto; los dos lo sienten como toque, ninguno como golpe a un muro |
+| Tres toques leves de atrás (3 m/s más rápido) | golpe 0,20: advertencia 1/3, 2/3 y a la tercera **5 s** |
+| Uno se cierra de costado a 4,3 m/s | culpa del que se cierra, golpe 0,29, 5 s |
+| Los dos se juntan a la vez (2,3 m/s cada uno) | incidente de carrera, sin acción |
+| Reglas sueltas (8 casos armados a mano) | todas bien; las advertencias se acumulan por auto |
+| El jugador le pega de atrás a una IA parada a 11 m/s | **5 s en su cronómetro** ("Choque por detrás a Lando Norris") y aviso en el HUD; se frenan a 6 m entre centros (chocan de verdad) |
+| IA contra IA (Experto 30 m detrás de un Medio, 1 vuelta) | 0 contactos, 0 incidentes, sin salidas ni golpes |
+| Costo | comisarios ~8 µs por cuadro |
+
+  La primera versión de la vuelta IA contra IA dio un toque real: el Experto se tiró por adentro de una curva lenta a 17 m/s (objetivo 14) y, con el volante a fondo, se fue de costado sobre el Medio a 3,7 m/s; los comisarios lo penalizaron bien. La línea calcula la velocidad con su curvatura, y el carril de adentro es más cerrado: de ahí la regla nueva del carril. **Las pruebas anteriores siguen bien**: la del Paso 45 con 0 fallas (mismos tiempos por nivel; lado a lado, separación mínima 2,2 m en lugar de 1,3), la del Paso 44 con 0 fallas, la de daños del Paso 36 con la misma tabla, y la vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050. Capturas: `informes/capturas/paso46-choque.png` (Russell le pega de atrás a Norris parado y el aviso de la penalización) y `paso46-jugador.png` (el jugador le pega de atrás a Norris: 5 s en su cronómetro).
+- **Cómo probar**: F5, práctica libre, apretar I, dejar que el rival se acerque y frenar fuerte delante de él, o pegarle de atrás: sale el aviso y, si fue culpa del jugador, la penalización aparece en los resultados.

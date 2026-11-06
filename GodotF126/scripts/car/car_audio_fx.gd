@@ -66,6 +66,9 @@ var _noise_state: int = 777
 func _ready() -> void:
 	_car = get_parent() as CarController
 	_car.wall_hit.connect(_on_wall_hit)
+	_car.car_hit.connect(func(_other: CarController, strength: float) -> void:
+		if strength > 0.05:
+			_on_wall_hit(strength))
 	_start()
 
 

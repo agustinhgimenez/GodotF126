@@ -61,6 +61,8 @@ var ai_driver: AiDriver
 var ai_name: String = ""
 ## Autos en pista (Paso 45): rebufo, distancia al de adelante y contactos.
 var traffic: RaceTraffic
+## Comisarios (Paso 46): culpa y sanción de cada toque entre autos.
+var stewards: RaceStewards
 var _car_data: Dictionary = {}
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
@@ -146,6 +148,13 @@ func _ready() -> void:
 	add_child(traffic)
 	traffic.setup(track, racing_line)
 	traffic.add_car(car)
+	car.set_meta("driver_name", str(selected_driver.get("name", "Jugador")))
+	stewards = RaceStewards.new()
+	stewards.name = "RaceStewards"
+	stewards.configure(DataLoader.load_json(RaceStewards.DATA_PATH))
+	add_child(stewards)
+	stewards.setup(traffic)
+	stewards.decided.connect(_on_incident_decided)
 	telemetry = TelemetryRecorder.new()
 	telemetry.name = "Telemetry"
 	telemetry.configure(DataLoader.load_json(TelemetryRecorder.DATA_PATH))
@@ -310,6 +319,7 @@ func spawn_ai_rival(level: String = "") -> AiDriver:
 	ai_name = str(rival["driver"].get("name", "IA"))
 	ai_car.set_meta("driver_id", str(rival["driver"].get("id", "")))
 	ai_car.set_meta("team_id", str(rival["team"].get("id", "")))
+	ai_car.set_meta("driver_name", ai_name)
 	ai_car.set_livery(DataLoader.team_primary(rival["team"]), DataLoader.team_secondary(rival["team"]),
 		UiKit.number_text(rival["driver"].get("number", "")))
 	ai_driver = AiDriver.new()
@@ -346,6 +356,19 @@ func _spot_taken(i: int) -> bool:
 		if minf(d, traffic.lap_length() - d) < 15.0:
 			return true
 	return false
+
+
+## Sanción de los comisarios: la del jugador va al cronómetro; avisa en el HUD lo que toca al
+## jugador y las penalizaciones de los demás.
+func _on_incident_decided(incident: Dictionary) -> void:
+	var action := str(incident["action"])
+	if action == "ignored":
+		return
+	if incident["guilty"] == car and action == "penalty":
+		var why := RaceStewards.reason(incident)
+		lap_timer.add_penalty(float(incident["seconds"]), why.left(1).to_upper() + why.substr(1))
+	if incident["a"] == car or incident["b"] == car or action == "penalty":
+		hud.show_message(stewards.describe(incident), 3.0)
 
 
 ## Saca a todos los rivales de la IA.

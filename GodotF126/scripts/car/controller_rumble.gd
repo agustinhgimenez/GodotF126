@@ -52,6 +52,9 @@ func configure(data: Dictionary) -> void:
 
 func bind_car(car: CarController) -> void:
 	car.wall_hit.connect(func(strength: float) -> void: pulse(strength * wall_strong, wall_time))
+	car.car_hit.connect(func(_other: CarController, strength: float) -> void:
+		if strength > 0.05:
+			pulse(strength * wall_strong, wall_time))
 	car.damage.wing_damaged.connect(func(_health: float) -> void: pulse(damage_strong, damage_time))
 	car.damage.punctured.connect(func(_index: int) -> void: pulse(damage_strong, damage_time))
 

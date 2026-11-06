@@ -1,0 +1,16 @@
+{
+  "description": "Comisarios (Paso 46, RaceStewards). Cada toque entre dos autos abre un incidente; los del mismo par mientras está abierto o hasta 'repeat_time' s después son el mismo. A los 'judge_delay' s se juzga con cómo venían entre 'before_from' y 'before_to' s antes del toque. Golpe = el mayor entre la velocidad perdida en el toque y la velocidad con que se acercaban, divididas por 'impact_speed' m/s (15, como contra los muros); menor que 'min_impact': roce, no se investiga. De atrás (centros a más de 'rear_overlap' × largo del auto por la pista): culpa del de atrás si venía 'rear_closing' m/s o más rápido. De costado: culpa del que se movía hacia el otro a 'side_speed' m/s o más y 'side_margin' m/s más que el otro. Si no, incidente de carrera. El culpable: con golpe de 'penalty_impact' o más, 'penalty_seconds' s; si no, advertencia, y con 'max_warnings' advertencias también 'penalty_seconds' s.",
+  "judge_delay": 0.3,
+  "repeat_time": 2.0,
+  "before_from": 0.3,
+  "before_to": 0.05,
+  "impact_speed": 15.0,
+  "min_impact": 0.05,
+  "penalty_impact": 0.25,
+  "penalty_seconds": 5.0,
+  "max_warnings": 3,
+  "rear_overlap": 0.6,
+  "rear_closing": 1.0,
+  "side_speed": 0.8,
+  "side_margin": 0.5
+}

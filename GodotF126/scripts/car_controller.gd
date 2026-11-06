@@ -21,6 +21,8 @@ signal was_reset
 signal camera_changed(mode_name: String)
 ## Choque contra un muro; strength 0–1 según la velocidad perdida (puede repetirse cada frame).
 signal wall_hit(strength: float)
+## Choque contra otro auto (Paso 46), con la misma escala que wall_hit.
+signal car_hit(other: CarController, strength: float)
 
 ## Cámara del auto (o de la pista) activa: true = cámaras de TV de la pista (Paso 18).
 signal camera_mode_applied(external: bool)
@@ -181,6 +183,7 @@ var camera_mode: int = 0
 var _steer: float = 0.0
 var _handbrake: bool = false
 var _touching_wall: bool = false
+var _touching_cars: Dictionary = {}
 var _last_velocity: Vector3 = Vector3.ZERO
 var _accel_velocity: Vector3 = Vector3.ZERO
 var _camera_base: Transform3D = Transform3D.IDENTITY
@@ -598,8 +601,10 @@ func _physics_process(delta: float) -> void:
 		reset_to_spawn()
 
 
-## Golpes contra muros: velocidad perdida contra la normal de cada contacto casi vertical
-## desde el paso anterior. Los que pasan de 1 m/s van a los daños con su punto de contacto.
+## Golpes contra muros y otros autos: velocidad perdida contra la normal de cada contacto casi
+## vertical desde el paso anterior. Los que pasan de 1 m/s van a los daños con su punto de
+## contacto; los de otro auto salen por car_hit (el más fuerte con cada uno, y también el primer
+## cuadro de un toque suave, para que se sepa cuándo empezó).
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var touching := false
 	var strongest := 0.0
@@ -607,12 +612,17 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var to_local := state.transform.affine_inverse()
 	var points := PackedVector3Array()
 	var strengths := PackedFloat32Array()
+	var by_car := {}
 	for i in state.get_contact_count():
 		var normal := state.get_contact_local_normal(i)
 		if absf(normal.y) < 0.5:
-			touching = true
 			var impact := absf(lost.dot(normal))
-			strongest = maxf(strongest, impact)
+			var other := state.get_contact_collider_object(i) as CarController
+			if other != null:
+				by_car[other] = maxf(float(by_car.get(other, 0.0)), impact)
+			else:
+				touching = true
+				strongest = maxf(strongest, impact)
 			if impact > 1.0:
 				points.append(to_local * state.get_contact_local_position(i))
 				strengths.append(impact / shake_wall_speed)
@@ -624,6 +634,13 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		var strength := strongest / shake_wall_speed
 		add_camera_impact(strength)
 		wall_hit.emit(clampf(strength, 0.0, 1.0))
+	for other in by_car:
+		var hit: float = by_car[other]
+		if hit > 1.0:
+			add_camera_impact(hit / shake_wall_speed)
+		if hit > 1.0 or not _touching_cars.has(other):
+			car_hit.emit(other, clampf(hit / shake_wall_speed, 0.0, 1.0))
+	_touching_cars = by_car
 
 
 ## Devuelve (acelerador, freno) ya interpretados según la caja.
