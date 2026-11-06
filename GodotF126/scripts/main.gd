@@ -25,6 +25,7 @@ const DEFAULT_KEYS := {
 	"traction_control": [KEY_T],
 	"ers_mode": [KEY_V],
 	"racing_line": [KEY_L],
+	"ghost": [KEY_H],
 }
 
 const FALLBACK_DRIVER := {"id": "colapinto", "name": "Franco Colapinto", "number": 43, "country": "AR"}
@@ -45,6 +46,8 @@ var racing_line: RacingLine
 var telemetry: TelemetryRecorder
 ## Delta en vivo contra la mejor vuelta (Paso 40; HUD y volante).
 var live_delta: LiveDelta
+## Auto fantasma de la vuelta de referencia (Paso 43; opción "ghost", tecla H).
+var ghost: GhostCar
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 
@@ -132,6 +135,14 @@ func _ready() -> void:
 		live_delta.configure(delta_data)
 	add_child(live_delta)
 	live_delta.setup(telemetry, lap_timer)
+	ghost = GhostCar.new()
+	ghost.name = "GhostCar"
+	var ghost_data = DataLoader.load_json(TelemetryRecorder.DATA_PATH).get("ghost", {})
+	if ghost_data is Dictionary:
+		ghost.configure(ghost_data)
+	add_child(ghost)
+	ghost.setup(car, lap_timer, live_delta, team_color)
+	ghost.enabled = bool(Settings.get_value("ghost"))
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)
 	lap_timer.lap_started.connect(func(_lap: int) -> void: car.fuel.new_lap())
@@ -225,6 +236,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		var next := RacingLine.next_mode(str(Settings.get_value("racing_line")))
 		Settings.set_value("racing_line", next)
 		hud.show_message("Línea de trazada: %s" % RacingLine.mode_name(next), 1.5)
+	elif event.is_action_pressed("ghost") and car.controls_enabled:
+		var on := not bool(Settings.get_value("ghost"))
+		Settings.set_value("ghost", on)
+		var note := "" if not on or ghost.reference() != null or live_delta.pick_reference() != null \
+			else " (aparece cuando haya una vuelta válida)"
+		hud.show_message("Auto fantasma: %s%s" % ["sí" if on else "no", note], 1.5)
 
 
 func _on_session_finished() -> void:
@@ -266,6 +283,7 @@ func _on_setting_changed(key: String) -> void:
 	Settings.apply_to_car(car, false)
 	rumble.intensity = float(Settings.get_value("vibration")) / 100.0
 	racing_line.set_mode(str(Settings.get_value("racing_line")))
+	ghost.enabled = bool(Settings.get_value("ghost"))
 	if key == "time_of_day" or key.is_empty():
 		_apply_lighting()
 	else:

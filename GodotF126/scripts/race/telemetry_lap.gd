@@ -4,18 +4,24 @@ extends RefCounted
 ## `TelemetryRecorder.interval` s. La distancia es desde la meta (negativa antes de cruzarla
 ## en una largada detenida).
 
-const CHANNELS := ["time", "distance", "speed", "rpm", "gear", "throttle", "brake", "steer", "x", "z"]
+const CHANNELS := ["time", "distance", "speed", "rpm", "gear", "throttle", "brake", "steer", "x", "y", "z", "yaw"]
 ## Decimales al guardar cada canal en JSON.
 const DECIMALS := {"time": 3, "distance": 2, "speed": 2, "rpm": 0, "gear": 0, "throttle": 3, "brake": 3,
-	"steer": 3, "x": 2, "z": 2}
+	"steer": 3, "x": 2, "y": 2, "z": 2, "yaw": 3}
+## Canales agregados en el Paso 43 (auto fantasma): un archivo anterior sin ellos se carga igual
+## y quedan en `missing_channels` para que TelemetryRecorder los reconstruya con la pista.
+const OPTIONAL_CHANNELS := ["y", "yaw"]
 
 var lap: int = 0
 var lap_time: float = -1.0
 var invalid: bool = false
 var compound: String = ""
 var track_length: float = 0.0
-## canal → PackedFloat32Array (km/h, rpm, marcha −1 / 0 / 1–8, pedales 0–1, dirección −1 izq. a 1 der.).
+## canal → PackedFloat32Array (km/h, rpm, marcha −1 / 0 / 1–8, pedales 0–1, dirección −1 izq. a 1 der.,
+## posición en m, rumbo en rad = `global_rotation.y` del auto).
 var channels: Dictionary = {}
+## Canales opcionales que faltaban en el archivo (rellenos con ceros hasta reconstruirlos).
+var missing_channels := PackedStringArray()
 
 
 func _init() -> void:
@@ -48,26 +54,48 @@ func value(name: String, index: int) -> float:
 
 ## Valor de un canal a `distance` m de la meta (interpolado entre las dos muestras vecinas).
 func value_at_distance(name: String, distance: float) -> float:
-	var d := channel("distance")
-	var values := channel(name)
+	return value_at("distance", distance, name)
+
+
+## Muestras vecinas de `key` en un canal creciente (tiempo o distancia): (índice bajo, índice
+## alto, fracción). Fuera de rango, la primera o la última muestra.
+func locate(key_channel: String, key: float) -> Vector3:
+	var d := channel(key_channel)
 	var n := d.size()
 	if n == 0:
-		return 0.0
-	if distance <= d[0]:
-		return values[0]
-	if distance >= d[n - 1]:
-		return values[n - 1]
+		return Vector3(-1, -1, 0)
+	if key <= d[0]:
+		return Vector3(0, 0, 0)
+	if key >= d[n - 1]:
+		return Vector3(n - 1, n - 1, 0)
 	var low := 0
 	var high := n - 1
 	while high - low > 1:
 		var mid := (low + high) / 2
-		if d[mid] <= distance:
+		if d[mid] <= key:
 			low = mid
 		else:
 			high = mid
 	var span := d[high] - d[low]
-	var t := (distance - d[low]) / span if span > 0.0 else 0.0
-	return lerpf(values[low], values[high], t)
+	return Vector3(low, high, (key - d[low]) / span if span > 0.0 else 0.0)
+
+
+## Valor de `name` donde el canal `key_channel` vale `key` (interpolado).
+func value_at(key_channel: String, key: float, name: String) -> float:
+	var at := locate(key_channel, key)
+	if at.x < 0:
+		return 0.0
+	var values := channel(name)
+	return lerpf(values[int(at.x)], values[int(at.y)], at.z)
+
+
+## Igual que `value_at` para un ángulo en rad (interpola por el lado corto).
+func angle_at(key_channel: String, key: float, name: String) -> float:
+	var at := locate(key_channel, key)
+	if at.x < 0:
+		return 0.0
+	var values := channel(name)
+	return lerp_angle(values[int(at.x)], values[int(at.y)], at.z)
 
 
 ## Resumen: velocidad máxima / mínima / media, % del tiempo a fondo y frenando, cambios de
@@ -128,7 +156,8 @@ func to_dict() -> Dictionary:
 	return data
 
 
-## null si los datos no sirven (faltan canales o largos distintos).
+## null si los datos no sirven (faltan canales obligatorios o largos distintos). Los opcionales
+## que falten quedan en cero y en `missing_channels`.
 static func from_dict(data: Dictionary) -> TelemetryLap:
 	var result := TelemetryLap.new()
 	result.lap = int(data.get("lap", 0))
@@ -143,9 +172,16 @@ static func from_dict(data: Dictionary) -> TelemetryLap:
 	for name in CHANNELS:
 		var list = source.get(name, null)
 		if not list is Array:
+			if name in OPTIONAL_CHANNELS:
+				result.missing_channels.append(name)
+				continue
 			return null
 		if count >= 0 and list.size() != count:
 			return null
 		count = list.size()
 		result.channels[name] = PackedFloat32Array(list)
+	for name in result.missing_channels:
+		var zeros := PackedFloat32Array()
+		zeros.resize(count)
+		result.channels[name] = zeros
 	return result

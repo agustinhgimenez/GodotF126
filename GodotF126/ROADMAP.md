@@ -76,7 +76,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | ✅ |
 | 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | ✅ |
 
-## Fase E — Telemetría y entrenamiento ⏳
+## Fase E — Telemetría y entrenamiento ✅
 
 | Paso | Contenido | Estado |
 |---|---|---|
@@ -84,13 +84,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 40 | **Delta en vivo** contra la mejor vuelta (verde / rojo) en HUD y volante | ✅ |
 | 41 | Pantalla de análisis: gráficos contra distancia, comparando dos vueltas | ✅ |
 | 42 | Exportación a CSV | ✅ |
-| 43 | **Auto fantasma** de la mejor vuelta | ⏳ Siguiente |
+| 43 | **Auto fantasma** de la mejor vuelta | ✅ |
 
 ## Fase F — Rivales y carrera (H3)
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 44 | IA que sigue la trazada con velocidad objetivo según curvatura | |
+| 44 | IA que sigue la trazada con velocidad objetivo según curvatura | ⏳ Siguiente |
 | 45 | IA con niveles de dificultad, defensa y adelantamientos | |
 | 46 | Colisiones entre autos y penalizaciones | |
 | 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | |
@@ -862,3 +862,26 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   El primer aviso cortaba la ruta larga a mitad del nombre; ahora va en dos líneas (archivo y carpeta). **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050. Captura: `informes/capturas/paso42-exportar.png` (análisis de la vuelta 3 contra la 2 recién exportado, con el aviso arriba).
 - **Cómo probar**: F5, práctica libre, dar dos vueltas, Esc → Telemetría → Análisis → **CSV A y B**, y abrir el archivo de la carpeta que muestra el aviso (en Excel en español, poner `"decimal": ","` en `data/telemetry.json`).
+
+### Paso 43 — Auto fantasma
+- **Qué es**: un auto semitransparente (`GhostCar`) que repite la **vuelta de referencia del delta en vivo**, o sea la más rápida entre la mejor válida de la sesión y la guardada de la pista, fija al empezar cada vuelta. Va **por tiempo**: con el cronómetro de la vuelta en curso toma dónde estaba la referencia en ese mismo segundo. Si se escapa adelante, ahí se está perdiendo tiempo; si queda atrás, se está ganando. Es la misma información que el delta, pero se ve en la pista.
+- **Cómo se ve**: copia las mallas del auto (13 piezas: carrocería en el color del equipo aclarado, el resto oscuro) con un material transparente sin sombras, al 50 % de opacidad. **No choca** (no tiene física). A menos de 3 m del auto desaparece y hasta los 12 m se va haciendo visible, así no tapa la vista cuando va encima (en cockpit) ni parpadea. Se ve también en los espejos.
+- **Cuándo no está**: sin vuelta de referencia (la primera vuelta de una pista nueva), antes de cruzar la meta, al volver a la pista con R (se descarta la vuelta) y cuando la referencia ya terminó su vuelta.
+- **Tecla H** (acción `ghost`, se puede reasignar): lo muestra u oculta y lo guarda en la opción `ghost` de `user://settings.json`. Fila en el tutorial de controles y un consejo en la pantalla de carga. Opacidad, distancias y color en el bloque `ghost` de `data/telemetry.json`.
+- **Telemetría con altura y rumbo**: el fantasma necesita la altura (la subida al castillo es de 12 m) y hacia dónde apunta el auto, y la telemetría sólo guardaba `x` / `z`. Se agregaron los canales `y` (m) y `yaw` (rumbo en rad), que también salen en el CSV (`y_m`, `rumbo_rad`). Una mejor vuelta guardada antes de este paso **se sigue cargando**: la altura sale del trazado en la distancia de cada muestra y el rumbo de la recta entre muestras vecinas.
+- **Verificación** (`paso43_ghost.gd`: 3 vueltas con el piloto que sigue la línea, la 3 levanta al 85 % entre 1.000 y 1.400 m; después una escena nueva con la mejor vuelta en formato viejo):
+
+| Prueba | Resultado |
+|---|---|
+| Formato viejo sin `y` / `yaw` | carga (faltan `y`, `yaw`); sin `x` no carga |
+| Vuelta 1 (sin referencia) | fantasma oculto los 4.665 cuadros |
+| Vuelta 2 (1:17.117) contra la 1 (1:18.467) | **siempre detrás** (4.582 de 4.582 cuadros), visible, nunca fuera de la pista, a ±0,03 m de la altura del trazado, rumbo a ≤ 24° del trazado (la línea ideal corta las curvas) |
+| Vuelta 3 (1:18.700) contra la 2 | hasta los 1.000 m va **encima del auto** (misma manejada): desvanecido · 1.200 m: delta +0,957, fantasma **33 m adelante** · 1.400 m: +1,519, 33 m · 2.000 m: +1,590, 45 m · 2.500 m: +1,579, 62 m y ya cruzó la meta (oculto). La distancia es el delta por la velocidad (a 1.200 m: 0,96 s × ~125 km/h ≈ 33 m) |
+| Mejor vuelta grabada | altura de −0,02 a 12,00 m (sube al castillo), rumbo de −π a π |
+| Tecla H | sí → no (oculto, opción guardada en no) → sí |
+| Volver a la pista (R) | oculto y sin referencia |
+| Escena nueva con la mejor vuelta en formato viejo | carga como guardada; reconstruida contra lo grabado: altura media 0,009 m (máx 0,021), rumbo medio 0,7° (máx 3,7°); en la vuelta 1 aparece el fantasma de la guardada |
+| Costo | 28 µs por cuadro (4 búsquedas binarias) |
+
+  La primera corrida marcó errores de pose de 2 m y "fuera de la pista": era la prueba, que leía el fantasma antes de que se actualizara en ese cuadro y buscaba el punto de pista cercano desde el último donde lo había visto. Ahora el fantasma guarda con qué vuelta y en qué instante armó la pose. **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050; la prueba del Paso 42 sigue bien con las dos columnas nuevas. Capturas: `informes/capturas/paso43-fantasma.png` (cámara cercana en la vuelta 3, delta +0,520: el fantasma de la vuelta 2 doce metros adelante en la curva) y `paso43-fantasma-cockpit.png` (desde el cockpit, 15 m adelante).
+- **Cómo probar**: F5, práctica libre, una vuelta limpia y en la siguiente buscar el auto transparente; levantar en alguna recta y verlo escaparse. H lo oculta.

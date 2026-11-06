@@ -13,6 +13,13 @@
     "final_hold": 3.0,
     "bar_range": 1.0
   },
+  "ghost": {
+    "description": "Auto fantasma (Paso 43): repite la vuelta de referencia del delta (la mejor entre la de la sesión y la guardada) según el tiempo de la vuelta en curso. 'alpha' = opacidad máxima, 'fade_near' / 'fade_far' = metros al auto donde desaparece / se ve entero, 'whiten' = mezcla del color del equipo con blanco. Se muestra u oculta con la opción 'ghost' (tecla H).",
+    "alpha": 0.5,
+    "fade_near": 3.0,
+    "fade_far": 12.0,
+    "whiten": 0.5
+  },
   "csv": {
     "description": "Exportación a CSV (Paso 42) desde Pausa → Telemetría → Análisis. 'dir' = carpeta (user:// = carpeta de datos del juego), 'separator' = separador de columnas, 'decimal' = '.' o ','. Con coma decimal el separador pasa a ';' (lo que espera Excel en español). 'summary' = escribir también <archivo>_resumen.csv con una fila por vuelta.",
     "dir": "user://telemetria",

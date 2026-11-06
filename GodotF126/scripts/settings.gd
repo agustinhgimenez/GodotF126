@@ -186,7 +186,7 @@ func _sanitize(key: String, value):
 			if not (value is int or value is float):
 				return int(fallback)
 			return clampi(int(value), 0, TRACTION_LEVELS - 1)
-		"steering_assist", "abs", "fullscreen", "tutorial_seen":
+		"steering_assist", "abs", "fullscreen", "tutorial_seen", "ghost":
 			return value if value is bool else fallback
 		"bindings":
 			return value.duplicate(true) if value is Dictionary else {}

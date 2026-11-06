@@ -7,7 +7,7 @@ extends RefCounted
 
 ## Encabezado de cada canal en el CSV (nombre con unidad).
 const HEADERS := {"time": "tiempo_s", "distance": "distancia_m", "speed": "velocidad_kmh", "rpm": "rpm",
-	"gear": "marcha", "throttle": "acelerador", "brake": "freno", "steer": "direccion", "x": "x_m", "z": "z_m"}
+	"gear": "marcha", "throttle": "acelerador", "brake": "freno", "steer": "direccion", "x": "x_m", "y": "y_m", "z": "z_m", "yaw": "rumbo_rad"}
 const SUMMARY_HEADERS := ["vuelta", "origen", "valida", "compuesto", "tiempo_s", "largo_pista_m", "muestras",
 	"vel_max_kmh", "vel_min_kmh", "vel_media_kmh", "a_fondo_pct", "frenando_pct", "cambios", "rpm_max"]
 

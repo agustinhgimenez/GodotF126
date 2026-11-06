@@ -153,7 +153,9 @@ func _sample(time: float) -> void:
 		"brake": _car.brake_input,
 		"steer": _car.steer_raw,
 		"x": _car.global_position.x,
+		"y": _car.global_position.y,
 		"z": _car.global_position.z,
+		"yaw": _car.global_rotation.y,
 	})
 
 
@@ -200,7 +202,44 @@ func load_best() -> TelemetryLap:
 	var loaded := TelemetryLap.from_dict(parsed)
 	if loaded == null or not loaded.is_complete() or loaded.size() < 2:
 		return null
+	if not loaded.missing_channels.is_empty():
+		fill_pose(loaded)
 	return loaded
+
+
+## Reconstruye altura y rumbo de una vuelta grabada antes del Paso 43: la altura del trazado
+## en la distancia de cada muestra y el rumbo de la recta entre las muestras vecinas.
+func fill_pose(lap: TelemetryLap) -> void:
+	var n := lap.size()
+	var count := _cumulative.size()
+	var total := track_length()
+	if n < 2 or count < 2 or total <= 0.0:
+		return
+	var distance := lap.channel("distance")
+	var xs := lap.channel("x")
+	var zs := lap.channel("z")
+	var ys := PackedFloat32Array()
+	var yaws := PackedFloat32Array()
+	ys.resize(n)
+	yaws.resize(n)
+	var yaw := 0.0
+	for i in n:
+		var along := fposmod(distance[i] + _cumulative[_start_index], total)
+		var j := clampi(_cumulative.bsearch(along, true) - 1, 0, count - 1)
+		var next := (j + 1) % count
+		var span := (_cumulative[next] if next > 0 else total) - _cumulative[j]
+		var t := clampf((along - _cumulative[j]) / span, 0.0, 1.0) if span > 0.0 else 0.0
+		ys[i] = lerpf(_track.centerline[j].y, _track.centerline[next].y, t)
+		var a := maxi(i - 1, 0)
+		var b := mini(i + 1, n - 1)
+		var dx := xs[b] - xs[a]
+		var dz := zs[b] - zs[a]
+		if dx * dx + dz * dz > 1e-4:
+			yaw = atan2(-dx, -dz)
+		yaws[i] = yaw
+	lap.channels["y"] = ys
+	lap.channels["yaw"] = yaws
+	lap.missing_channels = PackedStringArray()
 
 
 func _save(lap: TelemetryLap) -> void:
