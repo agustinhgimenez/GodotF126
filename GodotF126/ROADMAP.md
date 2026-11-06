@@ -83,8 +83,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 39 | Registro de telemetría por vuelta: velocidad, RPM, marcha, acelerador, freno, dirección, posición | ✅ |
 | 40 | **Delta en vivo** contra la mejor vuelta (verde / rojo) en HUD y volante | ✅ |
 | 41 | Pantalla de análisis: gráficos contra distancia, comparando dos vueltas | ✅ |
-| 42 | Exportación a CSV | ⏳ Siguiente |
-| 43 | **Auto fantasma** de la mejor vuelta | |
+| 42 | Exportación a CSV | ✅ |
+| 43 | **Auto fantasma** de la mejor vuelta | ⏳ Siguiente |
 
 ## Fase F — Rivales y carrera (H3)
 
@@ -839,3 +839,26 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   La primera captura mostró la pausa por detrás: el fondo tenía tamaño cero (`set_anchors_preset` sin offsets); ahora usa `set_anchors_and_offsets_preset`. **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050. Capturas: `informes/capturas/paso41-analisis.png` (vuelta 3 contra la 2 con el cursor a 1.250 m: el delta sube donde levantó y el mapa lo marca en rojo) y `paso41-telemetria-boton.png` (tabla con el botón Análisis).
 - **Cómo probar**: F5, práctica libre, dar dos o tres vueltas, Esc → Telemetría → Análisis; mover el mouse sobre los gráficos.
+
+### Paso 42 — Exportación a CSV
+- **Dónde**: en la pantalla de análisis (Pausa → Telemetría → Análisis), dos botones nuevos: **CSV A y B** (las dos vueltas elegidas; una sola si A = B) y **CSV todas** (las de la sesión y la mejor guardada de antes). Arriba aparece un aviso con el nombre del archivo y la carpeta real.
+- **Archivos** (`TelemetryCsv`): en `user://telemetria/` (en Windows, `%APPDATA%\Godot\app_userdata\GodotF126\telemetria\`), con nombre `<pista>_<fecha>_<hora>_<vueltas>.csv`, por ejemplo `baku_v2_2026-11-06_13-55-22_A-v2_B-v3.csv` o `..._todas.csv`. Si ya existe (dos exportaciones en el mismo segundo) se agrega `_2`, `_3`…
+  - **Datos**: una fila por muestra (cada 0,05 s) con `vuelta, origen (sesion / guardada), valida (1 / 0), tiempo_s, distancia_m, velocidad_kmh, rpm, marcha, acelerador, freno, direccion, x_m, z_m`. Mismos decimales que el archivo de la mejor vuelta (tiempo 3, distancia y velocidad 2, pedales y dirección 3, RPM y marcha enteros).
+  - **Resumen** (`..._resumen.csv`): una fila por vuelta con compuesto, tiempo, largo de la pista, muestras, velocidad máxima / mínima / media, % a fondo, % frenando, cambios de marcha y RPM máximas.
+- **Formato**: los números se escriben siempre igual, sin depender del idioma del sistema. Por defecto punto decimal y coma entre columnas (Python, MATLAB, R, Excel en inglés). Con `"decimal": ","` en el bloque `csv` de `data/telemetry.json` el separador pasa a `;`, que es lo que abre directo Excel en español. También se puede elegir otra carpeta, otro separador (por ejemplo tabulador) o no escribir el resumen.
+- **Verificación** (`paso42_csv.gd`: las mismas 3 vueltas del Paso 41; relee cada archivo con `FileAccess.get_csv_line()` y lo compara con la telemetría en memoria; borra todo lo que escribe):
+
+| Prueba | Resultado |
+|---|---|
+| Números | `1.500`, `0.000` (sin "−0"), `12345.68` (sin separador de miles), marcha `8` |
+| Configuración | coma decimal → separador `;` y `1,500` · separador inválido → `,` · tabulador sí · decimal inválido → `.` |
+| Sin vueltas | aviso "No hay vueltas para exportar", ningún archivo |
+| CSV A y B (vueltas 2 y 3) | 3.120 filas = encabezado + 1.542 + 1.577 muestras, 13 columnas en todas, vuelta / origen / válida bien; **todos los valores iguales a la telemetría salvo el redondeo** (error máximo medio decimal) · 222 kB en 80 ms |
+| Resumen | vuelta 2: 77,033 s, 1.542 muestras, 192,7 / 49,7 / 119,9 km/h, 68,8 % a fondo, 20,7 % frenando, 96 cambios · vuelta 3: 78,750 s, mínima 43,2 km/h (levantó) |
+| Mismo segundo otra vez | `..._A-v2_B-v3_2.csv` |
+| A = B | un archivo de una vuelta (`..._A-v2.csv`) |
+| CSV todas, con la guardada de antes | 4 vueltas (3 de la sesión + "guardada"), 6.234 filas, todo igual · 150 ms |
+| Coma decimal, sin resumen | un solo archivo, `2;sesion;1;4,950;214,22;64,92;8064;4;0,000;…`, releído con `;` sin diferencias |
+
+  El primer aviso cortaba la ruta larga a mitad del nombre; ahora va en dos líneas (archivo y carpeta). **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050. Captura: `informes/capturas/paso42-exportar.png` (análisis de la vuelta 3 contra la 2 recién exportado, con el aviso arriba).
+- **Cómo probar**: F5, práctica libre, dar dos vueltas, Esc → Telemetría → Análisis → **CSV A y B**, y abrir el archivo de la carpeta que muestra el aviso (en Excel en español, poner `"decimal": ","` en `data/telemetry.json`).

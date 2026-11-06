@@ -25,6 +25,11 @@ var _map: TelemetryTrackMap
 var _button_a: Button
 var _button_b: Button
 var _back: Button
+var _export_pair: Button
+var _export_all: Button
+var _export_status: Label
+## Rutas user:// de la última exportación.
+var last_export := PackedStringArray()
 var _cursor_label: Label
 var _header_a: Label
 var _value_labels: Dictionary = {}   ## "fila:columna" → Label
@@ -46,6 +51,19 @@ func _ready() -> void:
 	_back.position = Vector2(1106, 58)
 	_back.pressed.connect(func() -> void: closed.emit())
 	add_child(_back)
+	_export_pair = UiKit.make_button("CSV A y B", accent, Vector2(180, 38), 17)
+	_export_pair.position = Vector2(724, 58)
+	_export_pair.pressed.connect(export_pair)
+	add_child(_export_pair)
+	_export_all = UiKit.make_button("CSV todas", accent, Vector2(180, 38), 17)
+	_export_all.position = Vector2(914, 58)
+	_export_all.pressed.connect(export_all)
+	add_child(_export_all)
+	_export_status = UiKit.make_label("", 13)
+	_export_status.add_theme_color_override("font_color", DIM)
+	_export_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	UiKit.place(_export_status, Vector4.ZERO, Vector4(440, 10, 1256, 54))
+	add_child(_export_status)
 
 	_plots = TelemetryPlots.new()
 	_plots.position = PLOTS_RECT.position
@@ -92,7 +110,7 @@ func bind(recorder: TelemetryRecorder) -> void:
 
 func set_accent(color: Color) -> void:
 	accent = color
-	for button in [_button_a, _button_b, _back]:
+	for button in [_button_a, _button_b, _back, _export_pair, _export_all]:
 		UiKit.apply_button_style(button, color)
 	_plots.color_a = color
 	_map.color_a = color
@@ -111,6 +129,7 @@ func open() -> void:
 	if index_b < 0 or index_b == index_a:
 		index_b = index_a - 1 if index_a > 0 else mini(index_a + 1, laps.size() - 1)
 	index_b = maxi(index_b, 0)
+	_export_status.text = ""
 	_refresh()
 	if laps.is_empty():
 		_back.grab_focus()
@@ -124,6 +143,40 @@ func lap_a() -> TelemetryLap:
 
 func lap_b() -> TelemetryLap:
 	return laps[index_b] if index_b >= 0 and index_b < laps.size() else null
+
+
+## Exporta A y B (una sola vez si son la misma). Devuelve las rutas escritas.
+func export_pair() -> PackedStringArray:
+	var selection: Array[TelemetryLap] = []
+	var suffix := ""
+	for pair in [["A", lap_a()], ["B", lap_b()]]:
+		var lap: TelemetryLap = pair[1]
+		if lap != null and not selection.has(lap):
+			selection.append(lap)
+			suffix += "%s%s-%s" % ["" if suffix.is_empty() else "_", pair[0], _file_tag(lap)]
+	return _export(selection, suffix)
+
+
+func export_all() -> PackedStringArray:
+	return _export(laps.duplicate(), "todas")
+
+
+func _file_tag(lap: TelemetryLap) -> String:
+	return "guardada" if _recorder.lap_origin(lap) == "guardada" else "v%d" % lap.lap
+
+
+func _export(selection: Array[TelemetryLap], suffix: String) -> PackedStringArray:
+	if _recorder == null or selection.is_empty():
+		_export_status.text = "No hay vueltas para exportar."
+		return PackedStringArray()
+	last_export = _recorder.export_csv(selection, suffix)
+	if last_export.is_empty():
+		_export_status.text = "No se pudo escribir el CSV (ver la consola)."
+	else:
+		var path := ProjectSettings.globalize_path(last_export[0])
+		_export_status.text = "Exportado%s (%d vuelta%s): %s\nen %s" % ["" if last_export.size() == 1 else " con resumen",
+			selection.size(), "" if selection.size() == 1 else "s", path.get_file(), path.get_base_dir()]
+	return last_export
 
 
 func _fastest_index() -> int:

@@ -27,6 +27,8 @@ var best: TelemetryLap
 ## La mejor vuelta guardada de esta pista (de una sesión anterior o de ésta).
 var saved_best: TelemetryLap
 var track_id: String = ""
+## Exportación a CSV (Paso 42), configurada con el bloque "csv" de data/telemetry.json.
+var csv := TelemetryCsv.new()
 
 var _track: BakuTrack
 var _car: CarController
@@ -45,6 +47,9 @@ func configure(data: Dictionary) -> void:
 	full_throttle = clampf(float(data.get("full_throttle", full_throttle)), 0.0, 1.0)
 	braking = clampf(float(data.get("braking", braking)), 0.0, 1.0)
 	panel_rows = maxi(int(data.get("panel_rows", panel_rows)), 1)
+	var csv_data = data.get("csv", {})
+	if csv_data is Dictionary:
+		csv.configure(csv_data)
 
 
 func setup(track: BakuTrack, car: CarController, timer: LapTimer, limits: TrackLimits, id: String) -> void:
@@ -86,6 +91,19 @@ func available_laps() -> Array[TelemetryLap]:
 	if saved_best != null and not laps.has(saved_best):
 		result.append(saved_best)
 	return result
+
+
+## "guardada" para la mejor de una sesión anterior, "sesion" para las de ésta.
+func lap_origin(lap: TelemetryLap) -> String:
+	return "guardada" if lap == saved_best and not laps.has(lap) else "sesion"
+
+
+## Escribe las vueltas en CSV (datos y resumen). Devuelve las rutas user:// escritas.
+func export_csv(selection: Array[TelemetryLap], suffix: String) -> PackedStringArray:
+	var origins := PackedStringArray()
+	for lap in selection:
+		origins.append(lap_origin(lap))
+	return csv.export_laps(selection, origins, track_id, suffix, full_throttle, braking)
 
 
 ## Centro de la pista en planta (x, z) para dibujar el mapa.

@@ -12,5 +12,12 @@
     "smoothing": 0.15,
     "final_hold": 3.0,
     "bar_range": 1.0
+  },
+  "csv": {
+    "description": "Exportación a CSV (Paso 42) desde Pausa → Telemetría → Análisis. 'dir' = carpeta (user:// = carpeta de datos del juego), 'separator' = separador de columnas, 'decimal' = '.' o ','. Con coma decimal el separador pasa a ';' (lo que espera Excel en español). 'summary' = escribir también <archivo>_resumen.csv con una fila por vuelta.",
+    "dir": "user://telemetria",
+    "separator": ",",
+    "decimal": ".",
+    "summary": true
   }
 }
