@@ -76,12 +76,12 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | ✅ |
 | 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | ✅ |
 
-## Fase E — Telemetría y entrenamiento
+## Fase E — Telemetría y entrenamiento ⏳
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 39 | Registro de telemetría por vuelta: velocidad, RPM, marcha, acelerador, freno, dirección, posición | ⏳ Siguiente |
-| 40 | **Delta en vivo** contra la mejor vuelta (verde / rojo) en HUD y volante | |
+| 39 | Registro de telemetría por vuelta: velocidad, RPM, marcha, acelerador, freno, dirección, posición | ✅ |
+| 40 | **Delta en vivo** contra la mejor vuelta (verde / rojo) en HUD y volante | ⏳ Siguiente |
 | 41 | Pantalla de análisis: gráficos contra distancia, comparando dos vueltas | |
 | 42 | Exportación a CSV | |
 | 43 | **Auto fantasma** de la mejor vuelta | |
@@ -774,3 +774,23 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   **Sin la ayuda nada cambió**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050 sin salidas, golpes ni daños. Capturas: `informes/capturas/paso38-linea-completa.png` (T-cam a 191 km/h, el rojo empieza 17 m adelante), `paso38-solo-frenadas.png` (cámara TV a 174 km/h, sólo la zona de frenada en rojo hasta la curva) y `paso38-controles.png` (tutorial con la fila de la L).
 - **Cómo probar**: F5 y práctica libre. Llegando a una curva la línea se pone roja donde hay que frenar; frenando hasta que deje de estar roja bajo el auto se entra a la velocidad justa. L cambia entre completa, sólo frenadas y apagada.
+
+### Paso 39 — Telemetría por vuelta
+- **Registro** (`TelemetryRecorder`, nodo `Telemetry` de la carrera; datos en `data/telemetry.json`): mientras corre el cronómetro guarda una muestra cada 0,05 s (20 por segundo) con tiempo de vuelta, **distancia desde la meta** siguiendo el trazado, velocidad, RPM, marcha, acelerador, freno y dirección que pide el piloto (los del Paso 37: teclado, gatillos o pedales) y posición (x, z). Cada vuelta es un `TelemetryLap` con un arreglo empaquetado por canal. Al cerrar la vuelta se agrega una última muestra con el tiempo exacto.
+- **Vueltas**: se guardan las últimas 30 de la sesión, la última y la mejor válida (las inválidas por límites de pista quedan marcadas y no cuentan). La mejor vuelta válida de la pista se escribe en `user://telemetry_best_<pista>.json` (~90 kB) si es más rápida que la guardada, y se carga al empezar: es la referencia para el delta (Paso 40), los gráficos (41), el CSV (42) y el fantasma (43). Volver a la pista (R) descarta la vuelta en curso, igual que el cronómetro. Un archivo roto se ignora.
+- **Pausa → Telemetría** (botón nuevo; los botones de la pausa bajaron de 54 a 46 px para que entren los 8): la vuelta que se está grabando, una tabla con las últimas 8 vueltas (tiempo, velocidad máxima / mínima / media, % del tiempo a fondo y frenando, cambios de marcha; la mejor resaltada y las inválidas en rojo con "inv.", más la guardada si es de otra sesión) y un gráfico de velocidad contra distancia de la última vuelta contra la mejor (o la anterior, si la última es la mejor), con una franja de acelerador y freno abajo.
+- **Verificación** (`paso39_telemetry.gd`: 3 vueltas con el piloto que sigue la línea de trazada, la 2 invalidada a mano):
+
+| Prueba | Resultado |
+|---|---|
+| Muestras por vuelta | 1.571 / 1.541 / 1.545 = tiempo / 0,05 + 2 (las esperadas), paso máximo 0,050 s |
+| Distancia | de −3,6 m (el checkpoint de meta está antes de la línea) a 2.562,8 m (pista de 2.565,6 m), sin retrocesos, paso máximo 2,7 m |
+| A los 30 s de la vuelta 1 | 841 m grabados / 842 m del auto · 107 / 108 km/h |
+| Resumen de una vuelta | máx. 193 · mín. 50 · media 120 km/h · 69 % a fondo · 21 % frenando · marchas 3ª–8ª · 12.500 rpm |
+| Vueltas 1:18.467 / 1:16.983 (inválida) / 1:17.167 | mejor = 3 (la 2 no cuenta), guardada la 3 |
+| Archivo guardado y recargado | 90 kB, 1.545 muestras, misma velocidad (±0,006 km/h) en 5 distancias |
+| Archivo roto / reinicio con 101 muestras | se ignora / vuelta en curso descartada, quedan 3 |
+| Costo | 17 µs por muestra (0,33 ms por segundo de carrera) · resumen de 2.000 muestras 0,4 ms |
+
+  La primera prueba encontró un error: en los primeros metros (antes de cruzar la línea) la distancia saltaba una vuelta entera de pista; ahora cada muestra toma la vuelta más cercana a la anterior. **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050 sin salidas, golpes ni daños. Capturas: `informes/capturas/paso39-pausa.png` (pausa con el botón Telemetría) y `paso39-telemetria.png` (tabla de 3 vueltas y gráfico de la 3 contra la 1).
+- **Cómo probar**: F5, práctica libre, dar dos o tres vueltas y Esc → Telemetría.

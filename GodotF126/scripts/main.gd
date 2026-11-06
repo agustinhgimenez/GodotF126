@@ -41,6 +41,8 @@ var car_setup: CarSetup
 var rumble := ControllerRumble.new()
 ## Línea de trazada (Paso 38; modo = opción "racing_line", tecla L).
 var racing_line: RacingLine
+## Telemetría por vuelta (Paso 39; se ve en la pausa → Telemetría).
+var telemetry: TelemetryRecorder
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 
@@ -116,6 +118,11 @@ func _ready() -> void:
 	add_child(racing_line)
 	racing_line.mode = str(Settings.get_value("racing_line"))
 	racing_line.setup(track, car, track_limits)
+	telemetry = TelemetryRecorder.new()
+	telemetry.name = "Telemetry"
+	telemetry.configure(DataLoader.load_json(TelemetryRecorder.DATA_PATH))
+	add_child(telemetry)
+	telemetry.setup(track, car, lap_timer, track_limits, str(track_info.get("records_key", TRACK_ID)))
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)
 	lap_timer.lap_started.connect(func(_lap: int) -> void: car.fuel.new_lap())
@@ -128,6 +135,7 @@ func _ready() -> void:
 	if not GameState.is_time_trial():
 		pause_menu.enable_setup(car_setup, car.setup_base())
 		pause_menu.setup_changed.connect(_on_setup_changed)
+	pause_menu.bind_telemetry(telemetry)
 	pause_menu.paused_changed.connect(_on_paused_changed)
 	pause_menu.restart_requested.connect(get_tree().reload_current_scene)
 	pause_menu.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))

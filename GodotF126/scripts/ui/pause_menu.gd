@@ -2,7 +2,8 @@ class_name PauseMenu
 extends CanvasLayer
 ## Menú de pausa de la carrera (Paso 15), armado por código.
 ## Esc pausa el árbol (física, cronómetro y audio del auto quedan congelados) y muestra
-## Continuar / Reiniciar / Setup (sólo en práctica, Paso 35) / Opciones / Controles / Menú / Salir.
+## Continuar / Reiniciar / Setup (sólo en práctica, Paso 35) / Telemetría (Paso 39) / Opciones /
+## Controles / Menú / Salir.
 ## Este nodo sigue procesando en pausa.
 
 signal paused_changed(paused: bool)
@@ -21,6 +22,8 @@ var _controls: ControlsPanel
 var _setup: SetupPanel
 var _setup_button: Button
 var _setup_dirty: bool = false
+var _telemetry: TelemetryPanel
+var _telemetry_button: Button
 var _continue_button: Button
 var _options_button: Button
 var _controls_button: Button
@@ -45,6 +48,7 @@ func set_accent(color: Color) -> void:
 	_options.set_accent(color)
 	_controls.set_accent(color)
 	_setup.set_accent(color)
+	_telemetry.set_accent(color)
 
 
 ## Texto bajo el título (piloto, pista, vuelta).
@@ -91,6 +95,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_show_main(_controls_button)
 	elif _setup.visible:
 		_close_setup()
+	elif _telemetry.visible:
+		_show_main(_telemetry_button)
 	else:
 		close()
 
@@ -99,8 +105,21 @@ func _show_main(focus: Button) -> void:
 	_options.visible = false
 	_controls.visible = false
 	_setup.visible = false
+	_telemetry.visible = false
 	_main_panel.visible = true
 	focus.grab_focus()
+
+
+## Muestra el botón de telemetría con las vueltas de `recorder` (Paso 39).
+func bind_telemetry(recorder: TelemetryRecorder) -> void:
+	_telemetry.bind(recorder)
+	_telemetry_button.visible = true
+
+
+func _on_telemetry_pressed() -> void:
+	_main_panel.visible = false
+	_telemetry.visible = true
+	_telemetry.open()
 
 
 func _on_options_pressed() -> void:
@@ -162,13 +181,15 @@ func _build_ui() -> void:
 	header.add_child(_subtitle)
 
 	_main_panel = VBoxContainer.new()
-	_main_panel.add_theme_constant_override("separation", 12)
+	_main_panel.add_theme_constant_override("separation", 10)
 	UiKit.place(_main_panel, Vector4(0, 0, 0, 0), Vector4(80, 200, 500, 560))
 	_root.add_child(_main_panel)
 	_continue_button = _add_button("Continuar", close)
 	_add_button("Reiniciar", func() -> void: _leave(restart_requested))
 	_setup_button = _add_button("Setup del auto", _on_setup_pressed)
 	_setup_button.visible = false
+	_telemetry_button = _add_button("Telemetría", _on_telemetry_pressed)
+	_telemetry_button.visible = false
 	_options_button = _add_button("Opciones", _on_options_pressed)
 	_controls_button = _add_button("Controles", _on_controls_pressed)
 	_add_button("Menú principal", func() -> void: _leave(menu_requested))
@@ -196,9 +217,15 @@ func _build_ui() -> void:
 	_setup.changed.connect(func() -> void: _setup_dirty = true)
 	_root.add_child(_setup)
 
+	_telemetry = TelemetryPanel.new()
+	_telemetry.visible = false
+	UiKit.place(_telemetry, Vector4(0, 0, 0, 0), Vector4(80, 190, 700, 700))
+	_telemetry.closed.connect(func() -> void: _show_main(_telemetry_button))
+	_root.add_child(_telemetry)
+
 
 func _add_button(text: String, action: Callable) -> Button:
-	var button := UiKit.make_button(text, accent)
+	var button := UiKit.make_button(text, accent, Vector2(300, 46), 24)
 	button.pressed.connect(action)
 	_main_panel.add_child(button)
 	_buttons.append(button)

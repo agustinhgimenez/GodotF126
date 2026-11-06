@@ -1,0 +1,10 @@
+{
+  "description": "Telemetría por vuelta (Paso 39). Se graba una muestra cada 'interval' s mientras corre el cronómetro: tiempo, distancia desde la meta, velocidad, RPM, marcha, acelerador, freno y dirección pedidos por el piloto y posición (x, z). Se guardan las últimas 'max_laps' vueltas de la sesión; la mejor vuelta válida de cada pista se guarda en 'best_path' (con {track} = pista) si es más rápida que la guardada. 'full_throttle' y 'braking' son los umbrales del resumen (a fondo / frenando).",
+  "interval": 0.05,
+  "max_laps": 30,
+  "best_path": "user://telemetry_best_{track}.json",
+  "save_best": true,
+  "full_throttle": 0.98,
+  "braking": 0.05,
+  "panel_rows": 8
+}
