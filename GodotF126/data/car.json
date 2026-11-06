@@ -75,6 +75,19 @@
     "lap_estimate_kg": 0.6,
     "margin_laps": 1
   },
+  "damage": {
+    "wing_min_impact": 0.25,
+    "wing_per_impact": 2.0,
+    "wing_zone_z": -2.3,
+    "wing_downforce_loss": 0.7,
+    "wing_broken_health": 0.25,
+    "puncture_min_impact": 0.3,
+    "puncture_radius": 0.7,
+    "puncture_grip": 0.35,
+    "puncture_drag_n": 1500,
+    "puncture_drop": 0.035,
+    "wear_puncture": true
+  },
   "tyre_compounds": {
     "default": "medium",
     "start_temp": 70,

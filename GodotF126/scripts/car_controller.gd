@@ -13,6 +13,8 @@ extends RigidBody3D
 ## El setup (CarSetup, Paso 35) cambia alerones, altura, resortes, barras, presiones y la
 ## relación final sobre los valores base de car.json (apply_setup()); si la suspensión se
 ## comprime más que la altura del piso, el piso toca y pierde carga (floor_factor()).
+## Daños (CarDamage, Paso 36): los golpes con la trompa rompen el alerón delantero (menos
+## carga adelante) y los de costado pinchan la rueda más cercana; reset_to_spawn() repara.
 ## El auto avanza sobre su eje -Z. En caja automática S con el auto quieto pone R.
 
 signal was_reset
@@ -146,6 +148,8 @@ var ers := Ers.new()
 ## Combustible (Paso 34; la carga la pone main.gd con fill_fuel()). La masa del cuerpo es
 ## mass_kg (seco, con el piloto) + fuel.kg.
 var fuel := Fuel.new()
+## Alerón delantero y pinchazos (Paso 36).
+var damage := CarDamage.new()
 ## Modo recta / curva y modo adelantamiento (Paso 29).
 var active_aero := ActiveAero.new()
 ## m/s² en ejes del auto (x derecha, y arriba, −z adelante), suavizada; la usa el panel de cargas.
@@ -170,6 +174,9 @@ var _showcase: bool = false
 var _applied_fuel: float = 0.0
 ## Valores de car.json sobre los que trabaja el setup (setup_base()).
 var _setup_base: Dictionary = {}
+## Centro de cada rueda en coordenadas del auto (para ubicar los pinchazos).
+var _wheel_points: Array[Vector3] = []
+var _wing_base: Transform3D = Transform3D.IDENTITY
 
 @onready var _camera_pivot: Node3D = $CameraPivot
 @onready var _camera: Camera3D = $CameraPivot/Camera3D
@@ -182,10 +189,17 @@ var _setup_base: Dictionary = {}
 @onready var engine_audio: EngineAudio = $EngineAudio
 @onready var audio_fx: CarAudioFx = $CarAudioFx
 @onready var livery: CarLivery = $Livery
+@onready var _front_wing: Node3D = $FrontWing
 
 
 func _ready() -> void:
 	spawn_transform = global_transform
+	_wing_base = _front_wing.transform
+	damage.wing_damaged.connect(func(_health: float) -> void: _update_wing_mesh())
+	damage.punctured.connect(func(_index: int) -> void: _apply_rest_lengths())
+	damage.repaired.connect(func() -> void:
+		_apply_rest_lengths()
+		_update_wing_mesh())
 	_shake_noise.frequency = 1.0
 	gearbox.gear_changed.connect(_on_gear_changed)
 	_camera_pivot.top_level = true
@@ -223,6 +237,9 @@ func configure(data: Dictionary) -> void:
 	var fuel_data = data.get("fuel", {})
 	if fuel_data is Dictionary:
 		fuel.configure(fuel_data)
+	var damage_data = data.get("damage", {})
+	if damage_data is Dictionary:
+		damage.configure(damage_data)
 	var engine_data = data.get("engine", {})
 	if engine_data is Dictionary:
 		engine.configure(engine_data)
@@ -305,16 +322,33 @@ func _configure_shake(data: Dictionary) -> void:
 func _build_wheels() -> void:
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	wheels.clear()
+	_wheel_points.clear()
 	for spec in WHEEL_NODES:
 		var is_front: bool = spec[2]
 		var mount := Vector3(float(spec[1]) * half_track, wheel_radius + suspension_travel,
 			front_axle_z if is_front else rear_axle_z)
 		var wheel := CarWheel.new(mount, is_front, get_node_or_null(str(spec[0])) as Node3D)
-		wheel.rest_length = suspension_travel + ride_height
-		wheel.reset()
 		tyres.fit(wheel)
 		wheels.append(wheel)
+		_wheel_points.append(Vector3(mount.x, wheel_radius, mount.z))
+	_apply_rest_lengths()
+	for wheel in wheels:
+		wheel.reset()
 	_apply_mass()
+
+
+## Largo de reposo de cada suspensión: travel + la altura del setup, menos lo que baja una
+## rueda pinchada.
+func _apply_rest_lengths() -> void:
+	for i in wheels.size():
+		wheels[i].rest_length = suspension_travel + ride_height - (damage.puncture_drop if damage.is_punctured(i) else 0.0)
+
+
+## Alerón delantero: cuelga según el daño y se cae con salud ≤ wing_broken_health.
+func _update_wing_mesh() -> void:
+	var loss := 1.0 - damage.wing_health
+	_front_wing.visible = not damage.is_wing_broken()
+	_front_wing.transform = _wing_base * Transform3D(Basis(Vector3.RIGHT, deg_to_rad(-12.0 * loss)), Vector3(0, -0.06 * loss, 0))
 
 
 ## Valores de car.json que cambia el setup (los de configure(), antes de cualquier setup).
@@ -346,8 +380,8 @@ func apply_setup(setup: CarSetup) -> void:
 	tyres.set_pressures(values["pressure"], setup.default_pressure(), setup.pressure_grip_per_psi, setup.pressure_heat_per_psi)
 	gearbox.final_drive = float(values["final_drive"])
 	max_speed = get_top_speed()
+	_apply_rest_lengths()
 	for wheel in wheels:
-		wheel.rest_length = suspension_travel + ride_height
 		wheel.reset()
 
 
@@ -520,8 +554,10 @@ func _physics_process(delta: float) -> void:
 	ers.update(electric * traction_control.torque_factor * clampf(forward_speed / 10.0, 0.0, 1.0), harvest, delta)
 	if ers.is_empty() and active_aero.overtake_active:
 		active_aero.toggle_overtake()
-	for wheel in wheels:
-		tyres.update(wheel, forward_speed, delta)
+	for i in wheels.size():
+		tyres.update(wheels[i], forward_speed, delta)
+		if damage.wear_puncture and wheels[i].wear >= 1.0:
+			damage.puncture(i)
 	_update_wheel_meshes()
 	_update_camera(delta)
 
@@ -530,16 +566,25 @@ func _physics_process(delta: float) -> void:
 
 
 ## Golpes contra muros: velocidad perdida contra la normal de cada contacto casi vertical
-## desde el paso anterior.
+## desde el paso anterior. Los que pasan de 1 m/s van a los daños con su punto de contacto.
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var touching := false
 	var strongest := 0.0
 	var lost := _last_velocity - state.linear_velocity
+	var to_local := state.transform.affine_inverse()
+	var points := PackedVector3Array()
+	var strengths := PackedFloat32Array()
 	for i in state.get_contact_count():
 		var normal := state.get_contact_local_normal(i)
 		if absf(normal.y) < 0.5:
 			touching = true
-			strongest = maxf(strongest, absf(lost.dot(normal)))
+			var impact := absf(lost.dot(normal))
+			strongest = maxf(strongest, impact)
+			if impact > 1.0:
+				points.append(to_local * state.get_contact_local_position(i))
+				strengths.append(impact / shake_wall_speed)
+	if not points.is_empty():
+		damage.on_impacts(points, strengths, _wheel_points)
 	_last_velocity = state.linear_velocity
 	_touching_wall = touching
 	if strongest > 1.0:
@@ -608,10 +653,13 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, electri
 		var axle := 0 if wheel.front else 1
 		wheel.update_suspension(self, space, suspension_travel, wheel_radius, spring_stiffness[axle], damper[axle], delta)
 	_apply_chassis_links()
-	for wheel in wheels:
-		var mu := tyre_mu * (1.0 if wheel.front else rear_grip_factor) * tyres.grip_factor(wheel)
+	for index in wheels.size():
+		var wheel := wheels[index]
+		var mu := tyre_mu * (1.0 if wheel.front else rear_grip_factor) * tyres.grip_factor(wheel) * damage.grip_factor(index)
 		var share := brake_front_share if wheel.front else 1.0 - brake_front_share
 		var brake_torque := (brake_force * brake * share * 0.5 + rolling_resistance * corner_mass) * wheel_radius
+		if damage.is_punctured(index):
+			brake_torque += damage.puncture_drag_n * wheel_radius
 		var torque := 0.0
 		var locked := false
 		if not wheel.front:
@@ -697,7 +745,7 @@ func _apply_aero() -> void:
 	var air_speed := linear_velocity.dot(-t.basis.z.normalized())
 	var pressure := 0.5 * air_density * air_speed * air_speed
 	downforce = pressure * get_cla()
-	downforce_front = downforce * aero_balance
+	downforce_front = downforce * get_aero_balance()
 	apply_force(-up * downforce_front, t.basis * Vector3(0.0, 0.0, front_axle_z))
 	apply_force(-up * (downforce - downforce_front), t.basis * Vector3(0.0, 0.0, rear_axle_z))
 	var speed := linear_velocity.length()
@@ -706,9 +754,15 @@ func _apply_aero() -> void:
 		apply_force(-linear_velocity / speed * drag_force, t.basis * Vector3(0.0, pressure_height, center_of_mass.z))
 
 
-## ClA y CdA de ahora (con el modo recta y el piso que toca).
+## ClA y CdA de ahora (con el modo recta, el piso que toca y el alerón delantero dañado).
 func get_cla() -> float:
-	return cla * active_aero.cla_scale() * floor_factor()
+	return cla * active_aero.cla_scale() * floor_factor() * (aero_balance * damage.front_downforce_factor() + 1.0 - aero_balance)
+
+
+## Fracción de la carga en el eje delantero ahora (baja con el alerón delantero dañado).
+func get_aero_balance() -> float:
+	var front := aero_balance * damage.front_downforce_factor()
+	return front / maxf(front + 1.0 - aero_balance, 0.0001)
 
 
 ## m entre el piso y el asfalto en cada eje (x adelante, y atrás): la altura de reposo menos
@@ -823,10 +877,13 @@ func _overtake_power(throttle: float) -> float:
 
 ## Las ruedas siguen la suspensión y las delanteras giran con la dirección.
 func _update_wheel_meshes() -> void:
-	for wheel in wheels:
+	for i in wheels.size():
+		var wheel := wheels[i]
 		if wheel.mesh == null:
 			continue
-		var hub := wheel.mount - Vector3(0, minf(wheel.length, suspension_travel * 2.0), 0)
+		# La rueda pinchada se dibuja hundida en el piso (aplastada).
+		var flat := damage.puncture_drop if damage.is_punctured(i) else 0.0
+		var hub := wheel.mount - Vector3(0, minf(wheel.length, suspension_travel * 2.0) + flat, 0)
 		var turn := Basis(Vector3.UP, wheel.steer_angle) * Basis(Vector3.RIGHT, -wheel.spin_angle)
 		wheel.mesh.transform = Transform3D(turn * wheel.mesh_basis, hub)
 
@@ -907,6 +964,11 @@ func reset_to_spawn() -> void:
 	_steer = 0.0
 	_impact = 0.0
 	kerb_contact = 0.0
+	# Un neumático gastado del todo volvería a pinchar: en boxes se cambia ese.
+	for wheel in wheels:
+		if wheel.wear >= 1.0:
+			tyres.fit(wheel)
+	damage.repair()
 	for wheel in wheels:
 		wheel.reset()
 	active_aero.reset()

@@ -72,8 +72,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | ✅ |
 | 34 | Combustible: el peso baja vuelta a vuelta | ✅ |
 | 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | ✅ |
-| 36 | Daños: alerón delantero roto reduce la carga, pinchazos | ⏳ Siguiente |
-| 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | |
+| 36 | Daños: alerón delantero roto reduce la carga, pinchazos | ✅ |
+| 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | ⏳ Siguiente |
 | 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | |
 
 ## Fase E — Telemetría y entrenamiento
@@ -700,3 +700,33 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   \*El piloto automático de siempre dobla a 0,7 g fijos y no ve la carga aerodinámica; para estas vueltas dobla al 60 % del agarre con la carga del ClA del setup (1:31,3 la vuelta). **Lo que más rinde en Bakú es alargar la caja**: con 2,40 la vuelta baja 1,6 s y el auto llega a 243 km/h; ahora sí rinden el modo recta y el ERS en las rectas. Pero a esa velocidad la carga aerodinámica hunde la cola y el piso toca atrás: hay que sacar alerón trasero, subir el auto o endurecer los resortes traseros. Los alerones casi no cambian la vuelta del piloto automático (±0,1 s; dobla con margen y no aprovecha el balance), pero sí el auto en la curva de prueba. Bajar el piso 10 mm tampoco cambia la vuelta del piloto automático y queda a 0,6 mm de tocar. Con menos presión las traseras se pasan de la ventana del medio y se gastan más; al duro, que cuesta calentar, le sirve.
   Con el setup por defecto siguen exactamente igual las pruebas de los Pasos 25–34 (0–100 en 2,78 s, frenada 60,9 m desde 192 km/h, 1,47 / 1,82 g; ABS 62,4 m; largadas 3,40 / 3,45 / 3,20 / 2,80 s; ERS 0–185 en 4,95 s en Ataque; combustible 20,7 g/s y la tabla de cargas) y la vuelta con el piloto automático de siempre: **1:42.383 / 1:41.017 / 1:41.050**, sin salidas ni golpes. Guardado: sin archivo usa los defaults, los valores fuera de rango van al paso más cercano (−12 mm → −10 mm, relación 9 → 3,30), los extremos no dan la vuelta y un archivo con basura no rompe nada. Desde la pausa: el setup se aplica, el auto vuelve a boxes, el velocímetro pasa a escala de 260 km/h y abrir y cerrar sin cambiar nada no lo mueve. Capturas: `informes/capturas/paso35-menu-setup.png` (pantalla de setup con caja larga), `paso35-modos.png` (tarjeta del setup), `paso35-piso-toca.png` (−20 mm con resortes blandos: frenando a 185 km/h el piso toca atrás, la carga queda al 70 % y el panel F3 lo muestra) y `paso35-pausa-setup.png`.
 - **Cómo probar**: F5 → Jugar → tarjeta "Setup del auto": ← → cambia cada ajuste; abajo se ve cómo cambian ClA, CdA, el reparto y la velocidad máxima. Probar relación final 2,40 en práctica: en la recta principal se pasa de 240 km/h. Con F3 abierto y la altura en −20 mm con resortes blandos, el piso toca ("¡TOCA!") y se oye el roce. En práctica, Esc → "Setup del auto" cambia el setup sin volver al menú.
+
+### Paso 36 — Daños
+- **Qué se rompe** (`CarDamage`, datos en el bloque `"damage"` de `car.json`): la salud del alerón delantero (0–1) y un pinchazo por rueda. En cada cuadro con contacto contra un muro (`_integrate_forces()`) se juntan los puntos de contacto en coordenadas del auto con su golpe (velocidad perdida / `shake_wall_speed`, 0–1):
+  - **Alerón**: los golpes con la trompa (z < −2,3 m) le sacan 2 × (golpe − 0,25) de salud, con el golpe más fuerte del cuadro. Por debajo de 0,25 no pasa nada; la vuelta con el piloto automático no tiene golpes > 0,15. Con menos de 25 % se considera **roto** y desaparece; dañado se ve caído e inclinado.
+  - **Pinchazo**: un golpe > 0,3 a menos de 0,7 m (vista de arriba) de una rueda la pincha. También pincha un neumático **gastado del todo** (desgaste ≥ 100 %, Paso 33).
+- **Efectos**:
+  - Alerón: la carga del eje delantero × (1 − 0,7 × daño), encima del setup (`get_cla()` y el reparto `get_aero_balance()`; no se tocan `cla` ni `aero_balance`). Roto: ClA 3,20 → 2,21 y la carga adelante 44 → 19 %: subvira mucho.
+  - Pinchazo: μ de esa rueda × 0,35, 1500 N de arrastre (como par de freno sobre esa rueda) y la rueda 35 mm más baja (`rest_length` y el dibujo). El auto tira para el lado pinchado.
+- **Reparar**: R (volver a boxes) repara todo y cambia los neumáticos gastados del todo por uno nuevo del mismo compuesto (los demás siguen como estaban). Volver a boxes con un setup nuevo desde la pausa también repara. Los daños están siempre activos (no hay opción).
+- **HUD**: aviso al dañarse ("Alerón delantero dañado: 63 %", "¡ALERÓN DELANTERO ROTO! · R: boxes", "¡PINCHAZO! Neumático trasero derecho · R: boxes"). En el `TyrePanel`, una barra con la salud del alerón arriba (verde sano; dañado, de amarillo a rojo) y la rueda pinchada en bordó con "PINCH.". En el panel F3, la línea "Daños: alerón % · pinchazos"; para que entre, las dos líneas de transferencia quedaron en una.
+- **Verificación** (física a 60 Hz, 20 kg de combustible, neumáticos medios nuevos):
+
+| Choque contra el muro de la recta | 5° | 10° | 20° | 45° | 90° |
+|---|---|---|---|---|---|
+| 100 km/h | nada | nada | nada (golpe 0,16) | alerón 63 % + pinchazo TD | alerón roto |
+| 150 km/h | nada | nada | alerón 27 % + pinchazo DD | alerón 20 % | alerón roto |
+| 200 km/h | nada | pinchazo TD (golpe 0,35) | alerón 98 % | alerón roto | alerón roto |
+
+| Daño | ClA / carga adelante | 0–160 | Frenada 160 → 0 | Curva 120 / 160 km/h |
+|---|---|---|---|---|
+| Sano | 3,20 / 44 % | 4,43 s | 46,7 m, gira 0,5° | 1,82 / 2,07 g |
+| Alerón 50 % | 2,71 / 34 % | 4,45 s | 48,1 m | 1,71 / 1,87 g |
+| Alerón roto | 2,21 / 19 % | 4,45 s | 49,5 m | 1,58 / 1,66 g |
+| Pinchazo delantero izquierdo | 3,20 / 44 % | 4,92 s* | 54,6 m, gira −9,7° | 1,55 / 1,74 g |
+| Pinchazo delantero derecho | igual | 4,92 s* | 54,5 m, gira +9,6° | **1,14 / 1,27 g** (rueda de afuera) |
+| Pinchazo trasero izquierdo / derecho | igual | **7,02 s*** | 54,2 m, **trompo** (gira ∓117°) | trompo |
+
+  \*Corrigiendo con el volante para ir derecho (hasta 0,04 de volante con una delantera pinchada, 0,14 con una trasera). La frenada se mide sin tocar el volante: con una trasera pinchada el auto hace un trompo, y en la curva también (la prueba no corrige).
+  Con el control de tracción la trasera pinchada no patina (κ 0,09): el TC limita el par de las dos traseras, por eso el 0–160 tarda 7 s. Desgaste: un neumático trasero derecho al 99,95 % acelerando se pincha (aviso y "PINCH."); con R queda nuevo, sin pinchazo y las 4 ruedas a la altura de reposo. **Sin daños nada cambió**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050 sin daños, salidas ni golpes. En la prueba del Paso 25 el choque a 90° da golpe 0,67 en lugar de 1,00 porque el auto ya llega con el alerón dañado del choque a 20° (la prueba no repara entre choques); reparando antes de cada choque da 1,00 como siempre. Capturas: `informes/capturas/paso36-choque.png` (de trompa a 100 km/h y 45°: alerón 63 %, pinchazo trasero derecho, barra del alerón y panel F3) y `paso36-aleron-pinchazo.png` (alerón al 40 %, caído, y la delantera izquierda pinchada más baja).
+- **Cómo probar**: F5 → Jugar → práctica. Pegar de trompa contra un muro a más de ~100 km/h: aparece el aviso, la barra del alerón baja y el auto subvira. Un golpe con la rueda contra el muro la pincha: el auto tira para ese lado. R repara todo. Con F3 se ve la línea "Daños".

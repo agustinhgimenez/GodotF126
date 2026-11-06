@@ -51,6 +51,13 @@ func bind_car(car: CarController) -> void:
 	car.brake_bias_changed.connect(func(share: float) -> void:
 		show_message("Reparto de frenada %d %% adelante" % roundi(share * 100.0), 1.0))
 	car.fuel.ran_out.connect(func() -> void: show_message("¡SIN COMBUSTIBLE!", 3.0, COLOR_WARNING))
+	car.damage.wing_damaged.connect(func(health: float) -> void:
+		if car.damage.is_wing_broken():
+			show_message("¡ALERÓN DELANTERO ROTO! · R: boxes", 3.0, COLOR_WARNING)
+		else:
+			show_message("Alerón delantero dañado: %d %%" % roundi(health * 100.0), 2.0, COLOR_SLOWER))
+	car.damage.punctured.connect(func(index: int) -> void:
+		show_message("¡PINCHAZO! Neumático %s · R: boxes" % CarDamage.wheel_name(index), 3.0, COLOR_WARNING))
 	car.ers.mode_changed.connect(func(mode_name: String) -> void:
 		show_message("ERS: modo %s" % mode_name.to_lower(), 1.0, Dashboard.COLOR_ERS))
 	car.traction_control_changed.connect(func(level: int) -> void:

@@ -4,6 +4,8 @@ extends Control
 ## color y letra) y las 4 ruedas vistas desde arriba, cada una pintada según su temperatura
 ## (celeste fría, verde en la ventana del compuesto, roja pasada) con los °C y el desgaste.
 ## Abajo (Paso 34): barra de combustible con los kg y las vueltas que alcanzan.
+## Daños (Paso 36): delante de las ruedas, una barra con la salud del alerón delantero; la
+## rueda pinchada se pinta bordó con "PINCH.".
 
 const SIZE := Vector2(132, 184)
 const COLOR_FUEL := Color(0.95, 0.55, 0.15)
@@ -11,6 +13,8 @@ const COLOR_COLD := Color(0.25, 0.55, 1.0)
 const COLOR_OK := Color(0.2, 0.75, 0.35)
 const COLOR_HOT := Color(1.0, 0.3, 0.2)
 const COLOR_DIM := Color(1.0, 1.0, 1.0, 0.7)
+const COLOR_DAMAGED := Color(1.0, 0.8, 0.15)
+const COLOR_PUNCTURE := Color(0.45, 0.04, 0.06, 0.95)
 const TYRE_SIZE := Vector2(46, 48)
 ## Esquina de cada rueda (mismo orden que CarController.wheels: DI, DD, TI, TD).
 const TYRE_SPOTS := [Vector2(14, 44), Vector2(72, 44), Vector2(14, 100), Vector2(72, 100)]
@@ -50,12 +54,19 @@ func _draw() -> void:
 	draw_circle(badge, 14.0, tyres.compound_color())
 	draw_circle(badge, 9.0, Dashboard.COLOR_PANEL.lerp(Color.BLACK, 0.6))
 	HudDraw.draw_text_centered(self, _font, str(compound.get("short", "?")), badge + Vector2(0, 1), 14, Color.WHITE)
+	var damage := _car.damage
+	var wing := Rect2(14, 34, SIZE.x - 28, 6)
+	draw_rect(wing, HudDraw.COLOR_OFF)
+	var wing_color := Color(COLOR_OK, 0.85) if damage.wing_health >= 1.0 else COLOR_HOT.lerp(COLOR_DAMAGED, damage.wing_health)
+	draw_rect(Rect2(wing.position, Vector2(wing.size.x * damage.wing_health, wing.size.y)), wing_color)
 	for i in 4:
 		var wheel := _car.wheels[i]
 		var rect := Rect2(TYRE_SPOTS[i], TYRE_SIZE)
-		draw_rect(rect, temperature_color(tyres.temperature_state(wheel.temperature)))
+		var punctured := damage.is_punctured(i)
+		draw_rect(rect, COLOR_PUNCTURE if punctured else temperature_color(tyres.temperature_state(wheel.temperature)))
 		var center := rect.get_center()
-		HudDraw.draw_text_centered(self, _font, "%d°" % roundi(wheel.temperature), center + Vector2(0, -8), 15, Color.WHITE)
+		HudDraw.draw_text_centered(self, _font, "PINCH." if punctured else "%d°" % roundi(wheel.temperature),
+			center + Vector2(0, -8), 13 if punctured else 15, Color.WHITE)
 		HudDraw.draw_text_centered(self, _font, "%d %%" % roundi(wheel.wear * 100.0), center + Vector2(0, 12), 12, Color.WHITE)
 	var fuel := _car.fuel
 	var bar := Rect2(14, 156, SIZE.x - 28, 18)
