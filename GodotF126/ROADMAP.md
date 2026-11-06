@@ -9,7 +9,7 @@ Los pasos están agrupados en **fases**. El orden prioriza primero lo que más c
 | Hito | Se alcanza al terminar | Qué se puede mostrar |
 |---|---|---|
 | **H1 — Demo de cursada** ✅ | Paso 24 | Elegir escudería/piloto, caja manual, cockpit con volante y manos, sonido, vuelta cronometrada, resultado |
-| **H2 — Simulador** | Paso 38 | Física de neumáticos, aero activa 2026, ERS, setup, telemetría para entrenar |
+| **H2 — Simulador** ✅ | Paso 38 | Física de neumáticos, aero activa 2026, ERS, setup, telemetría para entrenar |
 | **H3 — Juego completo** | Paso 52 | Rivales con IA, carrera con largada, fantasma, replays |
 | **H4 — Entrega final** | Paso 60 | Tests, optimización, `.exe`, documentación y defensa |
 
@@ -57,7 +57,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 23 | Iluminación de atardecer, sombras, reflejos en el mar | ✅ |
 | 24 | Pulido de H1: tutorial de controles, pantalla de carga, prueba en PC del laboratorio | ✅ |
 
-## Fase D — Física de simulador (H2) ⏳
+## Fase D — Física de simulador (cierra H2) ✅
 
 | Paso | Contenido | Estado |
 |---|---|---|
@@ -74,13 +74,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | ✅ |
 | 36 | Daños: alerón delantero roto reduce la carga, pinchazos | ✅ |
 | 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | ✅ |
-| 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | ⏳ Siguiente |
+| 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | ✅ |
 
 ## Fase E — Telemetría y entrenamiento
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 39 | Registro de telemetría por vuelta: velocidad, RPM, marcha, acelerador, freno, dirección, posición | |
+| 39 | Registro de telemetría por vuelta: velocidad, RPM, marcha, acelerador, freno, dirección, posición | ⏳ Siguiente |
 | 40 | **Delta en vivo** contra la mejor vuelta (verde / rojo) en HUD y volante | |
 | 41 | Pantalla de análisis: gráficos contra distancia, comparando dos vueltas | |
 | 42 | Exportación a CSV | |
@@ -752,3 +752,25 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   Asignación: A a "acelerar" lo saca de "adelantamiento"; E a "acelerar" lo saca de "subir marcha". Se recarga igual de `user://settings.json` y un archivo con basura no rompe nada (teclas inválidas fuera, eje 99 → nada, curva 1,7 → 1,5, vibración 400 → 100). En la pantalla: tecla K, eje 2 (0,3 no alcanza, 0,8 sí → "Palanca der. ←"), un eje en una acción digital no cuenta, botón B, Esc cancela, Supr borra, a los 6,0 s se cancela sola y Esc vuelve al tutorial sin cerrar el panel (la pantalla mide 481 px de los 510 del panel). **Sin mando nada cambió**: vuelta con el piloto automático 1:42.383 / 1:41.017 / 1:41.050 sin salidas, golpes ni daños, y la prueba del Paso 25 igual (0–100 2,78 s, frenada 60,9 m, 1,47 / 1,82 g). Falta probarlo con un mando y un volante de verdad. Capturas: `informes/capturas/paso37-asignar.png` (esperando una tecla para "Subir marcha", freno de mano en B, vibración 75 %), `paso37-f3-analogico.png` (gatillo al 58 % y palanca a 0,40: barras y marca en el chasis) y `paso37-pausa-controles.png` (tutorial con el botón "Asignar controles").
 - **Cómo probar**: conectar un mando antes de abrir el juego (o después: lo detecta solo). En el menú, Controles muestra sus botones; con la cruceta y A se navega. En la carrera, RT / LT de a poco y F3 para ver las barras. Controles → Asignar controles: Enter en una celda y apretar la tecla / botón / eje nuevo. Con un volante: "Pedales: Volante (−1 a 1)" y, en Opciones, la dirección sin asistencia.
+
+### Paso 38 — Línea de trazada (cierra la Fase D y el hito H2)
+- **Trayectoria** (`RacingLine`, bloque `"racing_line"` de `data/tracks.json`): se calcula al cargar la pista. Cada punto del centerline se corre de costado hacia la posición que minimiza la curvatura respecto de sus vecinos ((4 · vecinos a `span` − vecinos a 2 · `span`) / 6, primero con vecinos lejanos —24 puntos— y después cercanos —12, 6, 3—, 60 vueltas cada uno), sin pasar de media pista menos 1,5 m. Así sale abierta antes de la curva, toca el vértice y sale abierta, y en las chicanas va derecho. Tarda ~0,4 s, en la pantalla de carga.
+- **Velocidad objetivo** por punto: la de curva con el agarre del auto, \(v = \sqrt{f\,\mu\,g / (\kappa - f\,\mu\,k_{aero})}\), con \(f = 0{,}8\), μ del neumático × el compuesto y la carga aerodinámica del setup, hasta la máxima del limitador. Después se recorre hacia atrás con la frenada (0,85 × el mismo agarre + arrastre). Se recalcula al cambiar el setup.
+- **Dibujo**: una cinta de 1 m sobre el asfalto (`ArrayMesh`, sin sombras, 5 cm arriba) con un shader (`shaders/racing_line.gdshader`) que la colorea según la velocidad del auto contra la objetivo de cada punto: **verde** (sobra margen), **amarillo** (levantar) y **rojo** (frenar: vas más rápido de lo que se puede ir ahí). El rojo aparece justo donde la curva de frenada cruza la velocidad actual, o sea en el punto de frenada. Se ve de 12 m atrás a 280 m adelante, con fundido al final.
+- **Modos** (opción `racing_line` en `user://settings.json`, por defecto "sólo frenadas"; tecla **L**, acción nueva `racing_line`, asignable desde "Asignar controles"): completa → sólo frenadas (únicamente las partes amarilla y roja) → no. El HUD avisa "Línea de trazada: …". En el tutorial de controles, cámara y F3 comparten fila para que entre la de la L (509 de 510 px).
+- **Verificación** (`paso38_line.gd`, 1.832 puntos):
+
+| Prueba | Resultado |
+|---|---|
+| Cálculo de la trayectoria / velocidades | 407 ms (840 ms antes de guardar las posiciones en caché) / 21 ms |
+| Desplazamiento máximo | 4,50 m (media pista − margen), 18 % de los puntos contra el margen |
+| Radio mínimo por curva (15 curvas), centro → línea | promedio 16 → 23 m (×1,43); ej. 12 → 20 m, 14 → 23 m, 21 → 76 m (curva rápida) |
+| Vuelta con piloto automático siguiendo la línea y sus velocidades | **1:18.450**, 0 salidas, 0 golpes, sin daños |
+| La misma, por el centro y con esas velocidades | 1:25.217 (la línea vale 6,8 s) |
+| Velocidades objetivo × 1,10 | 1:18.450 pero 6 salidas de pista: el 0,8 del agarre está cerca del límite |
+| Color 15 m adelante del auto | frenando: rojo el 94 % del tiempo · acelerando: rojo el 5 % |
+| 300 / 40 / 0 m antes de la curva más lenta (objetivo 151 / 139 / 50 km/h), a 80 / 140 / 190 km/h | verde-verde-rojo · verde-rojo-rojo · rojo-rojo-rojo |
+| L desde "completa" / opción "off" | completa → sólo frenadas → no → completa · la cinta se oculta |
+
+  **Sin la ayuda nada cambió**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050 sin salidas, golpes ni daños. Capturas: `informes/capturas/paso38-linea-completa.png` (T-cam a 191 km/h, el rojo empieza 17 m adelante), `paso38-solo-frenadas.png` (cámara TV a 174 km/h, sólo la zona de frenada en rojo hasta la curva) y `paso38-controles.png` (tutorial con la fila de la L).
+- **Cómo probar**: F5 y práctica libre. Llegando a una curva la línea se pone roja donde hay que frenar; frenando hasta que deje de estar roja bajo el auto se entra a la velocidad justa. L cambia entre completa, sólo frenadas y apagada.

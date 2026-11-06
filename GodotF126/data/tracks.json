@@ -121,6 +121,23 @@
           { "name": "Recta del oeste", "from": 1790, "to": 1915 }
         ]
       },
+      "racing_line": {
+        "description": "Línea de trazada (Paso 38): se calcula al cargar. La línea se aleja del centro hasta 'margin' m antes del borde (iteraciones de suavizado con los vecinos a 'spans' puntos); la velocidad objetivo sale del agarre del auto ('grip_fraction' × μ con la carga aerodinámica) y la frenada ('brake_fraction'). Se dibuja 'view_ahead' m adelante del auto y 'view_behind' atrás; verde = acelerá, amarillo = levantá, rojo = frená (según la velocidad del auto contra la objetivo).",
+        "margin": 1.5,
+        "spans": [24, 12, 6, 3],
+        "iterations": 60,
+        "curvature_span": 6.0,
+        "grip_fraction": 0.8,
+        "brake_fraction": 0.85,
+        "width": 1.0,
+        "height": 0.05,
+        "view_ahead": 280.0,
+        "view_behind": 12.0,
+        "fade": 60.0,
+        "yellow_kmh": 15.0,
+        "red_kmh": 5.0,
+        "opacity": 0.8
+      },
       "limits": {
         "car_half_width": 1.0,
         "wheel_track": 0.85,

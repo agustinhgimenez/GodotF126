@@ -176,6 +176,8 @@ func _sanitize(key: String, value):
 			return value if str(value) in QUALITY_LEVELS else fallback
 		"time_of_day":
 			return value if str(value) in TIMES_OF_DAY else fallback
+		"racing_line":
+			return value if str(value) in RacingLine.MODES else fallback
 		"camera":
 			if not (value is int or value is float):
 				return int(fallback)

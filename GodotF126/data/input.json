@@ -17,7 +17,8 @@
     { "id": "brake_bias_forward", "name": "Reparto de frenada adelante" },
     { "id": "change_camera", "name": "Cambiar cámara" },
     { "id": "reset_car", "name": "Volver a la pista" },
-    { "id": "toggle_telemetry", "name": "Panel de cargas (F3)" }
+    { "id": "toggle_telemetry", "name": "Panel de cargas (F3)" },
+    { "id": "racing_line", "name": "Línea de trazada" }
   ],
   "gamepad": {
     "accelerate": { "axis": 5, "sign": 1 },

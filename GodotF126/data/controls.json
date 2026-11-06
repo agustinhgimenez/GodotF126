@@ -23,9 +23,9 @@
     {
       "title": "Carrera",
       "rows": [
-        { "actions": ["change_camera"], "text": "Cambiar cámara (6 vistas)" },
+        { "actions": ["change_camera", "toggle_telemetry"], "text": "Cámara (6 vistas) · panel de cargas por rueda" },
         { "actions": ["reset_car"], "text": "Volver a la pista" },
-        { "actions": ["toggle_telemetry"], "text": "Panel de cargas por rueda" },
+        { "actions": ["racing_line"], "text": "Línea de trazada: completa / sólo frenadas / no" },
         { "keys": ["Esc"], "pad_keys": ["Start"], "text": "Pausa: opciones, controles, reiniciar" }
       ]
     }
@@ -44,6 +44,7 @@
     "Con el reparto de frenada muy atrás se bloquean primero las traseras y el auto se cruza.",
     "Con el control de tracción bajo o apagado (T), dosificá el acelerador al salir de las curvas lentas.",
     "V cambia el modo del ERS: Ataque gasta la batería rápido, Recarga la llena al levantar el pie y al frenar.",
+    "La línea de trazada se pone roja donde hay que frenar y amarilla donde hay que levantar; L la cambia.",
     "Con un mando, los gatillos aceleran y frenan de a poco: en Controles → Asignar controles se cambia cada botón.",
     "Con un volante, elegí Pedales: Volante (−1 a 1) en Asignar controles y la dirección sin asistencia en Opciones."
   ],

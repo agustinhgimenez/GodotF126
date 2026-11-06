@@ -13,6 +13,7 @@
     "music_volume": 70,
     "quality": "medium",
     "time_of_day": "sunset",
+    "racing_line": "braking",
     "fullscreen": false,
     "tutorial_seen": false,
     "bindings": {},

@@ -24,6 +24,7 @@ const DEFAULT_KEYS := {
 	"brake_bias_forward": [KEY_X],
 	"traction_control": [KEY_T],
 	"ers_mode": [KEY_V],
+	"racing_line": [KEY_L],
 }
 
 const FALLBACK_DRIVER := {"id": "colapinto", "name": "Franco Colapinto", "number": 43, "country": "AR"}
@@ -38,6 +39,8 @@ var results_delay: float = 2.5
 var car_setup: CarSetup
 ## Vibración del mando (Paso 37; intensidad = opción "vibration").
 var rumble := ControllerRumble.new()
+## Línea de trazada (Paso 38; modo = opción "racing_line", tecla L).
+var racing_line: RacingLine
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 
@@ -105,6 +108,14 @@ func _ready() -> void:
 	if zones_data is Dictionary:
 		aero_zones.configure(zones_data)
 	aero_zones.setup(track, car, track_limits, lap_timer)
+	racing_line = RacingLine.new()
+	racing_line.name = "RacingLine"
+	var line_data = track_info.get("racing_line", {})
+	if line_data is Dictionary:
+		racing_line.configure(line_data)
+	add_child(racing_line)
+	racing_line.mode = str(Settings.get_value("racing_line"))
+	racing_line.setup(track, car, track_limits)
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)
 	lap_timer.lap_started.connect(func(_lap: int) -> void: car.fuel.new_lap())
@@ -190,6 +201,13 @@ func _exit_tree() -> void:
 	rumble.stop()
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("racing_line") and car.controls_enabled:
+		var next := RacingLine.next_mode(str(Settings.get_value("racing_line")))
+		Settings.set_value("racing_line", next)
+		hud.show_message("Línea de trazada: %s" % RacingLine.mode_name(next), 1.5)
+
+
 func _on_session_finished() -> void:
 	car.controls_enabled = false
 	rumble.stop()
@@ -221,12 +239,14 @@ func _on_setup_changed() -> void:
 	car.apply_setup(car_setup)
 	car.reset_to_spawn()
 	hud.refresh_speed_range()
+	racing_line.refresh_speeds()
 	hud.show_message("Setup aplicado: el auto vuelve a boxes", 3.0)
 
 
 func _on_setting_changed(key: String) -> void:
 	Settings.apply_to_car(car, false)
 	rumble.intensity = float(Settings.get_value("vibration")) / 100.0
+	racing_line.set_mode(str(Settings.get_value("racing_line")))
 	if key == "time_of_day" or key.is_empty():
 		_apply_lighting()
 	else:
