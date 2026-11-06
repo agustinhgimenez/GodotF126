@@ -141,6 +141,10 @@ var controls_enabled: bool = true
 var throttle_input: float = 0.0
 var brake_input: float = 0.0
 var steer_raw: float = 0.0
+## Paso 44: auto manejado por un AiDriver (ponerlo antes de add_child): no lee Input, no usa su
+## cámara ni el reinicio con R y no suena. `ai_inputs` = (acelerador, freno, dirección −1 der. a 1 izq.).
+var ai_controlled: bool = false
+var ai_inputs: Vector3 = Vector3.ZERO
 ## 0–1: cuánto está pisando un piano (lo escribe TrackLimits; lo usa CarAudioFx).
 var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
@@ -211,6 +215,12 @@ func _ready() -> void:
 		_update_wing_mesh())
 	_shake_noise.frequency = 1.0
 	gearbox.gear_changed.connect(_on_gear_changed)
+	if ai_controlled:
+		_camera.current = false
+		camera_mode = 1
+		set_process_unhandled_input(false)
+		engine_audio.set_muted(true)
+		audio_fx.set_muted(true)
 	_camera_pivot.top_level = true
 	_apply_camera_mode()
 	_snap_camera()
@@ -517,7 +527,7 @@ func _apply_camera_mode() -> void:
 		_camera.transform = _camera_base
 		_camera.fov = float(mode["fov"])
 		_camera.near = 0.3 if view == "chase" else 0.1
-	if not _showcase:
+	if not _showcase and not ai_controlled:
 		_camera.current = view != "external"
 	_helmet.visible = not cockpit
 	steering_wheel.visible = cockpit
@@ -527,7 +537,7 @@ func _apply_camera_mode() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if Input.is_action_just_pressed("reset_car"):
+	if not ai_controlled and Input.is_action_just_pressed("reset_car"):
 		reset_to_spawn()
 		return
 
@@ -535,7 +545,12 @@ func _physics_process(delta: float) -> void:
 	var brake := 0.0
 	var steer_input := 0.0
 	var handbrake := false
-	if controls_enabled:
+	if ai_controlled:
+		if controls_enabled:
+			throttle = clampf(ai_inputs.x, 0.0, 1.0)
+			brake = clampf(ai_inputs.y, 0.0, 1.0)
+			steer_input = clampf(ai_inputs.z, -1.0, 1.0)
+	elif controls_enabled:
 		throttle = InputBindings.pedal_strength("accelerate", pedal_full_range)
 		brake = InputBindings.pedal_strength("brake", pedal_full_range)
 		steer_input = Input.get_axis("steer_right", "steer_left")
@@ -572,7 +587,8 @@ func _physics_process(delta: float) -> void:
 		if damage.wear_puncture and wheels[i].wear >= 1.0:
 			damage.puncture(i)
 	_update_wheel_meshes()
-	_update_camera(delta)
+	if not ai_controlled:
+		_update_camera(delta)
 
 	if global_position.y < -20.0:
 		reset_to_spawn()

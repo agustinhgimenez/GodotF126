@@ -86,12 +86,12 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 42 | Exportación a CSV | ✅ |
 | 43 | **Auto fantasma** de la mejor vuelta | ✅ |
 
-## Fase F — Rivales y carrera (H3)
+## Fase F — Rivales y carrera (H3) ⏳
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 44 | IA que sigue la trazada con velocidad objetivo según curvatura | ⏳ Siguiente |
-| 45 | IA con niveles de dificultad, defensa y adelantamientos | |
+| 44 | IA que sigue la trazada con velocidad objetivo según curvatura | ✅ |
+| 45 | IA con niveles de dificultad, defensa y adelantamientos | ⏳ Siguiente |
 | 46 | Colisiones entre autos y penalizaciones | |
 | 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | |
 | 48 | Pit lane con limitador de velocidad y paradas en boxes | |
@@ -885,3 +885,27 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   La primera corrida marcó errores de pose de 2 m y "fuera de la pista": era la prueba, que leía el fantasma antes de que se actualizara en ese cuadro y buscaba el punto de pista cercano desde el último donde lo había visto. Ahora el fantasma guarda con qué vuelta y en qué instante armó la pose. **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050; la prueba del Paso 42 sigue bien con las dos columnas nuevas. Capturas: `informes/capturas/paso43-fantasma.png` (cámara cercana en la vuelta 3, delta +0,520: el fantasma de la vuelta 2 doce metros adelante en la curva) y `paso43-fantasma-cockpit.png` (desde el cockpit, 15 m adelante).
 - **Cómo probar**: F5, práctica libre, una vuelta limpia y en la siguiente buscar el auto transparente; levantar en alguna recta y verlo escaparse. H lo oculta.
+
+### Paso 44 — IA que sigue la trazada
+- **El piloto** (`AiDriver`, datos en `data/ai.json`): maneja un auto igual al del jugador (misma física de 4 ruedas, neumáticos, aero, ERS, combustible; setup por defecto, caja automática, ABS y TC 3) siguiendo la **línea de trazada del Paso 38**:
+  - **Dirección**: apunta a un punto de la línea 10 m o 0,55 s adelante (lo que sea más) y gira proporcional al ángulo.
+  - **Velocidad objetivo**: la de la línea un poco más adelante, que sale de la **curvatura** con el agarre del auto (μ × (g + carga aerodinámica)) y de la frenada hacia atrás desde cada curva. Pedales **proporcionales** al error: con el error en cero mantiene medio acelerador, a +1,5 m/s acelera a fondo, y frena desde 1 m/s de más (a fondo con 4 m/s).
+  - **Ritmo** (`pace`, 0,5–1): baja la velocidad en curvas y frenadas, no en las rectas. Es la base de los niveles del Paso 45.
+  - **Rescate**: si en 3 s avanza menos de 5 m por la pista, o va de contramano más de 2 s, vuelve a la línea (y esa vuelta no cuenta). Cuenta vueltas, tiempos, salidas de pista y golpes.
+- **El auto de la IA** (`CarController.ai_controlled`): lee los pedales y la dirección de `ai_inputs` en lugar del teclado o el mando, no toma la cámara, no responde a las teclas (cámara, R, marchas…) y no suena. No tiene HUD, telemetría, delta ni fantasma; no cuenta para los límites de pista ni el cronómetro del jugador.
+- **En práctica, tecla I** (acción `ai_rival`): suma un rival (el primer piloto de otro equipo: con Colapinto, Lando Norris en McLaren) 40 m detrás, sobre la línea y a la velocidad del jugador; otra vez I lo saca. En contrarreloj no hace nada. Fila en el panel de controles (junto a L y H, para que el panel siga entrando en la pausa) y un consejo en la pantalla de carga. Los autos chocan con la física normal; el contacto, las penalizaciones y no chocarse son de los Pasos 45 y 46.
+- **Verificación** (`paso44_ai.gd`: la IA sola con el jugador congelado lejos y una cámara que la sigue; después el jugador con el piloto automático detrás de la IA):
+
+| Prueba | Resultado |
+|---|---|
+| Auto de la IA | no toma la cámara, no suena, no lee teclas |
+| Ritmo 1,0, 3 vueltas | **1:16.833** (saliendo de parado 40 m antes de la meta), **1:16.450, 1:16.517**; sin salidas, golpes ni rescates; a 4,6 m del centro como mucho |
+| Curvas (11) | pasa a 53–75 km/h con objetivo de 50–70: **107 % de la objetivo** (como mucho 5 km/h más; la línea usa el 80 % del agarre, así que hay margen) |
+| Ritmo 0,9, 1 vuelta | 1:20.100 (+3,58 s), curvas al **90 %** de las de ritmo 1,0, sin salidas ni golpes |
+| De contramano | a los 2 s vuelve a la línea mirando bien |
+| Tecla I | la saca y la vuelve a poner |
+| Jugador detrás de la IA (larga 50 m adelante) | 25 s sin tocarse (mínimo 7,9 m entre centros), la IA sin salidas ni golpes |
+| Costo | decisión de la IA 51 µs por cuadro; física **+2,8 ms por auto** (jugador solo 4,9 ms, con la IA 7,7 ms) |
+
+  Para comparar: el piloto automático de las pruebas (todo o nada en los pedales) da ~1:17,0 en la misma línea; la IA, con pedales proporcionales, 1:16,5. La primera corrida marcó dos cosas que se corrigieron: el rescate por "casi quieto" no saltaba con el auto de contramano (moviéndose, pero para atrás), ahora mira cuánto avanza por la pista; y la fila nueva del panel de controles lo hacía de 536 px en un lugar de 510 (ahora 509). **El costo es un aviso para el Paso 47**: con 22 autos serían ~60 ms de física por cuadro; habrá que simplificar a los autos lejanos (menos pasos de física, sin desgaste ni temperatura, o un modelo cinemático sobre la línea) y medirlo en la PC del laboratorio. **Sin la IA nada cambió**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050. Capturas: `informes/capturas/paso44-ia.png` (la IA sola en la recta, cámara de seguimiento, sin HUD), `paso44-jugador-sigue.png` (el jugador a 170 km/h siguiendo a la IA, 21 m adelante) y `paso44-controles.png` (panel de controles con L · H · I).
+- **Cómo probar**: F5, práctica libre, apretar I y dejarla pasar o seguirla.

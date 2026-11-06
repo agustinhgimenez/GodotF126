@@ -26,7 +26,10 @@ const DEFAULT_KEYS := {
 	"ers_mode": [KEY_V],
 	"racing_line": [KEY_L],
 	"ghost": [KEY_H],
+	"ai_rival": [KEY_I],
 }
+const CAR_SCENE := preload("res://scenes/car.tscn")
+const AI_PATH := "res://data/ai.json"
 
 const FALLBACK_DRIVER := {"id": "colapinto", "name": "Franco Colapinto", "number": 43, "country": "AR"}
 const FALLBACK_TEAM := {"id": "alpine", "name": "Alpine", "color": "#FF87BC"}
@@ -48,6 +51,11 @@ var telemetry: TelemetryRecorder
 var live_delta: LiveDelta
 ## Auto fantasma de la vuelta de referencia (Paso 43; opción "ghost", tecla H).
 var ghost: GhostCar
+## Rival de práctica manejado por la IA (Paso 44; tecla I, sólo en práctica). null si no hay.
+var ai_car: CarController
+var ai_driver: AiDriver
+var ai_name: String = ""
+var _car_data: Dictionary = {}
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 
@@ -87,6 +95,7 @@ func _ready() -> void:
 	car.camera_mode_applied.connect(tv_cameras.set_active)
 
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
+	_car_data = car_data
 	car.configure(car_data)
 	car_setup = CarSetup.load_saved()
 	car.apply_setup(car_setup)
@@ -242,6 +251,77 @@ func _unhandled_input(event: InputEvent) -> void:
 		var note := "" if not on or ghost.reference() != null or live_delta.pick_reference() != null \
 			else " (aparece cuando haya una vuelta válida)"
 		hud.show_message("Auto fantasma: %s%s" % ["sí" if on else "no", note], 1.5)
+	elif event.is_action_pressed("ai_rival") and car.controls_enabled and not GameState.is_time_trial():
+		if ai_car == null:
+			spawn_ai_rival()
+			hud.show_message("Rival IA en pista: %s (I lo saca)" % ai_name, 2.0)
+		else:
+			remove_ai_rival()
+			hud.show_message("Rival IA fuera", 1.5)
+
+
+## Suma un auto manejado por la IA `practice_rival.spawn_behind` m detrás del jugador, sobre la
+## línea y a la velocidad del jugador (sin pasar la objetivo de la línea).
+func spawn_ai_rival() -> AiDriver:
+	remove_ai_rival()
+	var ai_data := DataLoader.load_json(AI_PATH)
+	var rival_data: Dictionary = ai_data.get("practice_rival", {})
+	var car_info: Dictionary = ai_data.get("car", {})
+	ai_car = CAR_SCENE.instantiate() as CarController
+	ai_car.name = "AiRival"
+	ai_car.ai_controlled = true
+	add_child(ai_car)
+	ai_car.configure(_car_data)
+	var default_setup := CarSetup.new()
+	default_setup.configure(DataLoader.load_json(CarSetup.DATA_PATH))
+	ai_car.apply_setup(default_setup)
+	ai_car.fit_tyres(str(car_info.get("compound", "medium")))
+	ai_car.fill_fuel(car.fuel.kg)
+	ai_car.gearbox.manual = false
+	ai_car.active_aero.automatic = true
+	ai_car.abs_enabled = bool(car_info.get("abs", true))
+	ai_car.traction_control.set_level(int(car_info.get("traction_control", 3)))
+	ai_car.steer_response = float(car_info.get("steer_response", ai_car.steer_response))
+	ai_car.steer_limit = float(car_info.get("steer_limit", ai_car.steer_limit))
+	var rival := _pick_rival(str(rival_data.get("driver_id", "")))
+	ai_name = str(rival["driver"].get("name", "IA"))
+	ai_car.set_livery(DataLoader.team_primary(rival["team"]), DataLoader.team_secondary(rival["team"]),
+		UiKit.number_text(rival["driver"].get("number", "")))
+	ai_driver = AiDriver.new()
+	ai_driver.name = "AiDriver"
+	var driver_data = ai_data.get("driver", {})
+	if driver_data is Dictionary:
+		ai_driver.configure(driver_data)
+	add_child(ai_driver)
+	ai_driver.setup(ai_car, track, racing_line)
+	var here := int(track.locate(car.global_position, track_limits.index).x)
+	var at := track.index_at_distance(here, -float(rival_data.get("spawn_behind", 40.0)))
+	ai_driver.place_at(at, minf(maxf(car.forward_speed, 0.0), racing_line.target_speed[at]))
+	return ai_driver
+
+
+func remove_ai_rival() -> void:
+	if ai_driver != null:
+		ai_driver.queue_free()
+	if ai_car != null:
+		ai_car.queue_free()
+	ai_driver = null
+	ai_car = null
+
+
+## El piloto de `driver_id` o, si está vacío, el primero de otro equipo que el del jugador.
+func _pick_rival(driver_id: String) -> Dictionary:
+	var grid := DataLoader.load_json(DataLoader.GRID_PATH)
+	if not driver_id.is_empty():
+		var found := DataLoader.find_driver(grid, driver_id)
+		if not found.is_empty():
+			return found
+	for team in grid.get("teams", []):
+		if str(team.get("id", "")) == str(selected_team.get("id", "")):
+			continue
+		for driver in team.get("drivers", []):
+			return {"driver": driver, "team": team}
+	return {"driver": FALLBACK_DRIVER, "team": FALLBACK_TEAM}
 
 
 func _on_session_finished() -> void:

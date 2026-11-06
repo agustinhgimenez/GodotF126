@@ -19,7 +19,8 @@
     { "id": "reset_car", "name": "Volver a la pista" },
     { "id": "toggle_telemetry", "name": "Panel de cargas (F3)" },
     { "id": "racing_line", "name": "Línea de trazada" },
-    { "id": "ghost", "name": "Auto fantasma" }
+    { "id": "ghost", "name": "Auto fantasma" },
+    { "id": "ai_rival", "name": "Rival IA (práctica)" }
   ],
   "gamepad": {
     "accelerate": { "axis": 5, "sign": 1 },

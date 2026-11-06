@@ -1,0 +1,29 @@
+{
+  "description": "IA (Paso 44). 'driver': cómo maneja AiDriver sobre la línea de trazada (data/tracks.json → racing_line): mira 'lookahead_min' m o 'lookahead_time' s adelante para doblar (ganancia 'steer_gain'), toma la velocidad objetivo 'speed_lookahead' m + 'speed_lookahead_time' s adelante, acelera proporcional al error ('throttle_band' m/s de mantener a fondo) y frena desde 'brake_deadband' m/s de más ('brake_band' hasta fondo). 'pace' (0,5–1) baja la velocidad en curvas y frenadas. Si en 'stuck_time' s avanza menos de 'stuck_progress' m por la pista, o va de contramano (más de 90°) 'wrong_way_time' s, vuelve a la línea. 'car': ayudas y compuesto del auto de la IA (setup por defecto). 'practice_rival': el rival de práctica (tecla I): piloto ('' = el primero de otro equipo) y metros detrás del jugador donde aparece.",
+  "driver": {
+    "lookahead_min": 10.0,
+    "lookahead_time": 0.55,
+    "steer_gain": 2.5,
+    "speed_lookahead": 4.0,
+    "speed_lookahead_time": 0.1,
+    "throttle_band": 3.0,
+    "brake_deadband": 1.0,
+    "brake_band": 3.0,
+    "pace": 1.0,
+    "stuck_progress": 5.0,
+    "stuck_time": 3.0,
+    "wrong_way_time": 2.0,
+    "off_track_margin": 1.0
+  },
+  "car": {
+    "steer_response": 8.0,
+    "steer_limit": 1.0,
+    "abs": true,
+    "traction_control": 3,
+    "compound": "medium"
+  },
+  "practice_rival": {
+    "driver_id": "",
+    "spawn_behind": 40.0
+  }
+}
