@@ -24,6 +24,7 @@ var _setup_button: Button
 var _setup_dirty: bool = false
 var _telemetry: TelemetryPanel
 var _telemetry_button: Button
+var _analysis: TelemetryAnalysis
 var _continue_button: Button
 var _options_button: Button
 var _controls_button: Button
@@ -49,6 +50,7 @@ func set_accent(color: Color) -> void:
 	_controls.set_accent(color)
 	_setup.set_accent(color)
 	_telemetry.set_accent(color)
+	_analysis.set_accent(color)
 
 
 ## Texto bajo el título (piloto, pista, vuelta).
@@ -95,6 +97,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_show_main(_controls_button)
 	elif _setup.visible:
 		_close_setup()
+	elif _analysis.visible:
+		_close_analysis()
 	elif _telemetry.visible:
 		_show_main(_telemetry_button)
 	else:
@@ -106,6 +110,7 @@ func _show_main(focus: Button) -> void:
 	_controls.visible = false
 	_setup.visible = false
 	_telemetry.visible = false
+	_analysis.visible = false
 	_main_panel.visible = true
 	focus.grab_focus()
 
@@ -113,7 +118,21 @@ func _show_main(focus: Button) -> void:
 ## Muestra el botón de telemetría con las vueltas de `recorder` (Paso 39).
 func bind_telemetry(recorder: TelemetryRecorder) -> void:
 	_telemetry.bind(recorder)
+	_analysis.bind(recorder)
 	_telemetry_button.visible = true
+
+
+## Paso 41: análisis a pantalla completa (tapa el título de la pausa).
+func _on_analysis_requested() -> void:
+	_telemetry.visible = false
+	_analysis.visible = true
+	_analysis.open()
+
+
+func _close_analysis() -> void:
+	_analysis.visible = false
+	_telemetry.visible = true
+	_telemetry.focus_analysis()
 
 
 func _on_telemetry_pressed() -> void:
@@ -221,7 +240,13 @@ func _build_ui() -> void:
 	_telemetry.visible = false
 	UiKit.place(_telemetry, Vector4(0, 0, 0, 0), Vector4(80, 190, 700, 700))
 	_telemetry.closed.connect(func() -> void: _show_main(_telemetry_button))
+	_telemetry.analysis_requested.connect(_on_analysis_requested)
 	_root.add_child(_telemetry)
+
+	_analysis = TelemetryAnalysis.new()
+	_analysis.visible = false
+	_analysis.closed.connect(_close_analysis)
+	_root.add_child(_analysis)
 
 
 func _add_button(text: String, action: Callable) -> Button:

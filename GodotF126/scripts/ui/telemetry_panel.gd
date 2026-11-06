@@ -6,6 +6,8 @@ extends VBoxContainer
 ## contra la mejor (de la sesión o la guardada de la pista).
 
 signal closed
+## Botón Análisis (Paso 41): la pausa abre TelemetryAnalysis.
+signal analysis_requested
 
 const COLUMNS := [
 	{"title": "Vuelta", "width": 90},
@@ -29,6 +31,7 @@ var _grid: GridContainer
 var _graph: TelemetryGraph
 var _legend: Label
 var _back: Button
+var _analysis: Button
 
 
 func _ready() -> void:
@@ -52,10 +55,13 @@ func _ready() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 12)
 	add_child(actions)
+	_analysis = UiKit.make_button("Análisis", accent, Vector2(170, 40), 19)
+	_analysis.pressed.connect(func() -> void: analysis_requested.emit())
+	actions.add_child(_analysis)
 	_back = UiKit.make_button("Volver", accent, Vector2(170, 40), 19)
 	_back.pressed.connect(func() -> void: closed.emit())
 	actions.add_child(_back)
-	var hint := UiKit.make_label("Esc volver · el análisis con gráficos llega en el Paso 41", 15)
+	var hint := UiKit.make_label("Esc volver", 15)
 	hint.add_theme_color_override("font_color", DIM)
 	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	actions.add_child(hint)
@@ -68,6 +74,7 @@ func bind(recorder: TelemetryRecorder) -> void:
 func set_accent(color: Color) -> void:
 	accent = color
 	UiKit.apply_button_style(_back, color)
+	UiKit.apply_button_style(_analysis, color)
 	_graph.accent = color
 	_graph.queue_redraw()
 
@@ -75,6 +82,11 @@ func set_accent(color: Color) -> void:
 func open() -> void:
 	refresh()
 	_back.grab_focus()
+
+
+## Vuelve del análisis con el foco en su botón.
+func focus_analysis() -> void:
+	_analysis.grab_focus()
 
 
 func refresh() -> void:

@@ -82,8 +82,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 |---|---|---|
 | 39 | Registro de telemetría por vuelta: velocidad, RPM, marcha, acelerador, freno, dirección, posición | ✅ |
 | 40 | **Delta en vivo** contra la mejor vuelta (verde / rojo) en HUD y volante | ✅ |
-| 41 | Pantalla de análisis: gráficos contra distancia, comparando dos vueltas | ⏳ Siguiente |
-| 42 | Exportación a CSV | |
+| 41 | Pantalla de análisis: gráficos contra distancia, comparando dos vueltas | ✅ |
+| 42 | Exportación a CSV | ⏳ Siguiente |
 | 43 | **Auto fantasma** de la mejor vuelta | |
 
 ## Fase F — Rivales y carrera (H3)
@@ -816,3 +816,26 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050 sin salidas, golpes ni daños. Capturas: `informes/capturas/paso40-delta-verde.png` (vuelta 2, −1,402 ganando), `paso40-delta-rojo-volante.png` (cockpit levantando: +1,124 con la flecha roja en el HUD y en el volante) y `paso40-final.png` (vuelta 3 terminada: FINAL +1,600).
 - **Cómo probar**: F5, práctica libre, una vuelta limpia y en la siguiente mirar la caja debajo del cronómetro (o la pantalla del volante en el cockpit).
+
+### Paso 41 — Pantalla de análisis
+- **Dónde**: Pausa → Telemetría → **Análisis** (botón nuevo). Es a pantalla completa (`TelemetryAnalysis`) y Esc vuelve a la tabla de telemetría.
+- **Dos vueltas, A y B** (botones arriba; ← → o Enter cambian la vuelta): las de la sesión y la mejor guardada de la pista. Al abrir, A = la vuelta válida más rápida y B = la última (o la anterior, si la última es la más rápida).
+- **Gráficos contra la distancia desde la meta** (`TelemetryPlots`), uno debajo del otro, A en el color del equipo y B en blanco: velocidad, **delta acumulado de B contra A** (verde si B va adelante, rojo si va atrás; es el mismo cálculo del delta en vivo), acelerador, freno, marcha, dirección y RPM. Líneas de los sectores (S2 a 855 m, S3 a 1.711 m) y eje cada 500 m.
+- **Cursor**: con el foco en los gráficos, ← → lo mueven de a 10 m; con el mouse sigue al puntero. A la derecha, la tabla con los valores de A, B y B − A en el cursor (tiempo, velocidad, acelerador, freno, marcha, dirección, RPM).
+- **Mapa** (`TelemetryTrackMap`): la pista vista desde arriba con el recorrido de B pintado de **verde donde gana tiempo** contra A, **rojo donde pierde** (el delta cambia más de 0,02 s en ~1 s) y gris donde van parejas, más un punto por vuelta en la posición del cursor.
+- **Verificación** (`paso41_analysis.gd`: 3 vueltas con el piloto que sigue la línea; la 3 levanta al 85 % entre 1.000 y 1.400 m):
+
+| Prueba | Resultado |
+|---|---|
+| Análisis sin vueltas | aviso "Todavía no hay vueltas completas", sin gráficos, foco en Volver |
+| Al abrir | A = vuelta 2 (1:17.033, la más rápida), B = vuelta 3 (1:18.750) |
+| Delta B − A | −0,031 a 500 m · +0,049 a 1.000 · +1,062 a 1.200 · **+1,624 a 1.400** · +1,712 a 2.000 · **+1,717 al final = 1:18.750 − 1:17.033** |
+| Mapa | 392 muestras "pierde", **89 % entre 950 y 1.500 m** (con el umbral de 0,004 s eran 632 y 58 %: ruido) · 30 "gana" · 1.155 parejas |
+| Cursor | 1.000 m + 3 × → = 1.030 m · mouse en x = 419 px → 1.250 m |
+| Tabla a 1.250 m | velocidad 149 / 137 (−12) · marcha 8 / 7 · delta +1,173 |
+| Selector B con ← | vuelta 3 → vuelta 2 |
+| Esc / Esc | vuelve a Telemetría (foco en Análisis) / al menú de la pausa |
+| Costo | delta de 1.577 muestras en 4,5 ms (al cambiar de vuelta) |
+
+  La primera captura mostró la pausa por detrás: el fondo tenía tamaño cero (`set_anchors_preset` sin offsets); ahora usa `set_anchors_and_offsets_preset`. **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050. Capturas: `informes/capturas/paso41-analisis.png` (vuelta 3 contra la 2 con el cursor a 1.250 m: el delta sube donde levantó y el mapa lo marca en rojo) y `paso41-telemetria-boton.png` (tabla con el botón Análisis).
+- **Cómo probar**: F5, práctica libre, dar dos o tres vueltas, Esc → Telemetría → Análisis; mover el mouse sobre los gráficos.

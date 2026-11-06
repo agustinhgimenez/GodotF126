@@ -70,6 +70,34 @@ func track_length() -> float:
 	return _track.track_length if _track != null else 0.0
 
 
+## Metros desde la meta hasta el fin de cada sector intermedio (checkpoints 1, 2…).
+func sector_distances() -> PackedFloat32Array:
+	var result := PackedFloat32Array()
+	if _track == null:
+		return result
+	for k in range(1, _track.checkpoint_indices.size()):
+		result.append(fposmod(_cumulative[_track.checkpoint_indices[k]] - _cumulative[_start_index], track_length()))
+	return result
+
+
+## Vueltas para elegir en el análisis: las de la sesión y la guardada (si es de antes).
+func available_laps() -> Array[TelemetryLap]:
+	var result: Array[TelemetryLap] = laps.duplicate()
+	if saved_best != null and not laps.has(saved_best):
+		result.append(saved_best)
+	return result
+
+
+## Centro de la pista en planta (x, z) para dibujar el mapa.
+func track_outline() -> PackedVector2Array:
+	var result := PackedVector2Array()
+	if _track == null:
+		return result
+	for p in _track.centerline:
+		result.append(Vector2(p.x, p.z))
+	return result
+
+
 ## Metros desde la meta hasta el auto siguiendo el trazado (0 a largo de la pista).
 func lap_distance() -> float:
 	var n := _cumulative.size()
