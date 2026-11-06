@@ -6,5 +6,11 @@
   "save_best": true,
   "full_throttle": 0.98,
   "braking": 0.05,
-  "panel_rows": 8
+  "panel_rows": 8,
+  "delta": {
+    "description": "Delta en vivo (Paso 40): tiempo de la vuelta en curso menos el de la mejor vuelta (de la sesión o la guardada, la más rápida) en el mismo punto de la pista. 'smoothing' = constante de tiempo del suavizado (s), 'final_hold' = segundos que queda el delta final al cerrar la vuelta, 'bar_range' = ± segundos de la barra del HUD.",
+    "smoothing": 0.15,
+    "final_hold": 3.0,
+    "bar_range": 1.0
+  }
 }

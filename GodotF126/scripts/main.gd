@@ -43,6 +43,8 @@ var rumble := ControllerRumble.new()
 var racing_line: RacingLine
 ## Telemetría por vuelta (Paso 39; se ve en la pausa → Telemetría).
 var telemetry: TelemetryRecorder
+## Delta en vivo contra la mejor vuelta (Paso 40; HUD y volante).
+var live_delta: LiveDelta
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 
@@ -123,11 +125,20 @@ func _ready() -> void:
 	telemetry.configure(DataLoader.load_json(TelemetryRecorder.DATA_PATH))
 	add_child(telemetry)
 	telemetry.setup(track, car, lap_timer, track_limits, str(track_info.get("records_key", TRACK_ID)))
+	live_delta = LiveDelta.new()
+	live_delta.name = "LiveDelta"
+	var delta_data = DataLoader.load_json(TelemetryRecorder.DATA_PATH).get("delta", {})
+	if delta_data is Dictionary:
+		live_delta.configure(delta_data)
+	add_child(live_delta)
+	live_delta.setup(telemetry, lap_timer)
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)
 	lap_timer.lap_started.connect(func(_lap: int) -> void: car.fuel.new_lap())
 	hud.bind_lap_timer(lap_timer)
+	hud.bind_delta(live_delta)
 	car.steering_wheel.bind_lap_timer(lap_timer)
+	car.steering_wheel.bind_delta(live_delta)
 	if _standing_start:
 		_setup_start_lights()
 

@@ -15,6 +15,7 @@ var shift_light_start_rpm: float = 9000.0
 
 var _car: CarController = null
 var _timer: LapTimer = null
+var _delta: LiveDelta = null
 var _font: Font
 
 
@@ -29,6 +30,11 @@ func bind(car: CarController) -> void:
 
 func bind_lap_timer(timer: LapTimer) -> void:
 	_timer = timer
+
+
+## Paso 40: el delta continuo reemplaza al de cada sector (que queda si no hay referencia).
+func bind_delta(live_delta: LiveDelta) -> void:
+	_delta = live_delta
 
 
 func _process(_delta: float) -> void:
@@ -60,9 +66,13 @@ func _draw() -> void:
 
 	var delta_text := "--.---"
 	var delta_color := Color.WHITE
-	if _timer != null and not is_nan(_timer.split_delta):
-		delta_text = "%+.3f" % _timer.split_delta
-		delta_color = COLOR_FASTER if _timer.split_delta < 0.0 else COLOR_SLOWER
+	var value: float = _delta.shown_delta() if _delta != null else NAN
+	var invalid := _timer != null and _timer.current_invalid and _delta != null and not _delta.is_showing_final()
+	if is_nan(value) and _timer != null:
+		value = _timer.split_delta
+	if not is_nan(value):
+		delta_text = DeltaDisplay.format_delta(value)
+		delta_color = DeltaDisplay.delta_color(value, invalid)
 	_text("DELTA", Vector2(212, 34), 12, COLOR_DIM)
 	_text(delta_text, Vector2(212, 56), 20, delta_color)
 	_text("MAN" if _car.gearbox.manual else "AUT", Vector2(212, 82), 12, COLOR_DIM)

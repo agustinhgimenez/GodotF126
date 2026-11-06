@@ -48,6 +48,10 @@ func bind_lap_timer(timer: LapTimer) -> void:
 	_screen.bind_lap_timer(timer)
 
 
+func bind_delta(live_delta: LiveDelta) -> void:
+	_screen.bind_delta(live_delta)
+
+
 ## Nodo que gira con la dirección; lo que se cuelgue de él (las manos) gira igual.
 func get_rim() -> Node3D:
 	return _rim

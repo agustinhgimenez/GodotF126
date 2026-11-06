@@ -81,8 +81,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Paso | Contenido | Estado |
 |---|---|---|
 | 39 | Registro de telemetría por vuelta: velocidad, RPM, marcha, acelerador, freno, dirección, posición | ✅ |
-| 40 | **Delta en vivo** contra la mejor vuelta (verde / rojo) en HUD y volante | ⏳ Siguiente |
-| 41 | Pantalla de análisis: gráficos contra distancia, comparando dos vueltas | |
+| 40 | **Delta en vivo** contra la mejor vuelta (verde / rojo) en HUD y volante | ✅ |
+| 41 | Pantalla de análisis: gráficos contra distancia, comparando dos vueltas | ⏳ Siguiente |
 | 42 | Exportación a CSV | |
 | 43 | **Auto fantasma** de la mejor vuelta | |
 
@@ -794,3 +794,25 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   La primera prueba encontró un error: en los primeros metros (antes de cruzar la línea) la distancia saltaba una vuelta entera de pista; ahora cada muestra toma la vuelta más cercana a la anterior. **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050 sin salidas, golpes ni daños. Capturas: `informes/capturas/paso39-pausa.png` (pausa con el botón Telemetría) y `paso39-telemetria.png` (tabla de 3 vueltas y gráfico de la 3 contra la 1).
 - **Cómo probar**: F5, práctica libre, dar dos o tres vueltas y Esc → Telemetría.
+
+### Paso 40 — Delta en vivo
+- **Cálculo** (`LiveDelta`, nodo `LiveDelta` de la carrera; bloque `"delta"` de `data/telemetry.json`): cada cuadro, tiempo de la vuelta en curso menos el tiempo de la **referencia** en el mismo punto de la pista (interpolado por distancia en la telemetría del Paso 39). Negativo = más rápido. La referencia es la más rápida entre la mejor vuelta válida de la sesión y la guardada de la pista (`user://telemetry_best_<pista>.json`), y queda fija toda la vuelta. Suavizado de 0,15 s. Sin referencia (primera vuelta sin archivo guardado) no se muestra nada; un reinicio (R) lo borra.
+- **Al cerrar la vuelta** queda 3 s el delta **final** (tiempo − tiempo de la referencia), igual al que se ve en vivo al cruzar la meta.
+- **HUD**: caja debajo del cronómetro con el delta grande (verde si vas más rápido, rojo si más lento, gris con la vuelta invalidada), una barra que crece desde el centro (izquierda = ganando) hasta ±1 s y una flecha que dice si en este momento estás ganando (▼ verde) o perdiendo (▲ roja) tiempo.
+- **Volante**: el "DELTA" de la pantalla, que antes sólo cambiaba al cerrar cada sector, ahora es el delta continuo, con los mismos colores (si no hay referencia sigue el de sectores).
+- **Verificación** (`paso40_delta.gd`: piloto que sigue la línea; la vuelta 3 levanta al 85 % entre los 1.000 y los 1.400 m):
+
+| Prueba | Resultado |
+|---|---|
+| Vuelta 1 sin referencia | 4.705 de 4.705 cuadros sin delta |
+| Vuelta 2 (1:17.033) contra la 1 (1:18.417, salió de boxes) | −1,433 a los 500 m · −1,403 a 1.000 · −1,377 a 2.000 · final **−1,383** = 1:17.033 − 1:18.417 |
+| Vuelta 3 (1:18.633) contra la 2, levantando de 1.000 a 1.400 m | −0,001 a 500 m · −0,017 a 1.000 · **+1,464** a 1.400 · +1,637 a 2.000 · final **+1,600** = 1:18.633 − 1:17.033 |
+| En vivo al cruzar la meta / final | −1,377 / −1,383 y +1,593 / +1,600 (lo que queda es el suavizado) |
+| Salto máximo entre cuadros | 0,027 s (sin saltos) |
+| Referencia para la vuelta 4 | la 2 (la 3 fue más lenta) |
+| Reinicio (R) | delta y referencia borrados |
+| Escena nueva | la vuelta 1 ya compara contra la guardada |
+| Costo | 0,4 µs por cálculo |
+
+  **Nada cambió en el manejo**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050 sin salidas, golpes ni daños. Capturas: `informes/capturas/paso40-delta-verde.png` (vuelta 2, −1,402 ganando), `paso40-delta-rojo-volante.png` (cockpit levantando: +1,124 con la flecha roja en el HUD y en el volante) y `paso40-final.png` (vuelta 3 terminada: FINAL +1,600).
+- **Cómo probar**: F5, práctica libre, una vuelta limpia y en la siguiente mirar la caja debajo del cronómetro (o la pantalla del volante en el cockpit).

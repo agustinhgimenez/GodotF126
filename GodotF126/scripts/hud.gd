@@ -30,6 +30,7 @@ var _start_lights: StartLightsDisplay
 var _start_hint: Label
 var _wheel_loads: WheelLoadsPanel
 var _tyres: TyrePanel
+var _delta_display: DeltaDisplay
 
 
 func _ready() -> void:
@@ -84,6 +85,11 @@ func bind_lap_timer(timer: LapTimer) -> void:
 		show_message("VUELTA INVALIDADA · %s" % reason.to_lower(), 2.5, COLOR_WARNING))
 	_reset_sectors()
 	_update_summary()
+
+
+## Delta en vivo contra la mejor vuelta (Paso 40), debajo del cronómetro.
+func bind_delta(live_delta: LiveDelta) -> void:
+	_delta_display.bind(live_delta, _timer)
 
 
 ## Largada detenida (Paso 17): muestra el semáforo hasta que termina la secuencia.
@@ -273,6 +279,9 @@ func _build_ui() -> void:
 
 	_summary_label = _make_label(16, HORIZONTAL_ALIGNMENT_CENTER)
 	timing_box.add_child(_summary_label)
+	_delta_display = DeltaDisplay.new()
+	_delta_display.name = "Delta"
+	timing_box.add_child(_delta_display)
 
 	# Arriba a la derecha: pista.
 	_track_label = _make_label(22, HORIZONTAL_ALIGNMENT_RIGHT)
