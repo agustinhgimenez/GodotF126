@@ -70,8 +70,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 31 | Diferencial y **control de tracción** con niveles | ✅ |
 | 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | ✅ |
 | 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | ✅ |
-| 34 | Combustible: el peso baja vuelta a vuelta | ⏳ Siguiente |
-| 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | |
+| 34 | Combustible: el peso baja vuelta a vuelta | ✅ |
+| 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | ⏳ Siguiente |
 | 36 | Daños: alerón delantero roto reduce la carga, pinchazos | |
 | 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | |
 | 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | |
@@ -628,3 +628,25 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   \*El piloto automático de siempre dobla a 0,7 g; para la tanda dobla a 1,1 g (1:30,7 la vuelta). Las delanteras quedan en 85–88 °C y las traseras en ~116 °C, porque el deslizamiento al acelerar las calienta más. El blando es el más rápido al principio, pero atrás se pasa de su ventana, se gasta casi el triple que el duro y en 7 vueltas pierde ~0,5 s; a la vuelta 9 ya va igual que el medio. El duro es el más lento pero casi no cambia. (La vuelta 1 no está en la tabla: arranca desde la largada, y ya antes de este paso era ~1,5 s más lenta.)
   Con el piloto automático de siempre y el medio: **1:42.450 / 1:41.150 / 1:41.017** (Paso 32: 1:42.483 / 1:40.983 / 1:40.917), sin salidas, golpes ni reinicios; batería en 82 %. Siguen igual las pruebas de los Pasos 25, 30 y 32 (0–100 en 2,78 s, frenada 61,0 m desde 192 km/h, 1,47 g a 60 km/h, tabla de frenadas con y sin ABS, ERS); a 120 km/h la curva da 1,84 g (1,82 g con la temperatura y el desgaste apagados: en esa prueba las traseras llegan algo calientes y gastadas de la aceleración anterior). Las largadas del Paso 31 se corren una tras otra con las mismas gomas y la primera es sin TC, así que ahora las siguientes salen con las traseras calientes: 0–100 en 3,40 / 3,37 / 3,20 / 2,82 s con TC 0 / 1 / 2 / 3. Capturas: `informes/capturas/paso33-neumaticos.png` (blando en tanda larga: delanteras en la ventana, traseras pasadas y gastadas, panel F3 abierto) y `paso33-modos.png` (elección del compuesto).
 - **Cómo probar**: F5 → Jugar → en la tarjeta "Neumáticos" elegir con ← → → modo → piloto. En carrera, el panel de neumáticos (a la izquierda del tablero) arranca en 70 °C; en 1–2 vueltas las traseras pasan los 100 °C. Una largada sin TC (T hasta "SIN TC") las pone rojas. Con el duro, las primeras curvas se sienten con menos agarre (frío).
+
+### Paso 34 — Combustible
+- **Consumo** (`Fuel`, datos en `"fuel"` de `data/car.json`): el motor de combustión quema según la potencia que entrega, kg/s = P / (rendimiento 0,5 × 43 MJ/kg); sólo con una marcha puesta y sin cambio en curso, y lo que corta el control de tracción no se quema. A fondo, con 446 kW, son **20,7 g/s (75 kg/h)**, cerca del tope de 2026 (3000 MJ/h ≈ 70 kg/h). Tanque de 70 kg.
+- **Peso**: `mass_kg` (800) pasa a ser el auto seco con el piloto; la masa del cuerpo es seco + combustible y se actualiza a medida que se quema (cada 0,05 kg), junto con la precarga de cada rueda (así el auto no se hunde con el tanque lleno). El tanque está sobre el centro de masa y no lo mueve.
+- **Carga al salir**: en contrarreloj, lo justo para las vueltas elegidas + 1 de margen (0,6 kg por vuelta: 2,4 kg para 3 vueltas, 6,6 kg para 10); en práctica, 20 kg (~40 vueltas). Sin combustible se apaga la unidad de potencia: no empujan ni el motor ni el MGU-K, el motor cae a ralentí y frena ("¡SIN COMBUSTIBLE!").
+- **HUD**: barra naranja debajo de los neumáticos con los kg y las vueltas que alcanzan (según la vuelta anterior); en el panel F3, una línea con los kg, el consumo por vuelta y la masa.
+- **Verificación** (física a 60 Hz, neumáticos nuevos en cada medición):
+
+| Carga | Masa | 0–100 / 0–160 / 0–180 km/h | Frenada 180 → 0 | Curva a 120 km/h |
+|---|---|---|---|---|
+| 1 kg | 801 kg | 2,78 / 4,43 / 5,00 s | 55,6 m | 1,83 g |
+| 20 kg (práctica) | 820 kg | 2,85 / 4,52 / 5,08 s | 55,6 m | 1,82 g |
+| 70 kg (lleno) | 870 kg | 2,85 / 4,55 / **5,17 s** | **56,4 m** | **1,80 g** |
+
+| Vuelta con piloto automático (medio) | Vuelta 1 | Vuelta 2 | Vuelta 3 | Consumo por vuelta | Traseras (vuelta 3) |
+|---|---|---|---|---|---|
+| 5 kg | 1:42.467 | 1:41.083 | 1:41.033 | 0,47–0,51 kg | 112–113 °C, 4,4 % gastadas |
+| 70 kg | 1:42.417 | 1:41.050 | 1:41.067 | 0,50–0,54 kg | 117 °C, 4,6 % gastadas |
+
+  El peso extra se nota en la aceleración arriba de 100 km/h, en la frenada y en la curva, pero **con el piloto automático la vuelta casi no cambia**: dobla a 0,7 g y frena con una distancia fija, así que no usa el agarre de más que pierde, y en las rectas largas de Bakú pasa mucho tiempo en el limitador de 8ª (~194 km/h). Con 70 kg los neumáticos calientan y se gastan un poco más. El consumo por vuelta (~0,5 kg) es bajo comparado con un F1 real (~1,5 kg en 5 km) porque la potencia media de la vuelta es baja por lo mismo. Hasta 0–100 casi no cambia: en la largada manda la tracción, que también crece con el peso. Sin combustible (con 0,05 kg) se apagó a los 5 s y 177 km/h, y en 10 s bajó a 78 km/h.
+  La práctica (con 20 kg) es la escena de las pruebas viejas: siguen igual o casi (0–100 en 2,78 s, frenada 60,9 m desde 192 km/h, 1,47 / 1,82 g; tabla de frenadas del Paso 30 a 62,4 m con ABS; ERS 0–185 en 4,95 s en Ataque) y la vuelta: **1:42.367 / 1:41.133 / 1:41.100**, sin salidas ni golpes. Capturas: `informes/capturas/paso34-combustible.png` (acelerando con 3,6 kg, 16 g/s, panel F3) y `paso34-sin-combustible.png`.
+- **Cómo probar**: F5 → Jugar → contrarreloj. La barra naranja bajo los neumáticos muestra los kg y las vueltas que alcanzan (en la vuelta 1 según la estimación, después según la vuelta anterior). Con F3 se ve la masa bajar.

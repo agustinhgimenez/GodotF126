@@ -8,7 +8,7 @@ extends Control
 ## arrastre (Paso 28), el modo de la aero activa con ClA y CdA (Paso 29), el reparto de
 ## frenada y el ABS (Paso 30), el control de tracción y el par que pasa el diferencial
 ## (Paso 31), el ERS (modo, carga, potencia desplegada / recuperada y energía recuperada en la
-## vuelta, Paso 32), y la transferencia de peso medida (sin la carga aerodinámica) contra la
+## vuelta, Paso 32), el combustible con la masa y el consumo por vuelta (Paso 34), y la transferencia de peso medida (sin la carga aerodinámica) contra la
 ## de la cuenta (CarController.theoretical_transfer()).
 
 const SIZE := Vector2(330, 522)
@@ -103,10 +103,12 @@ func _draw() -> void:
 			roundi(_car.differential.transferred)],
 		"ERS %s %d %% · +%d / −%d kW · vuelta %.1f MJ" % [_car.ers.mode()["short"], roundi(_car.ers.soc() * 100.0),
 			roundi(_car.ers.deploy_power / 1000.0), roundi(_car.ers.harvest_power / 1000.0), _car.ers.lap_harvested / 1e6],
+		"Comb. %.1f kg · %.2f kg/vuelta · masa %d kg" % [_car.fuel.kg,
+			_car.fuel.last_lap_used if _car.fuel.last_lap_used > 0.0 else _car.fuel.lap_used, roundi(_car.mass)],
 		"Transf. adelante %+d N (cuenta %+d)" % [roundi(front - static_front - front_aero), roundi(theory.x)],
 		"Transf. derecha %+d N (cuenta %+d)" % [roundi(right - total * 0.5), roundi(theory.y)],
 	]
-	var y := 280.0
+	var y := 282.0
 	for line in lines:
 		draw_string(font, Vector2(14, y), str(line), HORIZONTAL_ALIGNMENT_LEFT, SIZE.x - 20, 14, TEXT)
-		y += 24.0
+		y += 21.0

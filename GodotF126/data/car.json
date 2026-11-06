@@ -67,6 +67,14 @@
       { "name": "Recarga", "short": "REC", "deploy": 0.0, "lift_kw": 150 }
     ]
   },
+  "fuel": {
+    "capacity_kg": 70,
+    "heating_value_mj": 43,
+    "efficiency": 0.5,
+    "practice_kg": 20,
+    "lap_estimate_kg": 0.6,
+    "margin_laps": 1
+  },
   "tyre_compounds": {
     "default": "medium",
     "start_temp": 70,

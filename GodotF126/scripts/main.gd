@@ -101,6 +101,7 @@ func _ready() -> void:
 	aero_zones.setup(track, car, track_limits, lap_timer)
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
 	car.was_reset.connect(lap_timer.abort_lap)
+	lap_timer.lap_started.connect(func(_lap: int) -> void: car.fuel.new_lap())
 	hud.bind_lap_timer(lap_timer)
 	car.steering_wheel.bind_lap_timer(lap_timer)
 	if _standing_start:
@@ -128,12 +129,14 @@ func _setup_mode() -> void:
 		mode_id = str(modes.get("default_mode", GameState.MODE_PRACTICE))
 	var mode := DataLoader.find_mode(modes, mode_id)
 	mode_name = str(mode.get("name", "Práctica libre"))
+	car.fill_fuel(car.fuel.practice_kg)
 	if mode_id == GameState.MODE_TIME_TRIAL:
 		var laps := GameState.lap_count
 		if laps <= 0:
 			laps = int(mode.get("default_laps", 3))
 		lap_timer.lap_limit = laps
 		mode_name = "%s · %d %s" % [mode_name, laps, "vuelta" if laps == 1 else "vueltas"]
+		car.fill_fuel(car.fuel.race_load(laps))
 	mode_name += " · neumático %s" % str(car.tyres.compound()["name"]).to_lower()
 	hud.set_track_name("%s\n%s" % [track_name, mode_name])
 	_standing_start = bool(mode.get("standing_start", false))

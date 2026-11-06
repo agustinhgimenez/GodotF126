@@ -8,6 +8,8 @@ extends RigidBody3D
 ## diferencial y del control de tracción (Paso 31), y las RPM salen del giro de esas ruedas.
 ## El ERS (Paso 32) suma la potencia del MGU-K y recupera energía frenando. El agarre de
 ## cada rueda depende del compuesto, su temperatura y su desgaste (TyreCompounds, Paso 33).
+## El combustible (Fuel, Paso 34) se quema según la potencia del motor y pesa: la masa y la
+## precarga de las ruedas bajan a medida que se vacía el tanque.
 ## El auto avanza sobre su eje -Z. En caja automática S con el auto quieto pone R.
 
 signal was_reset
@@ -131,6 +133,9 @@ var differential := Differential.new()
 var traction_control := TractionControl.new()
 ## Batería y MGU-K (Paso 32).
 var ers := Ers.new()
+## Combustible (Paso 34; la carga la pone main.gd con fill_fuel()). La masa del cuerpo es
+## mass_kg (seco, con el piloto) + fuel.kg.
+var fuel := Fuel.new()
 ## Modo recta / curva y modo adelantamiento (Paso 29).
 var active_aero := ActiveAero.new()
 ## m/s² en ejes del auto (x derecha, y arriba, −z adelante), suavizada; la usa el panel de cargas.
@@ -152,6 +157,7 @@ var _shake_noise := FastNoiseLite.new()
 var _shake_time: float = 0.0
 var _impact: float = 0.0
 var _showcase: bool = false
+var _applied_fuel: float = 0.0
 
 @onready var _camera_pivot: Node3D = $CameraPivot
 @onready var _camera: Camera3D = $CameraPivot/Camera3D
@@ -202,6 +208,9 @@ func configure(data: Dictionary) -> void:
 	var compounds_data = data.get("tyre_compounds", {})
 	if compounds_data is Dictionary:
 		tyres.configure(compounds_data)
+	var fuel_data = data.get("fuel", {})
+	if fuel_data is Dictionary:
+		fuel.configure(fuel_data)
 	var engine_data = data.get("engine", {})
 	if engine_data is Dictionary:
 		engine.configure(engine_data)
@@ -281,21 +290,34 @@ func _configure_shake(data: Dictionary) -> void:
 
 ## Arma las 4 ruedas y reparte el peso entre los ejes según el centro de masa.
 func _build_wheels() -> void:
-	mass = mass_kg
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	var wheelbase := rear_axle_z - front_axle_z
-	var front_share := clampf((rear_axle_z - center_of_mass.z) / wheelbase, 0.1, 0.9)
-	var weight := mass * _gravity()
 	wheels.clear()
 	for spec in WHEEL_NODES:
 		var is_front: bool = spec[2]
 		var mount := Vector3(float(spec[1]) * half_track, wheel_radius + suspension_travel,
 			front_axle_z if is_front else rear_axle_z)
 		var wheel := CarWheel.new(mount, is_front, get_node_or_null(str(spec[0])) as Node3D)
-		wheel.static_load = weight * (front_share if is_front else 1.0 - front_share) * 0.5
 		wheel.reset(suspension_travel)
 		tyres.fit(wheel)
 		wheels.append(wheel)
+	_apply_mass()
+
+
+## Masa del cuerpo = seco + combustible, y la precarga de cada rueda (su parte del peso
+## según el centro de masa; el tanque está sobre el centro de masa y no lo mueve).
+func _apply_mass() -> void:
+	mass = mass_kg + fuel.kg
+	_applied_fuel = fuel.kg
+	var front_share := clampf((rear_axle_z - center_of_mass.z) / (rear_axle_z - front_axle_z), 0.1, 0.9)
+	var weight := mass * _gravity()
+	for wheel in wheels:
+		wheel.static_load = weight * (front_share if wheel.front else 1.0 - front_share) * 0.5
+
+
+## Carga el tanque con `kg` (hasta la capacidad).
+func fill_fuel(kg: float) -> void:
+	fuel.fill(kg)
+	_apply_mass()
 
 
 ## Juego nuevo del compuesto `id` (vacío = el de por defecto) en las 4 ruedas.
@@ -434,7 +456,12 @@ func _physics_process(delta: float) -> void:
 	local_acceleration = local_acceleration.lerp(global_transform.basis.orthonormalized().transposed() * world_accel, 0.2)
 
 	var pedals := _map_pedals(throttle, brake)
+	if fuel.is_empty():
+		pedals.x = 0.0
 	_update_powertrain(pedals.x, delta)
+	fuel.update(_combustion_power(pedals.x), delta)
+	if absf(_applied_fuel - fuel.kg) > 0.05:
+		_apply_mass()
 	_update_steering(steer_input, delta)
 	var overtake := _overtake_power(pedals.x)
 	var electric := _ers_deploy(pedals.x) + overtake
@@ -684,9 +711,18 @@ func _drive_force(throttle: float, electric: float) -> float:
 	return force * direction
 
 
-## Se puede sumar potencia eléctrica: hacia adelante, sin cambio en curso ni corte del limitador.
+## W que entrega el motor de combustión (lo que quema combustible): con una marcha puesta y
+## sin cambio en curso, menos lo que corta el control de tracción.
+func _combustion_power(throttle: float) -> float:
+	if throttle <= 0.0 or gearbox.get_direction() == 0 or gearbox.is_shifting():
+		return 0.0
+	return engine.get_output_torque() * engine.rpm * TAU / 60.0 * traction_control.torque_factor
+
+
+## Se puede sumar potencia eléctrica: hacia adelante, sin cambio en curso ni corte del limitador
+## y con combustible (sin combustible se apaga toda la unidad de potencia).
 func _can_deploy() -> bool:
-	return gearbox.get_direction() > 0 and not gearbox.is_shifting() and not engine.is_cutting()
+	return gearbox.get_direction() > 0 and not gearbox.is_shifting() and not engine.is_cutting() and not fuel.is_empty()
 
 
 ## W que despliega el MGU-K según el modo del ERS.

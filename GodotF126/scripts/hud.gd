@@ -50,6 +50,7 @@ func bind_car(car: CarController) -> void:
 	car.active_aero.overtake_denied.connect(func(reason: String) -> void: show_message(reason, 1.2, COLOR_SLOWER))
 	car.brake_bias_changed.connect(func(share: float) -> void:
 		show_message("Reparto de frenada %d %% adelante" % roundi(share * 100.0), 1.0))
+	car.fuel.ran_out.connect(func() -> void: show_message("¡SIN COMBUSTIBLE!", 3.0, COLOR_WARNING))
 	car.ers.mode_changed.connect(func(mode_name: String) -> void:
 		show_message("ERS: modo %s" % mode_name.to_lower(), 1.0, Dashboard.COLOR_ERS))
 	car.traction_control_changed.connect(func(level: int) -> void:
