@@ -1,5 +1,5 @@
 extends Node3D
-## Escena principal: carga datos (grilla, pistas, auto), spawnea el auto en Bakú y arma el HUD.
+## Escena principal: carga datos (grilla, pistas, auto, setup), spawnea el auto en Bakú y arma el HUD.
 ## Esc abre el menú de pausa (PauseMenu). En contrarreloj, al cerrar la última vuelta se
 ## sueltan los controles y se muestra el resultado (ResultsScreen).
 
@@ -34,6 +34,8 @@ var selected_team: Dictionary = {}
 var track_name: String = ""
 var mode_name: String = ""
 var results_delay: float = 2.5
+## Setup del auto (Paso 35; user://setup.json). En práctica se puede cambiar desde la pausa.
+var car_setup: CarSetup
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 
@@ -74,6 +76,8 @@ func _ready() -> void:
 
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	car.configure(car_data)
+	car_setup = CarSetup.load_saved()
+	car.apply_setup(car_setup)
 	car.fit_tyres(GameState.tyre_compound)
 	Settings.apply_to_car(car)
 	_apply_lighting()
@@ -108,6 +112,9 @@ func _ready() -> void:
 		_setup_start_lights()
 
 	pause_menu.set_accent(team_color)
+	if not GameState.is_time_trial():
+		pause_menu.enable_setup(car_setup, car.setup_base())
+		pause_menu.setup_changed.connect(_on_setup_changed)
 	pause_menu.paused_changed.connect(_on_paused_changed)
 	pause_menu.restart_requested.connect(get_tree().reload_current_scene)
 	pause_menu.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
@@ -188,6 +195,15 @@ func _on_paused_changed(paused: bool) -> void:
 	hud.visible = not paused
 	if paused:
 		pause_menu.set_subtitle(_pause_subtitle())
+
+
+## Setup cambiado desde la pausa (sólo práctica): el auto vuelve a boxes con el setup nuevo
+## (los neumáticos y el combustible siguen como estaban).
+func _on_setup_changed() -> void:
+	car.apply_setup(car_setup)
+	car.reset_to_spawn()
+	hud.refresh_speed_range()
+	hud.show_message("Setup aplicado: el auto vuelve a boxes", 3.0)
 
 
 func _on_setting_changed(key: String) -> void:

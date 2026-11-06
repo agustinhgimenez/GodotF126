@@ -1,0 +1,38 @@
+{
+  "description": "Setup del auto (Paso 35): ajustes que elige el jugador y cuánto cambian el auto. Los valores base salen de car.json; con todo en su default el auto queda igual que sin setup.",
+  "items": [
+    { "id": "front_wing", "name": "Alerón delantero", "min": 1, "max": 11, "step": 1, "default": 6,
+      "description": "Más ángulo: más carga en el eje delantero (gira más, puede sobrevirar) y algo más de arrastre" },
+    { "id": "rear_wing", "name": "Alerón trasero", "min": 1, "max": 11, "step": 1, "default": 6,
+      "description": "Más ángulo: más carga y estabilidad atrás, pero bastante más arrastre (menos velocidad en las rectas)" },
+    { "id": "ride_height", "name": "Altura del piso", "min": -20, "max": 10, "step": 5, "default": 0, "unit": "mm", "signed": true,
+      "description": "Más bajo: el piso genera más carga casi sin arrastre, pero si toca el asfalto (frenando, en los pianos, con resortes blandos) pierde carga de golpe" },
+    { "id": "front_springs", "name": "Resortes delanteros", "min": 1, "max": 9, "step": 1, "default": 5,
+      "description": "Más duros: el auto cabecea y se hunde menos (el piso toca menos), pero copia peor los pianos" },
+    { "id": "rear_springs", "name": "Resortes traseros", "min": 1, "max": 9, "step": 1, "default": 5,
+      "description": "Más duros: atrás se hunde menos con la carga aerodinámica y al acelerar" },
+    { "id": "front_anti_roll", "name": "Barra delantera", "min": 1, "max": 9, "step": 1, "default": 5,
+      "description": "Más dura: menos rolido, pero el eje delantero se lleva más transferencia en las curvas y agarra menos (subviraje)" },
+    { "id": "rear_anti_roll", "name": "Barra trasera", "min": 1, "max": 9, "step": 1, "default": 5,
+      "description": "Más dura: el eje trasero se lleva más transferencia en las curvas y agarra menos (sobreviraje)" },
+    { "id": "front_pressure", "name": "Presión delantera", "min": 20, "max": 26, "step": 0.5, "default": 23, "unit": "psi", "decimals": 1,
+      "description": "Menos presión: más huella y un poco más de agarre, pero el neumático se calienta más al rodar" },
+    { "id": "rear_pressure", "name": "Presión trasera", "min": 20, "max": 26, "step": 0.5, "default": 23, "unit": "psi", "decimals": 1,
+      "description": "Menos presión: más agarre y más calor; las traseras ya van calientes con el medio" },
+    { "id": "final_drive", "name": "Relación final", "min": 2.4, "max": 3.3, "step": 0.15, "default": 3.0, "decimals": 2,
+      "description": "Más baja (caja larga): más velocidad máxima en 8ª, pero cada marcha empuja menos al salir de las curvas" }
+  ],
+  "effects": {
+    "wing_cla_per_step": 0.05,
+    "front_wing_cda_per_step": 0.01,
+    "rear_wing_cda_per_step": 0.04,
+    "ride_cla_per_mm": 0.006,
+    "spring_per_step": 0.075,
+    "anti_roll_per_step": 0.15,
+    "floor_clearance_mm": 40,
+    "stall_depth_mm": 5,
+    "stall_loss": 0.3,
+    "pressure_grip_per_psi": 0.005,
+    "pressure_heat_per_psi": 0.08
+  }
+}

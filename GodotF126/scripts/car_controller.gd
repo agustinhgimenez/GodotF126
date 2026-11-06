@@ -10,6 +10,9 @@ extends RigidBody3D
 ## cada rueda depende del compuesto, su temperatura y su desgaste (TyreCompounds, Paso 33).
 ## El combustible (Fuel, Paso 34) se quema según la potencia del motor y pesa: la masa y la
 ## precarga de las ruedas bajan a medida que se vacía el tanque.
+## El setup (CarSetup, Paso 35) cambia alerones, altura, resortes, barras, presiones y la
+## relación final sobre los valores base de car.json (apply_setup()); si la suspensión se
+## comprime más que la altura del piso, el piso toca y pierde carga (floor_factor()).
 ## El auto avanza sobre su eje -Z. En caja automática S con el auto quieto pone R.
 
 signal was_reset
@@ -90,6 +93,13 @@ const CHASSIS_KEYS := {
 @export var cda: float = 1.57
 @export var aero_balance: float = 0.44         ## fracción de la carga en el eje delantero
 @export var pressure_height: float = 0.35      ## m sobre el piso donde empuja el arrastre
+## Setup (Paso 35): m que se baja (−) o sube (+) el auto; el piso queda a floor_clearance del
+## asfalto con el auto quieto. Si la suspensión de un eje se comprime más que eso, la carga
+## cae hasta floor_stall_loss a floor_stall_depth m por debajo.
+@export var ride_height: float = 0.0
+@export var floor_clearance: float = 1.0
+@export var floor_stall_depth: float = 0.005
+@export var floor_stall_loss: float = 0.3
 
 @export_group("Neumáticos y frenos")
 @export var tyre_mu: float = 1.75              ## agarre mecánico (la carga aerodinámica se suma a la carga)
@@ -158,6 +168,8 @@ var _shake_time: float = 0.0
 var _impact: float = 0.0
 var _showcase: bool = false
 var _applied_fuel: float = 0.0
+## Valores de car.json sobre los que trabaja el setup (setup_base()).
+var _setup_base: Dictionary = {}
 
 @onready var _camera_pivot: Node3D = $CameraPivot
 @onready var _camera: Camera3D = $CameraPivot/Camera3D
@@ -232,6 +244,7 @@ func configure(data: Dictionary) -> void:
 	var audio_fx_data = data.get("audio_fx", {})
 	if audio_fx_data is Dictionary:
 		audio_fx.configure(audio_fx_data)
+	_setup_base = {}
 	_build_wheels()
 
 
@@ -297,10 +310,45 @@ func _build_wheels() -> void:
 		var mount := Vector3(float(spec[1]) * half_track, wheel_radius + suspension_travel,
 			front_axle_z if is_front else rear_axle_z)
 		var wheel := CarWheel.new(mount, is_front, get_node_or_null(str(spec[0])) as Node3D)
-		wheel.reset(suspension_travel)
+		wheel.rest_length = suspension_travel + ride_height
+		wheel.reset()
 		tyres.fit(wheel)
 		wheels.append(wheel)
 	_apply_mass()
+
+
+## Valores de car.json que cambia el setup (los de configure(), antes de cualquier setup).
+func setup_base() -> Dictionary:
+	if _setup_base.is_empty():
+		_setup_base = {
+			"cla": cla, "cda": cda, "balance": aero_balance,
+			"stiffness": spring_stiffness, "damper": damper, "anti_roll": anti_roll,
+			"top_ratio": gearbox.gear_ratios[gearbox.gear_ratios.size() - 1] if not gearbox.gear_ratios.is_empty() else 1.0,
+			"limiter_rpm": engine.limiter_rpm, "wheel_radius": wheel_radius,
+		}
+	return _setup_base
+
+
+## Aplica el setup (Paso 35). Cambia la altura sin cambiar los neumáticos (temperatura y
+## desgaste siguen); conviene llamarlo con el auto quieto (después va reset_to_spawn()).
+func apply_setup(setup: CarSetup) -> void:
+	var values := setup.derive(setup_base())
+	cla = float(values["cla"])
+	cda = float(values["cda"])
+	aero_balance = float(values["balance"])
+	spring_stiffness = values["stiffness"]
+	damper = values["damper"]
+	anti_roll = values["anti_roll"]
+	ride_height = float(values["ride_height"])
+	floor_clearance = float(values["floor_clearance"])
+	floor_stall_depth = setup.stall_depth_mm / 1000.0
+	floor_stall_loss = setup.stall_loss
+	tyres.set_pressures(values["pressure"], setup.default_pressure(), setup.pressure_grip_per_psi, setup.pressure_heat_per_psi)
+	gearbox.final_drive = float(values["final_drive"])
+	max_speed = get_top_speed()
+	for wheel in wheels:
+		wheel.rest_length = suspension_travel + ride_height
+		wheel.reset()
 
 
 ## Masa del cuerpo = seco + combustible, y la precarga de cada rueda (su parte del peso
@@ -658,9 +706,43 @@ func _apply_aero() -> void:
 		apply_force(-linear_velocity / speed * drag_force, t.basis * Vector3(0.0, pressure_height, center_of_mass.z))
 
 
-## ClA y CdA de ahora (con el modo recta).
+## ClA y CdA de ahora (con el modo recta y el piso que toca).
 func get_cla() -> float:
-	return cla * active_aero.cla_scale()
+	return cla * active_aero.cla_scale() * floor_factor()
+
+
+## m entre el piso y el asfalto en cada eje (x adelante, y atrás): la altura de reposo menos
+## lo que está comprimida la suspensión (promedio de las dos ruedas apoyadas).
+func floor_gaps() -> Vector2:
+	var gaps := Vector2(floor_clearance, floor_clearance)
+	for axle in 2:
+		var compression := 0.0
+		var count := 0
+		for wheel in [wheels[axle * 2], wheels[axle * 2 + 1]]:
+			if wheel.in_contact:
+				compression += wheel.rest_length - wheel.length
+				count += 1
+		if count > 0:
+			gaps[axle] = floor_clearance - compression / count
+	return gaps
+
+
+## Fracción de la carga aerodinámica que queda: 1 con el piso en el aire, baja hasta
+## 1 − floor_stall_loss si el piso toca floor_stall_depth o más.
+func floor_factor() -> float:
+	if wheels.size() != 4:
+		return 1.0
+	var gaps := floor_gaps()
+	var depth := maxf(-minf(gaps.x, gaps.y), 0.0)
+	return 1.0 - floor_stall_loss * minf(depth / floor_stall_depth, 1.0)
+
+
+## El piso está tocando el asfalto.
+func is_bottoming() -> bool:
+	if wheels.size() != 4:
+		return false
+	var gaps := floor_gaps()
+	return minf(gaps.x, gaps.y) < 0.0
 
 
 func get_cda() -> float:
@@ -826,7 +908,7 @@ func reset_to_spawn() -> void:
 	_impact = 0.0
 	kerb_contact = 0.0
 	for wheel in wheels:
-		wheel.reset(suspension_travel)
+		wheel.reset()
 	active_aero.reset()
 	traction_control.reset()
 	ers.reset()

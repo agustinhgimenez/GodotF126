@@ -3,11 +3,12 @@ extends VBoxContainer
 ## Elección del modo de juego (Paso 16), armada por código desde data/modes.json.
 ## Una tarjeta por modo; en las que tienen "lap_options" (contrarreloj) ← → cambian la
 ## cantidad de vueltas. Debajo, la tarjeta de neumáticos (Paso 33): ← → (o Enter) cambian
-## el compuesto ("tyre_compounds" de data/car.json). Enter en un modo confirma y Esc
-## vuelve al menú.
+## el compuesto ("tyre_compounds" de data/car.json). La última tarjeta abre el setup del
+## auto (Paso 35). Enter en un modo confirma y Esc vuelve al menú.
 
 signal confirmed(mode_id: String, laps: int, compound_id: String)
 signal cancelled
+signal setup_requested
 
 const CARD_SIZE := Vector2(540, 78)
 
@@ -23,6 +24,8 @@ var _compound_index: int = 0
 var _tyre_button: Button
 var _tyre_title: Label
 var _tyre_description: Label
+var _setup_button: Button
+var _setup_description: Label
 
 
 func _ready() -> void:
@@ -52,6 +55,13 @@ func setup(data: Dictionary, current_mode: String, current_laps: int, compounds:
 			if str(_compounds[i].get("id", "")) == wanted:
 				_compound_index = i
 		add_child(_make_tyre_card())
+	var parts := _card("")
+	_setup_button = parts[0]
+	parts[1].text = "Setup del auto"
+	_setup_description = parts[2]
+	_setup_description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_setup_button.pressed.connect(func() -> void: setup_requested.emit())
+	add_child(_setup_button)
 	var hint := UiKit.make_label("← → vueltas y neumáticos · Enter para confirmar · Esc para volver", 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
 	add_child(hint)
@@ -70,12 +80,24 @@ func back() -> void:
 	cancelled.emit()
 
 
+## Vuelve de la pantalla de setup con el foco en su tarjeta.
+func focus_setup(summary: String) -> void:
+	set_setup_summary(summary)
+	_setup_button.grab_focus()
+
+
+func set_setup_summary(summary: String) -> void:
+	_setup_description.text = summary
+
+
 func set_accent(color: Color) -> void:
 	accent = color
 	for button in _buttons.values():
 		UiKit.apply_button_style(button, color)
 	if _tyre_button != null:
 		UiKit.apply_button_style(_tyre_button, color)
+	if _setup_button != null:
+		UiKit.apply_button_style(_setup_button, color)
 
 
 ## Id del compuesto elegido (vacío si car.json no trae compuestos).

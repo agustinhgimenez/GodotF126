@@ -2,8 +2,8 @@ class_name CarWheel
 extends RefCounted
 ## Una rueda del modelo de 4 ruedas: suspensión por rayo (Paso 25) y neumático (Paso 26).
 ## La suspensión es un resorte con precarga (la carga estática de esa rueda) más un
-## amortiguador: con el auto quieto la rueda queda en `travel` y el auto a su altura de
-## diseño, sin importar la rigidez. La rueda tiene su propio giro (`spin`): el motor y los
+## amortiguador: con el auto quieto la rueda queda en `rest_length` (travel + la altura del
+## setup, Paso 35) y el auto a esa altura, sin importar la rigidez. La rueda tiene su propio giro (`spin`): el motor y los
 ## frenos le aplican par, el neumático (TyreModel) la frena o la arrastra, y la diferencia
 ## entre su velocidad y la del piso es el deslizamiento longitudinal.
 
@@ -23,7 +23,9 @@ var static_load: float = 2000.0
 var steer_angle: float = 0.0
 
 var in_contact: bool = false
-## Largo actual de la suspensión: 0 = a tope, travel = reposo, 2 × travel = colgando.
+## Largo de la suspensión con el auto quieto (más corto = auto más bajo).
+var rest_length: float = 0.12
+## Largo actual de la suspensión: 0 = a tope, rest_length = reposo, 2 × travel = colgando.
 var length: float = 0.0
 ## N que empuja el piso (carga vertical de la rueda): resorte + amortiguador + barra
 ## estabilizadora + anti-cabeceo.
@@ -69,9 +71,9 @@ func _init(mount_point: Vector3, is_front: bool, wheel_mesh: Node3D) -> void:
 	_query = PhysicsRayQueryParameters3D.new()
 
 
-func reset(travel: float) -> void:
+func reset() -> void:
 	in_contact = false
-	length = travel
+	length = rest_length
 	wheel_load = 0.0
 	link_force = 0.0
 	force = Vector2.ZERO
@@ -109,7 +111,7 @@ func update_suspension(body: RigidBody3D, space: PhysicsDirectSpaceState3D, trav
 	var extension_speed := (new_length - length) / delta if in_contact else 0.0
 	in_contact = true
 	length = new_length
-	wheel_load = static_load + stiffness * (travel - length) - damping * extension_speed
+	wheel_load = static_load + stiffness * (rest_length - length) - damping * extension_speed
 	if length < 0.0:
 		wheel_load += stiffness * 10.0 * -length
 	wheel_load = clampf(wheel_load, 0.0, static_load * MAX_LOAD_FACTOR)

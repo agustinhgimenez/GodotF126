@@ -71,8 +71,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 32 | **ERS 2026**: batería, recuperación en frenada, despliegue en aceleración, indicador en volante | ✅ |
 | 33 | Neumáticos: compuestos blando / medio / duro, temperatura y desgaste | ✅ |
 | 34 | Combustible: el peso baja vuelta a vuelta | ✅ |
-| 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | ⏳ Siguiente |
-| 36 | Daños: alerón delantero roto reduce la carga, pinchazos | |
+| 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | ✅ |
+| 36 | Daños: alerón delantero roto reduce la carga, pinchazos | ⏳ Siguiente |
 | 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | |
 | 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | |
 
@@ -650,3 +650,53 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   El peso extra se nota en la aceleración arriba de 100 km/h, en la frenada y en la curva, pero **con el piloto automático la vuelta casi no cambia**: dobla a 0,7 g y frena con una distancia fija, así que no usa el agarre de más que pierde, y en las rectas largas de Bakú pasa mucho tiempo en el limitador de 8ª (~194 km/h). Con 70 kg los neumáticos calientan y se gastan un poco más. El consumo por vuelta (~0,5 kg) es bajo comparado con un F1 real (~1,5 kg en 5 km) porque la potencia media de la vuelta es baja por lo mismo. Hasta 0–100 casi no cambia: en la largada manda la tracción, que también crece con el peso. Sin combustible (con 0,05 kg) se apagó a los 5 s y 177 km/h, y en 10 s bajó a 78 km/h.
   La práctica (con 20 kg) es la escena de las pruebas viejas: siguen igual o casi (0–100 en 2,78 s, frenada 60,9 m desde 192 km/h, 1,47 / 1,82 g; tabla de frenadas del Paso 30 a 62,4 m con ABS; ERS 0–185 en 4,95 s en Ataque) y la vuelta: **1:42.367 / 1:41.133 / 1:41.100**, sin salidas ni golpes. Capturas: `informes/capturas/paso34-combustible.png` (acelerando con 3,6 kg, 16 g/s, panel F3) y `paso34-sin-combustible.png`.
 - **Cómo probar**: F5 → Jugar → contrarreloj. La barra naranja bajo los neumáticos muestra los kg y las vueltas que alcanzan (en la vuelta 1 según la estimación, después según la vuelta anterior). Con F3 se ve la masa bajar.
+
+### Paso 35 — Setup del auto
+- **Ajustes** (`CarSetup`, rangos, descripciones y efectos en `data/setup.json`; lo elegido se guarda en `user://setup.json`): alerón delantero y trasero (1–11), altura del piso (−20 a +10 mm), resortes delanteros y traseros (1–9), barras delantera y trasera (1–9), presión delantera y trasera (20–26 psi) y relación final (2,40–3,30). `CarSetup.derive()` los pasa a parámetros físicos sobre los valores base de `car.json`; **con todo en su default el auto es exactamente el de antes**.
+- **Efectos**:
+  - Alerones: cada paso cambia 5 % la carga de su eje (el reparto se mueve solo: con el delantero en 11 la carga queda 49,5 % adelante) y el arrastre (1 % el delantero, 4 % el trasero).
+  - Altura: cada mm más abajo suma 0,6 % de carga (efecto suelo) sin arrastre. El auto baja de verdad (el resorte tiene menos largo de reposo, `CarWheel.rest_length`). El piso queda a 40 mm + la altura; si la suspensión de un eje se comprime más que eso (carga aerodinámica, frenadas, pianos) **el piso toca**: la carga cae hasta 30 % a 5 mm de profundidad (`CarController.floor_factor()`) y suena el roce.
+  - Resortes: rigidez × 0,7–1,3 (el amortiguador acompaña con × √factor); no cambian la altura con el auto quieto (precarga), sí cuánto se hunde con la carga. Barras: × 0,4–1,6; más barra en un eje = ese eje se lleva más transferencia en curva y agarra menos.
+  - Presiones: cada psi debajo de 23 suma 0,5 % de agarre y 8 % del calor de rodar (`TyreCompounds`).
+  - Relación final: cambia todas las marchas; con 2,40 el limitador en 8ª corta a 248 km/h en lugar de 198.
+- **Dónde**: en el menú, la tarjeta "Setup del auto" debajo de los neumáticos (muestra lo que se cambió) abre la pantalla de setup; en práctica, también desde la pausa (al cerrarla el auto vuelve a boxes con el setup nuevo; los neumáticos y el combustible siguen). En contrarreloj no se puede tocar desde la pausa (parque cerrado). Cada fila muestra lo que cambia (ClA del eje, mm del piso, kN/m, % de agarre, velocidad máxima) y abajo va la descripción del ajuste y el resultado: ClA, CdA, reparto de la carga y velocidad máxima. En el panel F3, una línea con la altura del piso en cada eje ("¡TOCA!" con la carga que queda).
+- **Verificación** (física a 60 Hz, 20 kg de combustible, neumáticos nuevos; la curva es a fondo de dirección manteniendo la velocidad, y en esta prueba el auto es subvirador: manda el agarre del eje delantero):
+
+| Setup | ClA / CdA / carga adelante | Frenada 200 → 0* | Curva 120 / 160 km/h | Otros |
+|---|---|---|---|---|
+| Por defecto | 3,20 / 1,57 / 44 % | 61,2 m | 1,82 / 2,08 g | piso mín. 16 / 14 mm frenando |
+| Alerón delantero 11 | 3,55 / 1,65 / 49,5 % | 60,2 m | **1,89 / 2,20 g** | |
+| Alerón delantero 1 | 2,85 / 1,49 / 37 % | 62,2 m | 1,74 / 1,93 g | |
+| Alerón trasero 11 | 3,65 / 1,88 / 39 % | **58,5 m** | 1,82 / 2,06 g | más estable, no gira más |
+| Alerón trasero 1 | 2,75 / 1,26 / 51 % | 63,5 m | 1,82 / 2,07 g | |
+| Altura −15 mm | 3,49 / 1,57 / 44 % | 60,0 m | 1,86 / 2,14 g | **toca** frenando (−1 mm, carga 94 %) |
+| Altura −15 mm, resortes 9 / 9 | 3,49 / 1,57 / 44 % | 59,7 m | 1,86 / 2,14 g | no toca (piso mín. 5 / 4 mm) |
+| Altura +10 mm | 3,01 / 1,57 / 44 % | 61,9 m | 1,80 / 2,04 g | |
+| Barras 9 adelante / 1 atrás | igual | 60,9 m | 1,74 / 1,99 g | más subviraje |
+| Barras 1 adelante / 9 atrás | igual | 60,9 m | **1,91 / 2,15 g** | gira más (deriva atrás 3,8° contra 2,8°) |
+| Presiones 20 / 20 psi | igual | 59,9 m | 1,85 / 2,10 g | |
+| Presiones 26 / 26 psi | igual | 61,8 m | 1,79 / 2,05 g | |
+| Relación final 2,40 | igual | 65,0 m (desde 200) | igual | 0–100 2,68 s, **0–200 5,82 s**, máx. 248 km/h |
+| Relación final 3,30 | igual | 52,5 m (desde 173) | igual | 0–100 2,95 s, máx. 180 km/h |
+
+  \*Con la caja de serie el auto no llega a 200 km/h (corta a 192): la frenada es desde ahí.
+
+| Vuelta con piloto automático que aprovecha la carga* | Vuelta 2 | Máx. | Piso |
+|---|---|---|---|
+| Por defecto | 1:31.300 | 193 km/h | no toca (mín. 17 / 12 mm) |
+| Relación final 2,70 | 1:30.550 | 215 km/h | no toca |
+| Relación final 2,40 | **1:29.667** | 243 km/h | **toca atrás** al final de las rectas (237 cuadros) |
+| 2,40 + alerón trasero 3 | 1:29.717 | 243 km/h | no toca |
+| 2,40 + alerón trasero 9 | 1:29.600 | 243 km/h | toca atrás (497 cuadros) |
+| Altura −10 mm | 1:31.300 | 193 km/h | no toca (mín. 0,6 mm atrás) |
+
+| Tanda de 3 vueltas (medio) | Vuelta 3 | Traseras | Gastado por vuelta (traseras) |
+|---|---|---|---|
+| 23 psi (por defecto) | 1:31.350 | 115 °C (en la ventana) | 1,5 % |
+| 20 psi | 1:31.167 | **127 °C (pasado)** | 2,1 % |
+| 26 psi | 1:31.650 | 106 °C | 1,5 % |
+| Duro con 20 / 21 psi | 1:31.483 | 124 °C (en su ventana) | 0,9 % |
+
+  \*El piloto automático de siempre dobla a 0,7 g fijos y no ve la carga aerodinámica; para estas vueltas dobla al 60 % del agarre con la carga del ClA del setup (1:31,3 la vuelta). **Lo que más rinde en Bakú es alargar la caja**: con 2,40 la vuelta baja 1,6 s y el auto llega a 243 km/h; ahora sí rinden el modo recta y el ERS en las rectas. Pero a esa velocidad la carga aerodinámica hunde la cola y el piso toca atrás: hay que sacar alerón trasero, subir el auto o endurecer los resortes traseros. Los alerones casi no cambian la vuelta del piloto automático (±0,1 s; dobla con margen y no aprovecha el balance), pero sí el auto en la curva de prueba. Bajar el piso 10 mm tampoco cambia la vuelta del piloto automático y queda a 0,6 mm de tocar. Con menos presión las traseras se pasan de la ventana del medio y se gastan más; al duro, que cuesta calentar, le sirve.
+  Con el setup por defecto siguen exactamente igual las pruebas de los Pasos 25–34 (0–100 en 2,78 s, frenada 60,9 m desde 192 km/h, 1,47 / 1,82 g; ABS 62,4 m; largadas 3,40 / 3,45 / 3,20 / 2,80 s; ERS 0–185 en 4,95 s en Ataque; combustible 20,7 g/s y la tabla de cargas) y la vuelta con el piloto automático de siempre: **1:42.383 / 1:41.017 / 1:41.050**, sin salidas ni golpes. Guardado: sin archivo usa los defaults, los valores fuera de rango van al paso más cercano (−12 mm → −10 mm, relación 9 → 3,30), los extremos no dan la vuelta y un archivo con basura no rompe nada. Desde la pausa: el setup se aplica, el auto vuelve a boxes, el velocímetro pasa a escala de 260 km/h y abrir y cerrar sin cambiar nada no lo mueve. Capturas: `informes/capturas/paso35-menu-setup.png` (pantalla de setup con caja larga), `paso35-modos.png` (tarjeta del setup), `paso35-piso-toca.png` (−20 mm con resortes blandos: frenando a 185 km/h el piso toca atrás, la carga queda al 70 % y el panel F3 lo muestra) y `paso35-pausa-setup.png`.
+- **Cómo probar**: F5 → Jugar → tarjeta "Setup del auto": ← → cambia cada ajuste; abajo se ve cómo cambian ClA, CdA, el reparto y la velocidad máxima. Probar relación final 2,40 en práctica: en la recta principal se pasa de 240 km/h. Con F3 abierto y la altura en −20 mm con resortes blandos, el piso toca ("¡TOCA!") y se oye el roce. En práctica, Esc → "Setup del auto" cambia el setup sin volver al menú.

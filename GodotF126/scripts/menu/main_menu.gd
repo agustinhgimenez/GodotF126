@@ -5,6 +5,7 @@ extends Node3D
 ## después DriverSelect (escudería → piloto); mientras se recorren las tarjetas el auto, el
 ## aro y la luz toman el color del equipo. Al confirmar se guardan el modo, el compuesto de
 ## neumáticos (Paso 33) y el piloto en GameState y se carga la carrera a través de la pantalla de carga (Paso 24).
+## Desde ModeSelect se abre el setup del auto (SetupPanel, Paso 35; se guarda solo).
 
 const LOADING_SCENE := "res://scenes/loading.tscn"
 const FALLBACK_TEAM_COLOR := Color("#FF87BC")
@@ -20,6 +21,8 @@ var _modes: ModeSelect
 var _select: DriverSelect
 var _options: OptionsPanel
 var _controls: ControlsPanel
+var _setup_panel: SetupPanel
+var _car_setup: CarSetup
 var _play_button: Button
 var _options_button: Button
 var _controls_button: Button
@@ -71,6 +74,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	if _select.visible:
 		_select.back()
+	elif _setup_panel.visible:
+		_close_setup()
 	elif _modes.visible:
 		_modes.back()
 	elif _options.visible:
@@ -85,6 +90,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _show_main() -> void:
 	_modes.visible = false
+	_setup_panel.visible = false
 	_select.visible = false
 	_options.visible = false
 	_controls.visible = false
@@ -132,6 +138,18 @@ func _on_modes_cancelled() -> void:
 	_show_main()
 
 
+func _open_setup() -> void:
+	_modes.visible = false
+	_setup_panel.visible = true
+	_setup_panel.open()
+
+
+func _close_setup() -> void:
+	_setup_panel.visible = false
+	_modes.visible = true
+	_modes.focus_setup(_car_setup.summary())
+
+
 func _on_select_cancelled() -> void:
 	_show_selected()
 	_show_modes()
@@ -168,6 +186,7 @@ func _preview(team: Dictionary, driver: Dictionary) -> void:
 	_options.set_accent(color)
 	_controls.set_accent(color)
 	_modes.set_accent(color)
+	_setup_panel.set_accent(color)
 	if driver.is_empty():
 		_card_title.text = str(team.get("name", ""))
 		var names := PackedStringArray()
@@ -255,11 +274,23 @@ func _build_ui() -> void:
 	_modes.name = "ModeSelect"
 	UiKit.place(_modes, Vector4(0, 0, 0, 0), Vector4(80, 210, 640, 560))
 	root.add_child(_modes)
-	var compounds = DataLoader.load_json(DataLoader.CAR_PATH).get("tyre_compounds", {})
+	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
+	var compounds = car_data.get("tyre_compounds", {})
 	_modes.setup(DataLoader.load_json(DataLoader.MODES_PATH), GameState.selected_mode, GameState.lap_count,
 		compounds if compounds is Dictionary else {}, GameState.tyre_compound)
 	_modes.confirmed.connect(_on_mode_confirmed)
 	_modes.cancelled.connect(_on_modes_cancelled)
+	_modes.setup_requested.connect(_open_setup)
+
+	_car_setup = CarSetup.load_saved()
+	_modes.set_setup_summary(_car_setup.summary())
+	_setup_panel = SetupPanel.new()
+	_setup_panel.name = "Setup"
+	_setup_panel.visible = false
+	UiKit.place(_setup_panel, Vector4(0, 0, 0, 0), Vector4(80, 200, 680, 710))
+	root.add_child(_setup_panel)
+	_setup_panel.setup(_car_setup, CarSetup.base_from_car_data(car_data))
+	_setup_panel.closed.connect(_close_setup)
 
 	_select = DriverSelect.new()
 	_select.name = "DriverSelect"

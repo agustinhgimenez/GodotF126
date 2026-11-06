@@ -11,6 +11,8 @@ extends RefCounted
 ##   (temp_min–temp_max) no pierde nada; afuera pierde en forma cuadrática (frío o pasado).
 ## - Desgaste: proporcional a la energía de deslizamiento (MJ) y más rápido pasado de
 ##   temperatura; con el neumático gastado del todo pierde wear_grip_loss de agarre.
+## - Presión (setup, Paso 35): cada psi por debajo de la de referencia suma pressure_grip de
+##   agarre (más huella) y pressure_heat del calor de rodar (la carcasa se deforma más).
 
 signal compound_changed(compound_name: String)
 
@@ -41,6 +43,11 @@ var hot_loss: float = 0.2
 var wear_grip_loss: float = 0.15
 ## Desgaste extra por cada °C pasado de temp_max (0,05 = +5 %).
 var overheat_wear: float = 0.05
+## psi de cada eje (x adelante, y atrás) y los de referencia.
+var pressure := Vector2(23.0, 23.0)
+var pressure_ref := Vector2(23.0, 23.0)
+var pressure_grip: float = 0.005
+var pressure_heat: float = 0.08
 
 
 func configure(data: Dictionary) -> void:
@@ -84,9 +91,22 @@ func fit(wheel: CarWheel) -> void:
 	wheel.slip_energy = 0.0
 
 
+func set_pressures(psi: Vector2, reference: Vector2, grip_per_psi: float, heat_per_psi: float) -> void:
+	pressure = psi
+	pressure_ref = reference
+	pressure_grip = grip_per_psi
+	pressure_heat = heat_per_psi
+
+
+## psi por debajo de la referencia en el eje de la rueda (negativo = más inflado).
+func _under_pressure(wheel: CarWheel) -> float:
+	return pressure_ref.x - pressure.x if wheel.front else pressure_ref.y - pressure.y
+
+
 ## Multiplica el μ de la rueda.
 func grip_factor(wheel: CarWheel) -> float:
-	return float(compound().get("grip", 1.0)) * temperature_factor(wheel.temperature) * (1.0 - wear_grip_loss * wheel.wear)
+	return float(compound().get("grip", 1.0)) * temperature_factor(wheel.temperature) * (1.0 - wear_grip_loss * wheel.wear) \
+		* (1.0 + pressure_grip * _under_pressure(wheel))
 
 
 func temperature_factor(temperature: float) -> float:
@@ -115,7 +135,7 @@ func temperature_state(temperature: float) -> int:
 func update(wheel: CarWheel, speed: float, delta: float) -> void:
 	var heat := wheel.slip_energy / delta
 	if wheel.in_contact:
-		heat += rolling_heat * wheel.static_load * absf(wheel.long_speed)
+		heat += rolling_heat * maxf(1.0 + pressure_heat * _under_pressure(wheel), 0.1) * wheel.static_load * absf(wheel.long_speed)
 	var loss := (cooling + cooling_speed * absf(speed)) * (wheel.temperature - track_temp)
 	wheel.temperature += (heat - loss) * delta / heat_capacity
 	var overheat := maxf(wheel.temperature - float(compound().get("temp_max", 120.0)), 0.0)

@@ -61,6 +61,11 @@ func configure_dashboard(data: Dictionary) -> void:
 	_dashboard.configure(data)
 
 
+## Escala del velocímetro según la velocidad máxima del auto (cambia con la relación final).
+func refresh_speed_range() -> void:
+	_dashboard.update_dial_range()
+
+
 func bind_lap_timer(timer: LapTimer) -> void:
 	_timer = timer
 	timer.lap_started.connect(_on_lap_started)

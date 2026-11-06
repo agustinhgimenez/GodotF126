@@ -4,7 +4,8 @@ extends Control
 ## cada rueda (N y % del peso, color según cuánto más o menos que quieto), κ y deriva (o
 ## "BLOQUEADA" / la presión que deja el ABS, Paso 30) y una franja con la temperatura y el
 ## desgaste del neumático (Paso 33; celeste frío, verde en la ventana, rojo pasado); abajo
-## el reparto por eje y por lado, la aceleración, cabeceo y rolido, la carga aerodinámica y el
+## el reparto por eje y por lado, la altura del piso en cada eje (Paso 35; "TOCA" si roza el
+## asfalto y pierde carga), la aceleración, cabeceo y rolido, la carga aerodinámica y el
 ## arrastre (Paso 28), el modo de la aero activa con ClA y CdA (Paso 29), el reparto de
 ## frenada y el ABS (Paso 30), el control de tracción y el par que pasa el diferencial
 ## (Paso 31), el ERS (modo, carga, potencia desplegada / recuperada y energía recuperada en la
@@ -91,9 +92,12 @@ func _draw() -> void:
 	var theory := _car.theoretical_transfer()
 	var front_aero := _car.downforce_front
 	var tc := _car.traction_control
+	var gaps := _car.floor_gaps()
 	var lines := [
-		"Ejes: adelante %d %% · atrás %d %%" % [roundi(front / total * 100.0), roundi(100.0 - front / total * 100.0)],
-		"Lados: izq. %d %% · der. %d %%" % [roundi(100.0 - right / total * 100.0), roundi(right / total * 100.0)],
+		"Ejes adel./atrás %d/%d %% · izq./der. %d/%d %%" % [roundi(front / total * 100.0), roundi(100.0 - front / total * 100.0),
+			roundi(100.0 - right / total * 100.0), roundi(right / total * 100.0)],
+		("Piso %d / %d mm · ¡TOCA! carga %d %%" % [roundi(gaps.x * 1000.0), roundi(gaps.y * 1000.0), roundi(_car.floor_factor() * 100.0)])
+			if _car.is_bottoming() else "Piso adel. %d mm · atrás %d mm" % [roundi(gaps.x * 1000.0), roundi(gaps.y * 1000.0)],
 		"Acel. long. %+.2f g · lat. %.2f g %s" % [-accel.z / 9.8, absf(accel.x) / 9.8, "izq." if accel.x < 0.0 else "der."],
 		"Cabeceo %.2f° · rolido %.2f°" % [_car.get_pitch_deg(), _car.get_roll_deg()],
 		"Carga aero %d N · arrastre %d N" % [roundi(_car.downforce), roundi(_car.drag_force)],

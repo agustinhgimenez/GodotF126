@@ -52,16 +52,16 @@ func configure(data: Dictionary) -> void:
 	shift_light_start_rpm = float(data.get("shift_light_start_rpm", shift_light_start_rpm))
 	speed_tick_step = maxf(float(data.get("speed_tick_step", speed_tick_step)), 1.0)
 	if _car != null:
-		_update_dial_range()
+		update_dial_range()
 
 
 func bind_car(car: CarController) -> void:
 	_car = car
-	_update_dial_range()
+	update_dial_range()
 	car.gearbox.shift_denied.connect(_on_shift_denied)
 
 
-func _update_dial_range() -> void:
+func update_dial_range() -> void:
 	_max_kmh = maxf(ceilf(_car.max_speed * 3.6 / speed_tick_step) * speed_tick_step, speed_tick_step)
 
 

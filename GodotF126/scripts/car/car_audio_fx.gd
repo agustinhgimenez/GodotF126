@@ -7,7 +7,7 @@ extends Node
 ##   patinando (Paso 26) y con el freno de mano.
 ## - Viento: ruido grave filtrado; volumen con el cuadrado de la velocidad y más agudo rápido.
 ## - Muros: golpe grave (tono que baja) + crujido de ruido en cada choque, y roce continuo
-##   mientras el auto se arrastra contra el muro.
+##   mientras el auto se arrastra contra el muro o el piso roza el asfalto (Paso 35).
 ## - Pianos (Paso 19): retumbe grave cuya frecuencia sale de la velocidad y la separación
 ##   entre las estrías del piano, más ruido sordo.
 
@@ -151,7 +151,7 @@ func synthesize(frames: int) -> PackedVector2Array:
 	var speed_ratio := clampf(speed / maxf(_car.max_speed, 1.0), 0.0, 1.0)
 	var target_squeal := get_squeal_amount()
 	var target_wind := speed_ratio * speed_ratio
-	var target_scrape := clampf(speed / 30.0, 0.0, 1.0) if _car.is_touching_wall() else 0.0
+	var target_scrape := clampf(speed / 30.0, 0.0, 1.0) if _car.is_touching_wall() or _car.is_bottoming() else 0.0
 	var target_kerb := _car.kerb_contact
 	var kerb_step := clampf(speed / kerb_ridge_spacing, 15.0, 320.0) / mix_rate
 
