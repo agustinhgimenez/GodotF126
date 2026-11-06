@@ -36,6 +36,8 @@ var mode_name: String = ""
 var results_delay: float = 2.5
 ## Setup del auto (Paso 35; user://setup.json). En práctica se puede cambiar desde la pausa.
 var car_setup: CarSetup
+## Vibración del mando (Paso 37; intensidad = opción "vibration").
+var rumble := ControllerRumble.new()
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 
@@ -123,6 +125,11 @@ func _ready() -> void:
 	results_screen.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
 	lap_timer.session_finished.connect(_on_session_finished)
 	Settings.changed.connect(_on_setting_changed)
+	var rumble_data = InputBindings.data().get("rumble", {})
+	if rumble_data is Dictionary:
+		rumble.configure(rumble_data)
+	rumble.intensity = float(Settings.get_value("vibration")) / 100.0
+	rumble.bind_car(car)
 	# El auto ya está en su lugar (grilla o largada): elegir la torre de TV desde ahí.
 	tv_cameras.set_active(car.uses_external_camera())
 
@@ -174,8 +181,18 @@ func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:
 		lap_timer.on_checkpoint(checkpoint)
 
 
+func _physics_process(delta: float) -> void:
+	if car.controls_enabled:
+		rumble.update(car, delta)
+
+
+func _exit_tree() -> void:
+	rumble.stop()
+
+
 func _on_session_finished() -> void:
 	car.controls_enabled = false
+	rumble.stop()
 	pause_menu.set_process_unhandled_input(false)
 	await get_tree().create_timer(results_delay, false).timeout
 	car.engine_audio.set_muted(true)
@@ -194,6 +211,7 @@ func _on_paused_changed(paused: bool) -> void:
 	car.audio_fx.set_muted(paused)
 	hud.visible = not paused
 	if paused:
+		rumble.stop()
 		pause_menu.set_subtitle(_pause_subtitle())
 
 
@@ -208,6 +226,7 @@ func _on_setup_changed() -> void:
 
 func _on_setting_changed(key: String) -> void:
 	Settings.apply_to_car(car, false)
+	rumble.intensity = float(Settings.get_value("vibration")) / 100.0
 	if key == "time_of_day" or key.is_empty():
 		_apply_lighting()
 	else:

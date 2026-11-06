@@ -1,5 +1,5 @@
 {
-  "description": "Tutorial de controles (Paso 24): secciones del panel de controles y consejos de la pantalla de carga. Cada fila tiene 'actions' (acciones del InputMap: las teclas se leen de project.godot) o 'keys' (texto fijo).",
+  "description": "Tutorial de controles (Paso 24): secciones del panel de controles y consejos de la pantalla de carga. Cada fila tiene 'actions' (acciones del InputMap: se muestran sus teclas o, con un mando conectado, sus botones; Paso 37) o 'keys' / 'pad_keys' (texto fijo para teclado / mando).",
   "sections": [
     {
       "title": "Manejo",
@@ -26,7 +26,7 @@
         { "actions": ["change_camera"], "text": "Cambiar cámara (6 vistas)" },
         { "actions": ["reset_car"], "text": "Volver a la pista" },
         { "actions": ["toggle_telemetry"], "text": "Panel de cargas por rueda" },
-        { "keys": ["Esc"], "text": "Pausa: opciones, controles, reiniciar" }
+        { "keys": ["Esc"], "pad_keys": ["Start"], "text": "Pausa: opciones, controles, reiniciar" }
       ]
     }
   ],
@@ -43,7 +43,9 @@
     "Sin ABS, frenar a fondo bloquea las ruedas: el auto frena menos y no dobla.",
     "Con el reparto de frenada muy atrás se bloquean primero las traseras y el auto se cruza.",
     "Con el control de tracción bajo o apagado (T), dosificá el acelerador al salir de las curvas lentas.",
-    "V cambia el modo del ERS: Ataque gasta la batería rápido, Recarga la llena al levantar el pie y al frenar."
+    "V cambia el modo del ERS: Ataque gasta la batería rápido, Recarga la llena al levantar el pie y al frenar.",
+    "Con un mando, los gatillos aceleran y frenan de a poco: en Controles → Asignar controles se cambia cada botón.",
+    "Con un volante, elegí Pedales: Volante (−1 a 1) en Asignar controles y la dirección sin asistencia en Opciones."
   ],
   "loading": {
     "min_seconds": 1.2

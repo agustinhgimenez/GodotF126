@@ -24,6 +24,12 @@ const TIMES_OF_DAY := ["sunset", "day"]
 ## Niveles del control de tracción contando el apagado (los umbrales están en car.json).
 const TRACTION_LEVELS := 4
 const MSAA_MODES := {0: Viewport.MSAA_DISABLED, 2: Viewport.MSAA_2X, 4: Viewport.MSAA_4X, 8: Viewport.MSAA_8X}
+## Controles (Paso 37): asignaciones, pedales ("half" gatillos 0–1, "full" pedales de volante
+## de −1 a 1), zona muerta de la dirección (%), curva de la dirección y vibración (%).
+## Restablecer de Opciones no las toca (reset_input() sí).
+const INPUT_KEYS := ["bindings", "pedal_range", "steer_deadzone", "steer_curve", "vibration"]
+const PEDAL_RANGES := ["half", "full"]
+const STEER_CURVES := [1.0, 1.5, 2.0]
 
 var values: Dictionary = {}
 var _data: Dictionary = {}
@@ -34,6 +40,7 @@ func _ready() -> void:
 	_ensure_buses()
 	load_settings()
 	apply_global()
+	apply_input()
 
 
 func get_value(key: String):
@@ -47,18 +54,38 @@ func get_default(key: String):
 func set_value(key: String, value) -> void:
 	values[key] = _sanitize(key, value)
 	apply_global()
+	if key in INPUT_KEYS:
+		apply_input()
 	save_settings()
 	changed.emit(key)
 
 
-## No vuelve a mostrar el tutorial: tutorial_seen no es una opción del jugador.
+## No vuelve a mostrar el tutorial (tutorial_seen no es una opción del jugador) ni toca los
+## controles.
 func reset_to_defaults() -> void:
-	var seen = get_value("tutorial_seen")
+	var kept := {"tutorial_seen": get_value("tutorial_seen")}
+	for key in INPUT_KEYS:
+		kept[key] = get_value(key)
 	values = _defaults()
-	values["tutorial_seen"] = seen
+	values.merge(kept, true)
 	apply_global()
 	save_settings()
 	changed.emit("")
+
+
+## Controles por defecto (Paso 37).
+func reset_input() -> void:
+	var defaults := _defaults()
+	for key in INPUT_KEYS:
+		values[key] = defaults.get(key)
+	apply_input()
+	save_settings()
+	changed.emit("")
+
+
+## Arma el InputMap con las asignaciones del jugador (InputBindings).
+func apply_input() -> void:
+	InputBindings.apply(get_value("bindings"), float(get_value("steer_deadzone")) / 100.0)
 
 
 ## Valores por defecto ya saneados (el JSON trae los enteros como float).
@@ -131,6 +158,8 @@ func apply_to_car(car: CarController, include_camera: bool = true) -> void:
 	if profile is Dictionary:
 		car.steer_response = float(profile.get("steer_response", car.steer_response))
 		car.steer_limit = float(profile.get("steer_limit", car.steer_limit))
+	car.pedal_full_range = str(get_value("pedal_range")) == "full"
+	car.steer_curve = float(get_value("steer_curve"))
 	if include_camera:
 		car.set_camera_mode(int(get_value("camera")))
 	car.cockpit_detail.set_resolution_scale(float(quality().get("mirror_scale", 1.0)))
@@ -157,6 +186,26 @@ func _sanitize(key: String, value):
 			return clampi(int(value), 0, TRACTION_LEVELS - 1)
 		"steering_assist", "abs", "fullscreen", "tutorial_seen":
 			return value if value is bool else fallback
+		"bindings":
+			return value.duplicate(true) if value is Dictionary else {}
+		"pedal_range":
+			return value if str(value) in PEDAL_RANGES else fallback
+		"steer_deadzone":
+			if not (value is int or value is float):
+				return int(fallback)
+			return clampi(int(value), 0, 30)
+		"steer_curve":
+			if not (value is int or value is float):
+				return float(fallback)
+			var nearest: float = STEER_CURVES[0]
+			for curve in STEER_CURVES:
+				if absf(float(value) - curve) < absf(float(value) - nearest):
+					nearest = curve
+			return nearest
+		"vibration":
+			if not (value is int or value is float):
+				return int(fallback)
+			return clampi(int(value), 0, 100)
 	if key in VOLUME_BUSES:
 		if not (value is int or value is float):
 			return int(fallback)

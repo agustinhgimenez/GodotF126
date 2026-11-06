@@ -14,7 +14,12 @@
     "quality": "medium",
     "time_of_day": "sunset",
     "fullscreen": false,
-    "tutorial_seen": false
+    "tutorial_seen": false,
+    "bindings": {},
+    "pedal_range": "half",
+    "steer_deadzone": 8,
+    "steer_curve": 1.0,
+    "vibration": 100
   },
   "steering": {
     "assisted": { "steer_response": 8.0, "steer_limit": 1.0 },

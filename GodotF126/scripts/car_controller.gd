@@ -73,6 +73,10 @@ const CHASSIS_KEYS := {
 ## Multiplica el giro máximo según la velocidad (1 = cerca del máximo agarre; Settings).
 @export var steer_limit: float = 1.0
 @export var steer_response: float = 8.0
+## Paso 37 (Settings): giro = entrada^steer_curve con un eje analógico (1 = lineal; con
+## teclado la entrada es 0 o 1 y no cambia nada). Pedales de volante de −1 a 1.
+@export var steer_curve: float = 1.0
+@export var pedal_full_range: bool = false
 
 @export_group("Suspensión")
 @export var front_axle_z: float = -1.8
@@ -132,6 +136,11 @@ const CHASSIS_KEYS := {
 ## m/s a lo largo del auto (negativo = marcha atrás); lo leen la caja, el motor y el audio.
 var forward_speed: float = 0.0
 var controls_enabled: bool = true
+## Lo que pide el piloto en este cuadro (0–1, y −1 a 1 la dirección ya con la curva): lo
+## muestra el panel F3 (Paso 37).
+var throttle_input: float = 0.0
+var brake_input: float = 0.0
+var steer_raw: float = 0.0
 ## 0–1: cuánto está pisando un piano (lo escribe TrackLimits; lo usa CarAudioFx).
 var kerb_contact: float = 0.0
 var spawn_transform: Transform3D = Transform3D.IDENTITY
@@ -527,10 +536,14 @@ func _physics_process(delta: float) -> void:
 	var steer_input := 0.0
 	var handbrake := false
 	if controls_enabled:
-		throttle = Input.get_action_strength("accelerate")
-		brake = Input.get_action_strength("brake")
+		throttle = InputBindings.pedal_strength("accelerate", pedal_full_range)
+		brake = InputBindings.pedal_strength("brake", pedal_full_range)
 		steer_input = Input.get_axis("steer_right", "steer_left")
+		steer_input = signf(steer_input) * pow(absf(steer_input), steer_curve)
 		handbrake = Input.is_action_pressed("handbrake")
+	throttle_input = throttle
+	brake_input = brake
+	steer_raw = steer_input
 	_handbrake = handbrake
 	forward_speed = linear_velocity.dot(_flat_forward())
 	var world_accel := (linear_velocity - _accel_velocity) / delta

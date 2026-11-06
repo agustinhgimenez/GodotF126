@@ -70,7 +70,17 @@ func close() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(InputBindings.PAUSE_ACTION):
+		get_viewport().set_input_as_handled()
+		if is_open():
+			close()
+		else:
+			open()
+		return
 	if not event.is_action_pressed("ui_cancel"):
+		return
+	# Corriendo, sólo Esc (o Start) pausa: B del mando puede estar asignado a otra acción.
+	if not is_open() and not event is InputEventKey:
 		return
 	get_viewport().set_input_as_handled()
 	if not is_open():

@@ -73,8 +73,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 34 | Combustible: el peso baja vuelta a vuelta | ✅ |
 | 35 | **Setup del auto**: alerones, altura, rigidez, presiones, relaciones de marcha | ✅ |
 | 36 | Daños: alerón delantero roto reduce la carga, pinchazos | ✅ |
-| 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | ⏳ Siguiente |
-| 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | |
+| 37 | Soporte de **joystick y volante** (acelerador y freno analógicos, vibración); remapeo de controles | ✅ |
+| 38 | Ayudas de manejo: línea de trazada ideal con zonas de frenado en color | ⏳ Siguiente |
 
 ## Fase E — Telemetría y entrenamiento
 
@@ -123,7 +123,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 ## Notas técnicas
 
 - **Arte**: las manos, el volante y el auto se hacen primero con formas simples generadas en Godot. Se pueden reemplazar después por modelos 3D (Blender o assets libres) sin cambiar la lógica.
-- **Force feedback**: Godot 4 soporta vibración de gamepad, pero no force feedback real de volante. Si se quiere, hace falta un plugin externo (evaluar en el Paso 37).
+- **Force feedback**: Godot 4 soporta vibración de gamepad, pero no force feedback real de volante. Si se quiere, hace falta un plugin externo. Evaluado en el Paso 37: quedó sólo la vibración (`Input.start_joy_vibration()`, que en muchos volantes no hace nada); force feedback real queda fuera del alcance.
 - **Datos reales**: no se usan trazados oficiales FIA ni datos de telemetría con licencia. Todo es aproximado.
 - **Arquitectura prevista**: autoloads `GameState` (selección y modo), `Settings` (opciones) y `AudioManager`; el auto dividido en componentes (`Engine`, `Gearbox`, `Tyres`, `Aero`, `ERS`) comunicados por señales.
 
@@ -730,3 +730,25 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   \*Corrigiendo con el volante para ir derecho (hasta 0,04 de volante con una delantera pinchada, 0,14 con una trasera). La frenada se mide sin tocar el volante: con una trasera pinchada el auto hace un trompo, y en la curva también (la prueba no corrige).
   Con el control de tracción la trasera pinchada no patina (κ 0,09): el TC limita el par de las dos traseras, por eso el 0–160 tarda 7 s. Desgaste: un neumático trasero derecho al 99,95 % acelerando se pincha (aviso y "PINCH."); con R queda nuevo, sin pinchazo y las 4 ruedas a la altura de reposo. **Sin daños nada cambió**: vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050 sin daños, salidas ni golpes. En la prueba del Paso 25 el choque a 90° da golpe 0,67 en lugar de 1,00 porque el auto ya llega con el alerón dañado del choque a 20° (la prueba no repara entre choques); reparando antes de cada choque da 1,00 como siempre. Capturas: `informes/capturas/paso36-choque.png` (de trompa a 100 km/h y 45°: alerón 63 %, pinchazo trasero derecho, barra del alerón y panel F3) y `paso36-aleron-pinchazo.png` (alerón al 40 %, caído, y la delantera izquierda pinchada más baja).
 - **Cómo probar**: F5 → Jugar → práctica. Pegar de trompa contra un muro a más de ~100 km/h: aparece el aviso, la barra del alerón baja y el auto subvira. Un golpe con la rueda contra el muro la pincha: el auto tira para ese lado. R repara todo. Con F3 se ve la línea "Daños".
+
+### Paso 37 — Joystick, volante y controles
+- **Mando por defecto** (`data/input.json`, distribución Xbox de SDL; las teclas siguen en `project.godot`): RT acelera y LT frena (analógicos), palanca izquierda dobla, RB / LB marchas, A adelantamiento, X modo recta, Y cámara, Back volver a la pista, L3 freno de mano, R3 panel F3, cruceta ↑ ERS / ↓ control de tracción / ← → reparto de frenada, **Start pausa**. La caja manual / automática no tiene botón por defecto. En los menús, A acepta, B vuelve y la cruceta navega: los `ui_*` de Godot 4.7 sólo traían teclas en aceptar y volver. Corriendo, B no pausa (sólo Esc o Start), así se puede asignar a otra cosa.
+- **Analógico**: el acelerador y el freno usan cuánto se aprieta el gatillo (zona muerta 5 %) y la dirección cuánto se mueve la palanca (zona muerta 8 %, ajustable de 0 a 30 %). **Curva de dirección**: giro = entrada^curva (lineal 1, suave 1,5, muy suave 2); con teclado no cambia nada. **Pedales de volante** que van de −1 (suelto) a 1 (a fondo): con "Pedales: Volante (−1 a 1)" se leen en todo su recorrido. Solo se activa en los mandos donde ese eje ya pasó por debajo de −0,5, así un gatillo suelto (en 0) nunca da medio pedal.
+- **Vibración** (`ControllerRumble`, bloque `"rumble"` de `input.json`, intensidad 0–100 %): golpes contra el muro y daños en el motor grande, que se apaga en 0,35 / 0,6 s; el piso tocando en el motor grande; pianos, ABS soltando (pulsos a 12 Hz), ruedas patinando, rueda pinchada (según la velocidad) y limitador en el motor chico. Se corta en la pausa y al terminar la sesión. Godot no da force feedback de volante.
+- **Asignar controles** (botón nuevo en el panel de Controles del menú y de la pausa; `BindingsPanel`): una fila por acción con su tecla y su control del mando. Enter (o A) espera la tecla / el botón / el eje nuevo. Para un eje hay que moverlo más de 0,5 desde donde estaba, así un pedal en reposo en −1 no cuenta solo; las acciones que no son analógicas solo aceptan botones. Esc cancela; a los 6 s se cancela sola; Supr deja la celda vacía. Lo asignado se saca de las otras acciones que lo usaban y se avisa. Debajo: pedales, zona muerta y curva de la dirección y vibración. "Por defecto" vuelve todo atrás. Se guarda en `user://settings.json` (`bindings`, solo lo cambiado); "Restablecer" de Opciones no toca los controles. Con un mando conectado, el tutorial de controles muestra sus botones en lugar de las teclas.
+- **Panel F3**: en el chasis, el acelerador y el freno que pide el piloto (barras verde y roja) y una marca con el volante sobre el eje delantero.
+- **Verificación** (sin mando físico: eventos del mando simulados con `Input.parse_input_event()`):
+
+| Entrada | Resultado |
+|---|---|
+| RT 0,03 / 0,25 / 0,50 / 1,00 | acelerador 0 / 0,21 / 0,47 / 1,00 |
+| Palanca −0,05 / −0,10 / −0,50 / −1,00 | dirección 0 / 0,02 / 0,46 / 1,00 (con zona muerta 20 %: −0,50 → 0,38) |
+| Pedal de volante −1 / 0 / 0,5 / 1 | 0 / 0,47 / 0,74 / 1,00 |
+| RT 100 / 60 / 30 % | 0–100 en 2,85 / 2,88 / 4,17 s (con 60 % manda la tracción) |
+| LT 100 / 50 % desde 100 km/h | 23,0 m (89 cuadros con ABS) / 22,3 m (sin ABS) |
+| Palanca a la mitad, curva lineal / muy suave | volante 0,46 / 0,21 |
+| Vibración (chico, grande) | quieto (0, 0) · arranque sin TC (0,50, 0,30: patina y el piso toca 7 cuadros) · ABS (0,50 / 0,15 en pulsos) · piano (0,35, 0) · pinchazo a 57 km/h (0,25, 0,97 con el aviso) · golpe 0,6 → 0,57 y 0,29 a los 10 cuadros · al 50 % el piano 0,18 · en 0 nada · en la pausa (0, 0) |
+| Start / Start / B corriendo / Esc / B en la pausa | pausa / sigue / no pausa / pausa / vuelve |
+
+  Asignación: A a "acelerar" lo saca de "adelantamiento"; E a "acelerar" lo saca de "subir marcha". Se recarga igual de `user://settings.json` y un archivo con basura no rompe nada (teclas inválidas fuera, eje 99 → nada, curva 1,7 → 1,5, vibración 400 → 100). En la pantalla: tecla K, eje 2 (0,3 no alcanza, 0,8 sí → "Palanca der. ←"), un eje en una acción digital no cuenta, botón B, Esc cancela, Supr borra, a los 6,0 s se cancela sola y Esc vuelve al tutorial sin cerrar el panel (la pantalla mide 481 px de los 510 del panel). **Sin mando nada cambió**: vuelta con el piloto automático 1:42.383 / 1:41.017 / 1:41.050 sin salidas, golpes ni daños, y la prueba del Paso 25 igual (0–100 2,78 s, frenada 60,9 m, 1,47 / 1,82 g). Falta probarlo con un mando y un volante de verdad. Capturas: `informes/capturas/paso37-asignar.png` (esperando una tecla para "Subir marcha", freno de mano en B, vibración 75 %), `paso37-f3-analogico.png` (gatillo al 58 % y palanca a 0,40: barras y marca en el chasis) y `paso37-pausa-controles.png` (tutorial con el botón "Asignar controles").
+- **Cómo probar**: conectar un mando antes de abrir el juego (o después: lo detecta solo). En el menú, Controles muestra sus botones; con la cruceta y A se navega. En la carrera, RT / LT de a poco y F3 para ver las barras. Controles → Asignar controles: Enter en una celda y apretar la tecla / botón / eje nuevo. Con un volante: "Pedales: Volante (−1 a 1)" y, en Opciones, la dirección sin asistencia.

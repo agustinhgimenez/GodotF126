@@ -11,7 +11,9 @@ extends Control
 ## (Paso 31), el ERS (modo, carga, potencia desplegada / recuperada y energía recuperada en la
 ## vuelta, Paso 32), el combustible con la masa y el consumo por vuelta (Paso 34), los daños (salud del alerón delantero
 ## y ruedas pinchadas, Paso 36) y la transferencia de peso medida (sin la carga aerodinámica)
-## contra la de la cuenta (CarController.theoretical_transfer()), en una línea.
+## contra la de la cuenta (CarController.theoretical_transfer()), en una línea. En el chasis,
+## el acelerador y el freno que pide el piloto (barras verde y roja) y una marca con el
+## volante sobre el eje delantero (Paso 37: se ve cuánto llega de un mando analógico).
 
 const SIZE := Vector2(330, 522)
 const BG := Color(0.04, 0.05, 0.07, 0.78)
@@ -21,6 +23,8 @@ const LIGHT := Color(0.25, 0.5, 1.0)
 const HEAVY := Color(1.0, 0.35, 0.25)
 const NEUTRAL := Color(0.3, 0.32, 0.36)
 const LOCKED := Color(1.0, 0.9, 0.2)
+const PEDAL_THROTTLE := Color(0.3, 0.85, 0.4)
+const PEDAL_BRAKE := Color(0.95, 0.3, 0.25)
 ## Posición de cada rueda en el dibujo (mismo orden que CarController.wheels: DI, DD, TI, TD).
 const WHEEL_SPOTS := [Vector2(85, 80), Vector2(245, 80), Vector2(85, 212), Vector2(245, 212)]
 const WHEEL_BOX := Vector2(110, 98)
@@ -54,6 +58,13 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2(150, 50), Vector2(30, 205)), NEUTRAL)
 	draw_rect(Rect2(Vector2(110, 60), Vector2(110, 12)), NEUTRAL)
 	draw_rect(Rect2(Vector2(110, 238), Vector2(110, 12)), NEUTRAL)
+	# Pedales en el chasis y volante sobre el eje delantero (Paso 37).
+	var pedal_height := 150.0
+	for pedal in [[_car.throttle_input, 153.0, PEDAL_THROTTLE], [_car.brake_input, 167.0, PEDAL_BRAKE]]:
+		var amount := clampf(float(pedal[0]), 0.0, 1.0) * pedal_height
+		draw_rect(Rect2(Vector2(pedal[1], 80.0), Vector2(10, pedal_height)), Color(0, 0, 0, 0.35))
+		draw_rect(Rect2(Vector2(pedal[1], 80.0 + pedal_height - amount), Vector2(10, amount)), pedal[2])
+	draw_rect(Rect2(Vector2(163.0 + _car.steer_raw * -52.0, 58.0), Vector2(4, 16)), TEXT)
 	for i in 4:
 		var wheel := _car.wheels[i]
 		var spot: Vector2 = WHEEL_SPOTS[i]
