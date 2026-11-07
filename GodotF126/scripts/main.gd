@@ -73,12 +73,14 @@ var pit_lane: PitLane
 ## y radio del ingeniero (sólo en carrera; null fuera de ella).
 var strategy: RaceStrategy
 var radio: EngineerRadio
+var race_control: RaceControl
 ## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
 var qualifying: Array[Dictionary] = []
 var _car_data: Dictionary = {}
 var _laps: int = 0
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
+var _physics_guard: Node
 
 @onready var track: BakuTrack = $BakuTrack
 @onready var car: CarController = $Car
@@ -235,6 +237,11 @@ func _ready() -> void:
 	rumble.bind_car(car)
 	# El auto ya está en su lugar (grilla o largada): elegir la torre de TV desde ahí.
 	tv_cameras.set_active(car.uses_external_camera())
+	_physics_guard = Node.new()
+	_physics_guard.name = "PhysicsGuard"
+	_physics_guard.tree_exiting.connect(_release_physics)
+	add_child(_physics_guard)
+	child_order_changed.connect(_keep_guard_last)
 
 
 ## Modo elegido en el menú (GameState); en contrarreloj fija las vueltas del cronómetro.
@@ -349,6 +356,12 @@ func _setup_race() -> void:
 	radio.setup(strategy, race, pit_lane, track, car)
 	hud.bind_radio(radio, DataLoader.team_primary(selected_team))
 	radio.begin()
+	race_control = RaceControl.new()
+	race_control.name = "RaceControl"
+	race_control.configure(DataLoader.load_json(RaceControl.DATA_PATH))
+	add_child(race_control)
+	race_control.setup(race, traffic, track, racing_line, pit_lane, stewards, car, radio)
+	hud.bind_race_control(race_control)
 	var mine := race.entry_of(car)
 	hud.show_message("Largás P%d (%s)" % [int(mine["grid"]) + 1,
 		"clasificación %s" % LapTimer.format_time(float(mine["quali"])) if float(mine["quali"]) > 0.0 else "sin tiempo"], 4.0)
@@ -379,6 +392,27 @@ func _physics_process(delta: float) -> void:
 
 func _exit_tree() -> void:
 	rumble.stop()
+
+
+# Godot saca de la escena primero al último hijo: el guardián va siempre último para que, al
+# liberar la escena, todos los autos y áreas salgan del espacio de Jolt antes que cualquier
+# superficie que estén tocando (la calle de boxes y los autos de la IA se suman después del
+# auto y de la pista; si no, Jolt a veces se cae al liberar).
+func _keep_guard_last() -> void:
+	if is_instance_valid(_physics_guard) and _physics_guard.get_parent() == self \
+			and _physics_guard.get_index() != get_child_count() - 1:
+		move_child.call_deferred(_physics_guard, -1)
+
+
+func _release_physics() -> void:
+	if child_order_changed.is_connected(_keep_guard_last):
+		child_order_changed.disconnect(_keep_guard_last)
+	for node in find_children("*", "RigidBody3D", true, false):
+		var body := node as RigidBody3D
+		body.contact_monitor = false
+		PhysicsServer3D.body_set_space(body.get_rid(), RID())
+	for node in find_children("*", "Area3D", true, false):
+		PhysicsServer3D.area_set_space((node as Area3D).get_rid(), RID())
 
 
 func _unhandled_input(event: InputEvent) -> void:

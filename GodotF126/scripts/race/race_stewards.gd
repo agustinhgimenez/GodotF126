@@ -15,6 +15,7 @@ extends Node
 ## - Si no, incidente de carrera, sin acción.
 ## El culpable recibe una advertencia o, con un golpe de `penalty_impact` o más, `penalty_seconds`
 ## s de penalización; con `max_warnings` advertencias, también (y vuelve a cero).
+## Paso 50: las banderas (RaceControl) sancionan directo con `flag_penalty()`.
 
 signal decided(incident: Dictionary)
 
@@ -157,6 +158,21 @@ func decide(incident: Dictionary) -> Dictionary:
 	return incident
 
 
+## Paso 50: sanción directa de la dirección de carrera (RaceControl), sin investigar: `kind`
+## "yellow" / "safety_car" (pasó a `victim`), "sc_pass" (pasó al Safety Car) o "blue" (no dejó
+## pasar a `victim`).
+func flag_penalty(guilty: CarController, victim: CarController, kind: String, seconds: float) -> Dictionary:
+	var incident := {
+		"a": guilty, "b": victim if victim != null else guilty, "guilty": guilty, "victim": victim,
+		"kind": kind, "action": "penalty", "seconds": seconds, "warnings": 0, "strength": 1.0,
+		"closing": 0.0, "gap": 0.0, "time": _clock,
+	}
+	penalties[guilty] = float(penalties.get(guilty, 0.0)) + seconds
+	incidents.append(incident)
+	decided.emit(incident)
+	return incident
+
+
 ## Quién tuvo la culpa: {"guilty", "victim" (null si nadie), "kind" ("rear" / "side" /
 ## "racing"), "closing" (m/s con que se acercaban)}.
 func blame(incident: Dictionary) -> Dictionary:
@@ -213,6 +229,14 @@ static func reason(incident: Dictionary, short: bool = false) -> String:
 			return "choque por detrás a %s" % victim
 		"side":
 			return "se cerró sobre %s" % victim
+		"yellow":
+			return "pasó a %s con bandera amarilla" % victim
+		"safety_car":
+			return "pasó a %s con Safety Car" % victim
+		"sc_pass":
+			return "pasó al Safety Car"
+		"blue":
+			return "no dejó pasar a %s (bandera azul)" % victim
 		_:
 			return "incidente de carrera"
 

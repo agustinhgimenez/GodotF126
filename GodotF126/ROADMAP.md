@@ -96,8 +96,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | ✅ |
 | 48 | Pit lane con limitador de velocidad y paradas en boxes | ✅ |
 | 49 | Estrategia: cambio de compuesto, radio del ingeniero | ✅ |
-| 50 | Banderas amarilla y azul, **Safety Car** | ⏳ Siguiente |
-| 51 | **Replays** con cámaras de TV | |
+| 50 | Banderas amarilla y azul, **Safety Car** | ✅ |
+| 51 | **Replays** con cámaras de TV | ⏳ Siguiente |
 | 52 | Pantalla de resultados de carrera con puntos | |
 
 ## Fase G — Contenido extra
@@ -1042,3 +1042,28 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   El desgaste por vuelta del modelo empezó en 0,016 y se ajustó a 0,014 con lo medido en carrera. La radio avisaba el desgaste recién al 50 %, que en 10 vueltas casi nunca llega: ahora avisa al 30 % y al 50 %.
   **Se arregló un cierre de Godot que venía del Paso 47**: al salir de una carrera después de unos 30 s con toques entre autos (volver al menú, pasar a la clasificación o reiniciar), Jolt se caía al liberar los autos con el reporte de contactos encendido (sólo con Jolt; con GodotPhysics3D no pasaba). Ahora cada auto apaga `contact_monitor` y se saca del espacio de física en `NOTIFICATION_EXIT_TREE`, antes de que lo haga `CollisionObject3D`. La prueba completa del Paso 47 (carrera, clasificación y otra carrera) termina sin cerrarse y la repetición `paso49_reload.gd` (3 carreras de 30 s seguidas) también. **Las pruebas anteriores siguen bien**: Pasos 47 y 48 con 0 fallas (la carrera del Paso 47 da el mismo resultado: Norris 2:41,967) y la vuelta del Paso 36 igual que antes (1:42.533 / 1:41.100 / 1:41.017 con `--fixed-fps 60`). Capturas: `informes/capturas/paso49-radio.png` (el plan en la radio), `paso49-box.png` ("Box, box"), `paso49-calle.png` (en la calle con el compuesto de la parada) y `paso49-resultado.png` (la columna de compuestos).
 - **Cómo probar**: F5, Carrera de 10 vueltas. Leer el plan en la radio, apretar O para ver los compuestos y entrar a boxes cuando el ingeniero dice "Box, box". Probar también terminar sin parar para ver los +30 s.
+
+### Paso 50 — Banderas amarilla y azul, Safety Car
+- **Dirección de carrera** (`scripts/race/race_control.gd`, `RaceControl`, datos en `data/race_control.json`; sólo en carrera). Revisa la pista 10 veces por segundo y cuesta **0,05–0,1 ms por cuadro**. Cada cosa que pasa queda en `history` y en la radio.
+- **Auto lento**: un auto en pista (no en la calle de boxes) a menos de **30 km/h durante 1,5 s**, pasados 15 s de la largada y sin otro auto a menos de 20 m adelante (los que hacen fila detrás de uno parado no cuentan, así el embudo de la curva 1 no llena la pista de amarillas).
+- **Bandera amarilla**: zona desde **220 m antes** del auto lento hasta 40 m después; dura mientras siga lento y 4 s más. En la zona la IA va al **80 %** de su velocidad objetivo y **nadie puede pasar** (salvo al auto lento o a uno que entra o sale de boxes). La IA ya no empieza ni sigue una pasada 150 m antes de la zona. Quien gana un lugar ahí recibe **+5 s** ("pasó a X con bandera amarilla"); devolver el lugar no se sanciona.
+- **Bandera azul**: a quien tiene a menos de **1 s** detrás a un auto con una vuelta más. La IA levanta (90 % de su objetivo) y no defiende. El jugador ve "BANDERA AZUL · DEJÁ PASAR A …" y si no deja pasar en **10 s** recibe **+5 s**.
+- **Safety Car**: sale si un auto sigue lento **6 s** (o hay 3 lentos a la vez). Aparece 80 m delante del líder: un auto plateado con franja verde, dos luces naranjas que titilan y el cartel "SAFETY CAR". Va a **130 km/h** como máximo y al 75 % de la velocidad de la línea en las curvas. Nadie puede pasar a nadie (+5 s) ni al Safety Car.
+  - El primero lo sigue a **unos 25 m**: frena con el mismo perfil que el Safety Car pero en su propia posición, así frena en las mismas curvas. Los demás hacen fila a ~30 m y los que están lejos lo alcanzan con 60 km/h de más.
+  - La torre muestra "SC · vuelta/vueltas" y la radio avisa ("Safety Car en pista", "Box, box" si la parada del plan estaba a 2 vueltas o menos; la IA también adelanta la suya).
+  - Después de 40 s y con la pista limpia avisa "el Safety Car entra esta vuelta", desaparece en la entrada de boxes y la carrera vuelve a **verde al cruzar la meta**.
+- **HUD**: franja arriba al centro: amarilla "BANDERA AMARILLA · NO PASAR", azul, naranja "SAFETY CAR · NO PASAR", "SAFETY CAR ENTRA ESTA VUELTA" y verde "BANDERA VERDE" por unos segundos.
+- **Comisarios**: `RaceStewards.flag_penalty` agrega la sanción directa (sin investigar culpa) con el texto de cada bandera.
+- **Verificación** (`paso50_flags.gd`, carrera de 5 vueltas con el jugador manejado por la IA):
+
+| Prueba | Resultado |
+|---|---|
+| Amarilla (Norris frenado en una recta) | zona abierta, la IA al 80 % y sin pasar en la zona, el jugador ve la franja, la radio avisa; la zona se cierra cuando vuelve a andar y una amarilla corta no saca el Safety Car |
+| Pasar con amarilla (armado) | +5 s con el texto; devolver el lugar no se sanciona |
+| Azul (vuelta de diferencia armada) | el jugador doblado ve la azul con el nombre; la IA doblada levanta y no defiende; no dejar pasar: +5 s; sin la vuelta de diferencia se va |
+| Safety Car (Verstappen parado 8,1 s) | aparece 80 m delante del líder; torre "SC · 1/5"; el primero lo sigue a 34 m de promedio y pegado no pasa los 145 km/h; el último pasa de 29,0 s a 18,8 s del primero; 0 sanciones a la IA; entra en la vuelta, desaparece en boxes y verde en la meta (130 s en total); la IA vuelve a correr libre |
+| Carrera completa | terminó sin rescates; 1 sanción natural de la IA por amarilla (Gasly, a los 40 s) |
+
+  El primero del Safety Car al principio quedaba a 70–100 m: frenaba para la velocidad que el Safety Car tenía en ese momento (lento en una curva cuando el líder todavía estaba en la recta). Ahora sigue el perfil del Safety Car en su propia posición. Las amarillas y el Safety Car salían solos en la curva 1 de la largada (el embudo baja a todos a menos de 30 km/h): por eso los 15 s de gracia, la fila que no cuenta y 3 autos lentos (no 2) para el Safety Car.
+  **El cierre de Jolt del Paso 49 no estaba del todo arreglado**: repitiendo 3 carreras seguidas (`paso49_reload.gd`), el Paso 49 se cerraba en 3 de 4 corridas, al cambiar de escena o al salir (siempre en la misma dirección de Godot). Los autos de la IA y la calle de boxes se agregan después del auto y de la pista, así que al liberar la escena salían en otro orden. Ahora `Main` tiene un nodo guardián que siempre es su último hijo (Godot saca primero al último) y que saca todos los autos y áreas del espacio de Jolt antes que cualquier otra cosa. Las 3 carreras seguidas pasan en las 4 corridas; queda 1 cierre de 4 al salir de Godot con la carrera abierta (`quit()`, después de terminar todo). **Las pruebas anteriores siguen bien**: Pasos 47 y 48 con 0 fallas (la carrera del Paso 47 cambia un poco con las banderas: gana Norris en 2:41,667). La vuelta del Paso 36 da ahora 1:42.417 / 1:40.950 / 1:40.967 con `--fixed-fps 60`, igual con y sin los cambios de este paso (también en el commit del Paso 49), así que no viene del Paso 50. Capturas: `informes/capturas/paso50-amarilla.png`, `paso50-azul.png`, `paso50-safety-car.png`, `paso50-fila.png` y `paso50-resultado.png`.
+- **Cómo probar**: F5, Carrera de 5 vueltas. Para ver una amarilla y el Safety Car, frenar y quedarse parado en la pista después de los primeros 15 s: a los 1,5 s sale la amarilla y a los 6 s el Safety Car. Ponerse detrás, no pasar a nadie y esperar la bandera verde en la meta.

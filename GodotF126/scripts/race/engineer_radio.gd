@@ -10,6 +10,8 @@ extends Node
 ##   `box_call_distance` m antes de la entrada.
 ## - Desgaste: al pasar cada valor de `wear_calls` y al llegar al límite de la estrategia.
 ## - Al salir de boxes, neumáticos fríos; cuando entra a boxes el de adelante o el de atrás.
+## Paso 50: RaceControl agrega sus textos (`extra_texts`) y habla con `urgent` (pasa primero en
+## la cola); con Safety Car, "parada barata" hasta `RaceSession.pit_advance` vueltas antes.
 
 signal spoke(text: String, seconds: float)
 
@@ -19,6 +21,8 @@ var wear_calls: Array[float] = [0.3, 0.5]
 var box_call_distance: float = 900.0
 ## Mensajes dichos (para las pruebas): {time, key, text}.
 var history: Array[Dictionary] = []
+## Paso 50: textos de otros (clave → texto con {valores}); tienen prioridad sobre los de la estrategia.
+var extra_texts: Dictionary = {}
 
 var _strategy: RaceStrategy
 var _race: RaceSession
@@ -77,16 +81,30 @@ func begin() -> void:
 		say("short_race")
 
 
-## Encola el texto `key` (no lo repite si ya está en la cola).
-func say(key: String, values: Dictionary = {}) -> void:
-	var text := _strategy.radio_text(key, values)
+## Encola el texto `key` (no lo repite si ya está en la cola); `urgent` lo pone primero.
+func say(key: String, values: Dictionary = {}, urgent: bool = false) -> void:
+	var text := str(extra_texts[key]).format(values) if extra_texts.has(key) else _strategy.radio_text(key, values)
 	if text.is_empty():
 		return
 	for item in _queue:
 		if item["key"] == key:
 			item["text"] = text
 			return
-	_queue.append({"key": key, "text": text})
+	if urgent:
+		_queue.push_front({"key": key, "text": text})
+	else:
+		_queue.append({"key": key, "text": text})
+
+
+## Paso 50: avisa ya si hay motivo para entrar (lo usa RaceControl al salir el Safety Car).
+func check_box() -> void:
+	var entry := _entry()
+	if entry.is_empty() or entry["finished"]:
+		return
+	var reason := box_reason(entry)
+	if not reason.is_empty():
+		_box_lap = int(entry["lap"])
+		say(reason, {"compound": _compound_text(_pit.next_compound(_car)), "laps": _race.remaining_laps(entry)}, true)
 
 
 func _process(delta: float) -> void:
@@ -150,6 +168,9 @@ func box_reason(entry: Dictionary) -> String:
 	var plan: Dictionary = entry["plan"]
 	if _pit.stops_of(_car) == 0 and not plan.is_empty() and int(entry["lap"]) >= int(plan["stint"]) - 1:
 		return "box"
+	if _race.safety_car and _pit.stops_of(_car) == 0 and not plan.is_empty() \
+			and int(entry["lap"]) >= int(plan["stint"]) - 1 - _race.pit_advance:
+		return "box_sc"
 	if _strategy.worn_out(_car.max_tyre_wear(), _race.remaining_laps(entry)):
 		return "box"
 	if not RaceStrategy.rule_met(entry["compounds"]) and _race.remaining_laps(entry) <= 3:

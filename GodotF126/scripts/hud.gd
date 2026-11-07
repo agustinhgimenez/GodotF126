@@ -1,8 +1,8 @@
 class_name RaceHUD
 extends CanvasLayer
 ## HUD: tablero (Dashboard), neumáticos (TyrePanel), piloto/equipo, pista, tiempos por vuelta
-## y sectores. En carrera, la torre de tiempos (TimingTower, Paso 47) y la radio del ingeniero
-## (Paso 49).
+## y sectores. En carrera, la torre de tiempos (TimingTower, Paso 47), la radio del ingeniero
+## (Paso 49) y la franja de la bandera (Paso 50).
 
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_SLOWER := Color(1.0, 0.85, 0.2)
@@ -42,6 +42,10 @@ var _radio_panel: PanelContainer
 var _radio_label: Label
 var _radio_title: Label
 var _radio_until_ms: int = 0
+var _race_control: RaceControl
+var _flag_panel: PanelContainer
+var _flag_style: StyleBoxFlat
+var _flag_label: Label
 
 
 func _ready() -> void:
@@ -140,6 +144,31 @@ func bind_pit(pit: PitLane) -> void:
 func bind_radio(radio: EngineerRadio, accent: Color) -> void:
 	_radio_title.add_theme_color_override("font_color", accent)
 	radio.spoke.connect(show_radio)
+
+
+## Banderas (Paso 50): franja de color debajo del cronómetro con la bandera del jugador.
+func bind_race_control(control: RaceControl) -> void:
+	_race_control = control
+	control.flag_changed.connect(func(_kind: String) -> void: _update_flag())
+
+
+func _update_flag() -> void:
+	var kind := _race_control.player_flag if _race_control != null else ""
+	_flag_panel.visible = not kind.is_empty()
+	if not _flag_panel.visible:
+		return
+	var colors := {
+		"yellow": [Color(1.0, 0.85, 0.1), Color.BLACK],
+		"blue": [Color(0.15, 0.4, 1.0), Color.WHITE],
+		RaceControl.SC_OUT: [Color(1.0, 0.6, 0.05), Color.BLACK],
+		RaceControl.SC_IN_LAP: [Color(1.0, 0.6, 0.05), Color.BLACK],
+		RaceControl.SC_RESTART: [Color(1.0, 0.85, 0.1), Color.BLACK],
+		"green": [Color(0.1, 0.75, 0.3), Color.WHITE],
+	}
+	var pair: Array = colors.get(kind, [Color.WHITE, Color.BLACK])
+	_flag_style.bg_color = pair[0]
+	_flag_label.add_theme_color_override("font_color", pair[1])
+	_flag_label.text = _race_control.player_flag_text()
 
 
 func show_radio(text: String, seconds: float = 5.0) -> void:
@@ -435,6 +464,23 @@ func _build_ui() -> void:
 	_radio_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_radio_label.custom_minimum_size = Vector2(420, 0)
 	radio_box.add_child(_radio_label)
+
+	# Arriba al centro, debajo del cronómetro: bandera del jugador (Paso 50).
+	_flag_panel = PanelContainer.new()
+	_flag_panel.name = "Flag"
+	_flag_panel.visible = false
+	_flag_style = StyleBoxFlat.new()
+	_flag_style.set_corner_radius_all(4)
+	_flag_style.content_margin_left = 14
+	_flag_style.content_margin_right = 14
+	_flag_style.content_margin_top = 2
+	_flag_style.content_margin_bottom = 2
+	_flag_panel.add_theme_stylebox_override("panel", _flag_style)
+	_place(_flag_panel, Vector4(0.5, 0, 0.5, 0), Vector4(-260, 172, 260, 172))
+	root.add_child(_flag_panel)
+	_flag_label = _make_label(22, HORIZONTAL_ALIGNMENT_CENTER)
+	_flag_label.add_theme_constant_override("outline_size", 0)
+	_flag_panel.add_child(_flag_label)
 
 	# Centro: semáforo de largada (sólo en largada detenida).
 	_start_lights = StartLightsDisplay.new()

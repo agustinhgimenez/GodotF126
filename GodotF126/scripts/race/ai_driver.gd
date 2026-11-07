@@ -17,6 +17,9 @@ extends Node
 ## el camino de la calle a la velocidad del limitador, se para en la caja de su equipo y vuelve
 ## a la línea; mientras tanto no pasa, no defiende y no cuenta como trabado ni afuera.
 ## Paso 49: con `wear_aware` baja sus velocidades objetivo a medida que gasta los neumáticos.
+## Paso 50: banderas (los campos los escribe RaceControl): `flag_pace` multiplica su objetivo
+## (amarilla, azul), `flag_cap` lo limita (Safety Car), con `no_pass` no empieza ni sigue una
+## pasada salvo sobre los autos de `pass_exempt`, y con `blue_for` (el que lo dobla) no defiende.
 
 signal lap_completed(lap: int, time: float)
 
@@ -130,6 +133,12 @@ var pitting: bool = false
 ## Paso 49: en carreras con estrategia rehace sus velocidades objetivo en cada vuelta con el
 ## agarre que perdieron los neumáticos (RacingLine.speeds_for con desgaste).
 var wear_aware: bool = false
+## Paso 50: banderas (ver arriba).
+var flag_pace: float = 1.0
+var flag_cap: float = INF
+var no_pass: bool = false
+var pass_exempt: Array[CarController] = []
+var blue_for: CarController = null
 ## Carril propio (para pasar o defender): lateral absoluto al que apunta (+ derecha), hacia
 ## dónde se mueve y cuánto pesa contra la línea (1 = va por el carril; al terminar baja a 0 en
 ## ~1,5 s y vuelve a la línea). `shift` = cuánto se aparta de la línea donde está el auto.
@@ -398,6 +407,7 @@ func _pedals(v: float, delta: float = 0.0) -> Vector2:
 			target *= off_line_pace
 		if passing != null and _pass_inside and _track.corner_mask[index] <= 0.0:
 			target *= pass_brake_bonus
+	target = minf(target * flag_pace, flag_cap)
 	if pitting:
 		target = minf(target, pit_lane.speed_cap(index, car))
 	var limit := minf(minf(_follow_limit(v), _yield_limit()), _lane_limit())
@@ -584,14 +594,18 @@ func _traffic(delta: float) -> void:
 		if there < top * 0.9:
 			_deficit = lerpf(_deficit, there * pace - their_v, clampf(delta / 2.0, 0.0, 1.0))
 
+	if passing != null and not _may_pass(passing):
+		passing = null
 	if passing != null:
 		_continue_pass(in_corner)
 	elif ahead >= 0 and _deficit > pass_margin and _cooldown <= 0.0 and on_straight \
-			and traffic.gap(_slot, ahead) < pass_start_gap:
+			and traffic.gap(_slot, ahead) < pass_start_gap and _may_pass(traffic.cars[ahead]):
 		if _speeds[_track.index_at_distance(index, v * pass_start_time + 10.0)] < top:
 			_start_pass(ahead)
 	car.set_meta("passing", passing)
-	if passing == null and defend and not _holding:
+	if blue_for != null:
+		_defending = false
+	if passing == null and defend and not _holding and blue_for == null:
 		_defend(on_straight)
 	if _holding and (passing != null
 			or _speeds[_track.index_at_distance(index, v * hold_release_time + 10.0)] < _speeds[index] * 0.95):
@@ -615,6 +629,11 @@ func _traffic(delta: float) -> void:
 		lane_weight = move_toward(lane_weight, 0.0, delta / 1.5)
 	shift = _planned_lateral(index) - _line.offsets[index]
 	_overtake_mode(on_straight)
+
+
+## Paso 50: con amarilla o Safety Car sólo puede pasar a los autos de `pass_exempt`.
+func _may_pass(other: CarController) -> bool:
+	return not no_pass or other in pass_exempt
 
 
 ## Se tira por adentro a menos de `dive_gap` m de otro auto de la IA (que le va a dejar lugar).

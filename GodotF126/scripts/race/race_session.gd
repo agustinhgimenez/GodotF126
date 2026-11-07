@@ -23,6 +23,8 @@ extends Node
 ##   antes, si su neumático pasa el límite) y rehace sus velocidades con el desgaste. Al terminar,
 ##   el que usó un solo compuesto suma `rule_penalty` s (señal `rule_broken`). Cada entrada
 ##   guarda los compuestos que usó ("compounds"); el plan del jugador queda en "plan".
+## - Banderas (Paso 50, las escribe RaceControl): con `safety_car` la IA adelanta su parada
+##   planeada hasta `pit_advance` vueltas y la fila del líder en la torre empieza con `status_tag`.
 ## Bloque "race" de data/modes.json (grilla y torre) y de data/ai.json (ritmo, costo y boxes).
 
 signal checkered_flag(leader: CarController)
@@ -51,6 +53,10 @@ var pit_lane: PitLane
 ## Paso 49: estrategia (null = como en el Paso 48) y si esta carrera la usa.
 var strategy: RaceStrategy
 var strategy_on: bool = false
+## Paso 50: Safety Car en pista, vueltas que la IA adelanta su parada y etiqueta de la torre.
+var safety_car: bool = false
+var pit_advance: int = 0
+var status_tag: String = ""
 
 var laps: int = 3
 var running: bool = false
@@ -235,13 +241,15 @@ func _check_pits() -> void:
 			continue
 		if int(entry["lap"]) >= laps - 1:
 			continue
-		var planned := int(entry["pit_lap"]) >= 0 and int(entry["lap"]) >= int(entry["pit_lap"]) \
+		var advance := pit_advance if safety_car else 0
+		var planned := int(entry["pit_lap"]) >= 0 and int(entry["lap"]) >= int(entry["pit_lap"]) - advance \
 			and pit_lane.stops_of(car) == 0
+		var on_plan := planned and int(entry["lap"]) >= int(entry["pit_lap"])
 		var damaged := car.damage.is_wing_broken() or car.damage.punctures.has(true)
 		var worn := strategy_on and strategy.worn_out(car.max_tyre_wear(), remaining_laps(entry))
 		if planned or damaged or worn:
 			ai.pit_requested = true
-			if strategy_on and not (planned and not entry["plan"].is_empty()):
+			if strategy_on and not (on_plan and not entry["plan"].is_empty()):
 				pit_lane.set_next_compound(car, strategy.next_compound(remaining_laps(entry) - 1,
 					entry["compounds"], true))
 
@@ -420,6 +428,8 @@ func tower_rows() -> Array[Dictionary]:
 		var text := ""
 		if i == 0:
 			text = "Vuelta %d/%d" % [mini(int(entry["lap"]) + (0 if entry["finished"] else 1), laps), laps] if running else "Pole"
+			if running and not status_tag.is_empty():
+				text = "%s · %d/%d" % [status_tag, mini(int(entry["lap"]) + (0 if entry["finished"] else 1), laps), laps]
 		elif not running:
 			text = ""
 		elif pit_lane != null and pit_lane.in_lane(entry["car"]) and not entry["finished"]:
