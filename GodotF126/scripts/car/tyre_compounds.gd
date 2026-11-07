@@ -43,6 +43,8 @@ var hot_loss: float = 0.2
 var wear_grip_loss: float = 0.15
 ## Desgaste extra por cada °C pasado de temp_max (0,05 = +5 %).
 var overheat_wear: float = 0.05
+## Paso 49: multiplica el desgaste (carreras con estrategia, RaceStrategy.wear_scale).
+var wear_scale: float = 1.0
 ## psi de cada eje (x adelante, y atrás) y los de referencia.
 var pressure := Vector2(23.0, 23.0)
 var pressure_ref := Vector2(23.0, 23.0)
@@ -78,6 +80,12 @@ func select(id: String) -> void:
 
 func compound() -> Dictionary:
 	return compounds[index]
+
+
+## Paso 49: datos del compuesto `id` (vacío si no existe).
+func compound_by_id(id: String) -> Dictionary:
+	var found := _find(id)
+	return compounds[found] if found >= 0 else {}
 
 
 func compound_color() -> Color:
@@ -140,7 +148,7 @@ func update(wheel: CarWheel, speed: float, delta: float) -> void:
 	wheel.temperature += (heat - loss) * delta / heat_capacity
 	var overheat := maxf(wheel.temperature - float(compound().get("temp_max", 120.0)), 0.0)
 	wheel.wear = minf(wheel.wear + wheel.slip_energy / 1.0e6 * float(compound().get("wear_per_mj", 0.025))
-		* (1.0 + overheat_wear * overheat), 1.0)
+		* (1.0 + overheat_wear * overheat) * wear_scale, 1.0)
 	wheel.slip_energy = 0.0
 
 

@@ -28,6 +28,7 @@ const DEFAULT_KEYS := {
 	"ghost": [KEY_H],
 	"ai_rival": [KEY_I],
 	"pit_limiter": [KEY_P],
+	"pit_compound": [KEY_O],
 }
 const CAR_SCENE := preload("res://scenes/car.tscn")
 const AI_PATH := "res://data/ai.json"
@@ -68,6 +69,10 @@ var stewards: RaceStewards
 var race: RaceSession
 ## Calle de boxes (Paso 48): limitador (tecla P), paradas y sanciones por exceso de velocidad.
 var pit_lane: PitLane
+## Paso 49: estrategia de neumáticos (data/strategy.json; compuesto de la parada con la tecla O)
+## y radio del ingeniero (sólo en carrera; null fuera de ella).
+var strategy: RaceStrategy
+var radio: EngineerRadio
 ## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
 var qualifying: Array[Dictionary] = []
 var _car_data: Dictionary = {}
@@ -166,6 +171,7 @@ func _ready() -> void:
 	traffic.pit_lane = pit_lane
 	track_limits.pit_lane = pit_lane
 	pit_lane.speeding.connect(_on_pit_speeding)
+	strategy = RaceStrategy.load_default()
 	stewards = RaceStewards.new()
 	stewards.name = "RaceStewards"
 	stewards.configure(DataLoader.load_json(RaceStewards.DATA_PATH))
@@ -334,6 +340,15 @@ func _setup_race() -> void:
 	race.car_finished.connect(func(finished: CarController, _position: int) -> void:
 		if finished == car:
 			lap_timer.finish_now())
+	race.prepare(GameState.session_seed, strategy)
+	race.rule_broken.connect(_on_rule_broken)
+	pit_lane.stop_finished.connect(func(who: CarController, _wing: bool) -> void: race.on_stop_finished(who))
+	radio = EngineerRadio.new()
+	radio.name = "EngineerRadio"
+	add_child(radio)
+	radio.setup(strategy, race, pit_lane, track, car)
+	hud.bind_radio(radio, DataLoader.team_primary(selected_team))
+	radio.begin()
 	var mine := race.entry_of(car)
 	hud.show_message("Largás P%d (%s)" % [int(mine["grid"]) + 1,
 		"clasificación %s" % LapTimer.format_time(float(mine["quali"])) if float(mine["quali"]) > 0.0 else "sin tiempo"], 4.0)
@@ -379,6 +394,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.show_message("Auto fantasma: %s%s" % ["sí" if on else "no", note], 1.5)
 	elif event.is_action_pressed("pit_limiter") and car.controls_enabled:
 		pit_lane.toggle_limiter(car)
+	elif event.is_action_pressed("pit_compound") and car.controls_enabled:
+		cycle_pit_compound()
 	elif event.is_action_pressed("ai_rival") and car.controls_enabled and not GameState.is_competitive():
 		var ai_data := DataLoader.load_json(AI_PATH)
 		var most := int(ai_data.get("practice_rival", {}).get("max", 3))
@@ -499,6 +516,31 @@ func _on_pit_speeding(who: CarController, kmh: float, seconds: float) -> void:
 			3.0, RaceHUD.COLOR_WARNING if who == car else RaceHUD.COLOR_NEUTRAL)
 
 
+## Paso 49: tecla O, el compuesto siguiente para la próxima parada (en carrera, marca el que
+## recomienda el ingeniero).
+func cycle_pit_compound() -> void:
+	var ids := strategy.ids()
+	if ids.is_empty():
+		return
+	var next := ids[(ids.find(pit_lane.next_compound(car)) + 1) % ids.size()]
+	pit_lane.set_next_compound(car, next)
+	var note := ""
+	if race != null and race.strategy_on:
+		var entry := race.entry_of(car)
+		var advice := strategy.next_compound(race.remaining_laps(entry) - 1, entry["compounds"], true)
+		note = " (recomendado)" if next == advice else ""
+		if not RaceStrategy.rule_met(entry["compounds"]) and (entry["compounds"] as Array).has(next):
+			note = " (ya lo usaste: hacen falta dos compuestos)"
+	hud.show_message("Para la parada: %s%s" % [strategy.compound_name(next).to_lower(), note], 2.0,
+		strategy.compound_color(next))
+
+
+## Paso 49: terminó la carrera con un solo compuesto.
+func _on_rule_broken(who: CarController, seconds: float) -> void:
+	if who == car:
+		lap_timer.add_penalty(seconds, "Un solo compuesto")
+
+
 ## Saca a todos los rivales de la IA.
 func remove_ai_rival() -> void:
 	for driver in ai_drivers:
@@ -580,8 +622,11 @@ func _open_race_results() -> void:
 		var is_player: bool = entry["car"] == car
 		if is_player:
 			mine = p + 1
+		var tyres: Array[String] = []
+		for id in entry["compounds"]:
+			tyres.append(strategy.short_name(str(id)))
 		rows.append({"cells": [str(p + 1), "%s  #%s" % [str(entry["driver"].get("name", "")), UiKit.number_text(entry["driver"].get("number", ""))],
-			str(entry["team"].get("name", "")), str(row["laps"]), time_text,
+			str(entry["team"].get("name", "")), str(row["laps"]), "-".join(tyres), time_text,
 			"+%d s" % roundi(float(row["penalty"])) if float(row["penalty"]) > 0.0 else "",
 			LapTimer.format_time(best) if best > 0.0 else "--"],
 			"color": Color(1.0, 0.85, 0.2) if is_player else (ResultsScreen.COLOR_BEST if best > 0.0 and is_equal_approx(best, fastest) else Color.WHITE),
@@ -595,8 +640,8 @@ func _open_race_results() -> void:
 		summary.append(["Tus penalizaciones: +%.0f s (%s)" % [lap_timer.penalty, lap_timer.penalty_reason], Color(1.0, 0.35, 0.3)])
 	summary.append(["≈ = estimado: seguía en pista al terminar vos", ResultsScreen.COLOR_HEADER])
 	results_screen.open_standings("Carrera — Resultado", _session_subtitle(),
-		["P", "Piloto", "Equipo", "V", "Tiempo", "Pen.", "Mejor vuelta"],
-		[34, 250, 130, 30, 130, 56, 120], rows, summary)
+		["P", "Piloto", "Equipo", "V", "Neum.", "Tiempo", "Pen.", "Mejor vuelta"],
+		[34, 240, 120, 30, 66, 130, 56, 120], rows, summary)
 
 
 ## Resultado de la clasificación (Paso 47): la grilla con tu mejor vuelta válida y los tiempos

@@ -1,7 +1,8 @@
 class_name RaceHUD
 extends CanvasLayer
 ## HUD: tablero (Dashboard), neumáticos (TyrePanel), piloto/equipo, pista, tiempos por vuelta
-## y sectores. En carrera, la torre de tiempos (TimingTower, Paso 47).
+## y sectores. En carrera, la torre de tiempos (TimingTower, Paso 47) y la radio del ingeniero
+## (Paso 49).
 
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_SLOWER := Color(1.0, 0.85, 0.2)
@@ -37,6 +38,10 @@ var _tower: TimingTower
 var _tower_timer: float = 0.0
 var _pit: PitLane
 var _pit_label: Label
+var _radio_panel: PanelContainer
+var _radio_label: Label
+var _radio_title: Label
+var _radio_until_ms: int = 0
 
 
 func _ready() -> void:
@@ -131,6 +136,18 @@ func bind_pit(pit: PitLane) -> void:
 				" · alerón nuevo" if wing else ""], 2.5, COLOR_PIT))
 
 
+## Radio del ingeniero (Paso 49): recuadro arriba a la derecha, debajo de la pista.
+func bind_radio(radio: EngineerRadio, accent: Color) -> void:
+	_radio_title.add_theme_color_override("font_color", accent)
+	radio.spoke.connect(show_radio)
+
+
+func show_radio(text: String, seconds: float = 5.0) -> void:
+	_radio_label.text = text
+	_radio_panel.visible = true
+	_radio_until_ms = Time.get_ticks_msec() + int(seconds * 1000.0)
+
+
 ## Largada detenida (Paso 17): muestra el semáforo hasta que termina la secuencia.
 func bind_start_lights(lights: StartLights) -> void:
 	_start_lights.visible = true
@@ -188,6 +205,8 @@ func _process(delta: float) -> void:
 			_tower.show_rows(_race.tower_rows())
 	if _message_label.visible and now > _message_until_ms:
 		_message_label.visible = false
+	if _radio_panel.visible and now > _radio_until_ms:
+		_radio_panel.visible = false
 
 	if _car != null:
 		var kmh := _car.get_speed_kmh()
@@ -225,6 +244,8 @@ func _update_pit_label(kmh: float) -> void:
 	elif _pit.in_lane(_car):
 		text = "CALLE DE BOXES · %s: LIMITADOR" % _action_key("pit_limiter")
 		color = COLOR_SLOWER
+	if _pit.in_lane(_car) and not _pit.is_served(_car) and not _pit.in_service(_car):
+		text += " · %s" % str(_car.tyres.compound_by_id(_pit.next_compound(_car)).get("name", "")).to_upper()
 	_pit_label.visible = not text.is_empty()
 	if _pit_label.visible:
 		_pit_label.text = text
@@ -389,6 +410,31 @@ func _build_ui() -> void:
 	_pit_label.visible = false
 	_place(_pit_label, Vector4(0, 1, 0, 1), Vector4(24, -132, 520, -90))
 	root.add_child(_pit_label)
+
+	# Arriba a la derecha, debajo de la pista: radio del ingeniero (Paso 49).
+	_radio_panel = PanelContainer.new()
+	_radio_panel.name = "Radio"
+	_radio_panel.visible = false
+	var radio_style := StyleBoxFlat.new()
+	radio_style.bg_color = Color(0.03, 0.03, 0.05, 0.75)
+	radio_style.set_corner_radius_all(4)
+	radio_style.content_margin_left = 10
+	radio_style.content_margin_right = 10
+	radio_style.content_margin_top = 6
+	radio_style.content_margin_bottom = 8
+	_radio_panel.add_theme_stylebox_override("panel", radio_style)
+	_place(_radio_panel, Vector4(1, 0, 1, 0), Vector4(-464, 112, -24, 112))
+	root.add_child(_radio_panel)
+	var radio_box := VBoxContainer.new()
+	radio_box.add_theme_constant_override("separation", 2)
+	radio_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_radio_panel.add_child(radio_box)
+	_radio_title = _make_label(14, HORIZONTAL_ALIGNMENT_LEFT, "RADIO · INGENIERO")
+	radio_box.add_child(_radio_title)
+	_radio_label = _make_label(20)
+	_radio_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_radio_label.custom_minimum_size = Vector2(420, 0)
+	radio_box.add_child(_radio_label)
 
 	# Centro: semáforo de largada (sólo en largada detenida).
 	_start_lights = StartLightsDisplay.new()

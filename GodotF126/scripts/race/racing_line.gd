@@ -188,11 +188,12 @@ func _compute_speeds() -> void:
 
 
 ## Velocidad objetivo por índice para el auto `car` (agarre, aero y velocidad máxima de su
-## setup y compuesto); la IA del Paso 45 la calcula con su propio auto.
-func speeds_for(car: CarController) -> PackedFloat32Array:
+## setup y compuesto); la IA del Paso 45 la calcula con su propio auto. Paso 49: con
+## `with_wear`, también con el agarre que perdieron sus neumáticos gastados.
+func speeds_for(car: CarController, with_wear: bool = false) -> PackedFloat32Array:
 	var n := points.size()
 	var compound: Dictionary = car.tyres.compound()
-	var mu := car.tyre_mu * float(compound.get("grip", 1.0))
+	var mu := car.tyre_mu * float(compound.get("grip", 1.0)) * (car.tyre_wear_grip() if with_wear else 1.0)
 	var aero := 0.5 * car.air_density * car.cla / car.mass
 	var drag := 0.5 * car.air_density * car.cda / car.mass
 	var top := car.get_top_speed()

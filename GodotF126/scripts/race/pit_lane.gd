@@ -9,8 +9,9 @@ extends Node
 ##   (CarController.pit_limit) y se apaga solo al pasar `limit_to`.
 ## - Parada: quieto (menos de `stop_speed` m/s) a menos de `box_tolerance` m de la marca de la
 ##   caja de su equipo (en el carril de las cajas): el auto queda frenado `stop_time` s
-##   (+ `wing_time` con el alerón dañado), recibe neumáticos nuevos del mismo compuesto y se
-##   reparan el alerón y los pinchazos (`stop_started` / `stop_finished`).
+##   (+ `wing_time` con el alerón dañado), recibe neumáticos nuevos y se reparan el alerón y
+##   los pinchazos (`stop_started` / `stop_finished`). Paso 49: el compuesto es el elegido con
+##   set_next_compound() (si no, el mismo que tenía).
 ## La IA usa path_lateral() y speed_cap() para entrar, pararse en su caja y salir.
 
 signal entered(car: CarController)
@@ -54,6 +55,8 @@ var _traffic: RaceTraffic
 ## Por auto: {in_lane, in_limit, served, penalized, service (s que faltan, −1 sin parada),
 ## wing, max_kmh, stops}.
 var _state: Dictionary = {}
+## Paso 49: auto → id del compuesto de su próxima parada.
+var _next_compound: Dictionary = {}
 
 
 func configure(data: Dictionary, grid: Dictionary) -> void:
@@ -179,6 +182,15 @@ func speed_cap(i: int, car: CarController) -> float:
 	return cap
 
 
+## Paso 49: compuesto que recibe `car` en su próxima parada.
+func set_next_compound(car: CarController, id: String) -> void:
+	_next_compound[car] = id
+
+
+func next_compound(car: CarController) -> String:
+	return str(_next_compound.get(car, car.compound_id()))
+
+
 ## Limitador del jugador (tecla P).
 func toggle_limiter(car: CarController) -> void:
 	car.pit_limit = 0.0 if car.pit_limit > 0.0 else speed_limit
@@ -252,7 +264,7 @@ func _finish_service(car: CarController, state: Dictionary) -> void:
 	state["served"] = true
 	state["stops"] = int(state["stops"]) + 1
 	stops += 1
-	car.fit_tyres(str(car.tyres.compound().get("id", "")))
+	car.fit_tyres(next_compound(car))
 	car.damage.repair()
 	car.pit_hold = false
 	stop_finished.emit(car, bool(state["wing"]))

@@ -17,10 +17,17 @@ extends Node
 ##   parada planeada en una vuelta al azar dentro de `pit_window` (fracción de la carrera; semilla
 ##   de la sesión); con el alerón roto o un pinchazo entra en la próxima pasada (salvo en la
 ##   última vuelta). En la torre, los que están en la calle dicen "BOX".
+## - Estrategia (Paso 49, con `strategy` y `prepare()`): en carreras de `strategy.min_laps`
+##   vueltas o más, todos gastan los neumáticos `wear_scale` veces más rápido; cada auto de la IA
+##   larga con el compuesto de su plan, para en la vuelta del plan con el segundo compuesto (o
+##   antes, si su neumático pasa el límite) y rehace sus velocidades con el desgaste. Al terminar,
+##   el que usó un solo compuesto suma `rule_penalty` s (señal `rule_broken`). Cada entrada
+##   guarda los compuestos que usó ("compounds"); el plan del jugador queda en "plan".
 ## Bloque "race" de data/modes.json (grilla y torre) y de data/ai.json (ritmo, costo y boxes).
 
 signal checkered_flag(leader: CarController)
 signal car_finished(car: CarController, position: int)
+signal rule_broken(car: CarController, seconds: float)
 
 var grid_distance: float = 6.0
 var slot_gap: float = 8.0
@@ -41,6 +48,9 @@ var pit_min_laps: int = 8
 var pit_window := Vector2(0.35, 0.65)
 ## Paso 48: calle de boxes (null = sin boxes).
 var pit_lane: PitLane
+## Paso 49: estrategia (null = como en el Paso 48) y si esta carrera la usa.
+var strategy: RaceStrategy
+var strategy_on: bool = false
 
 var laps: int = 3
 var running: bool = false
@@ -49,7 +59,8 @@ var clock: float = 0.0
 var checkered: bool = false
 ## Un diccionario por auto: car, driver, team, ai (AiDriver o null), grid (0 = pole), quali (s),
 ## progress (m desde la meta, negativo en la grilla), lap (vueltas completas), last_lap,
-## best_lap, finished, finish_time, reaction, extra_penalty, code (3 letras).
+## best_lap, finished, finish_time, reaction, extra_penalty, code (3 letras), pit_lap (vueltas
+## completas con las que pide boxes, −1 sin parada planeada), compounds (ids usados), plan.
 var entries: Array[Dictionary] = []
 var player: CarController
 var finish_order: Array[CarController] = []
@@ -102,7 +113,7 @@ func add_entry(car: CarController, driver: Dictionary, team: Dictionary, ai: AiD
 		"progress": 0.0, "last": 0.0, "start_progress": 0.0, "lap": 0, "lap_start": 0.0,
 		"last_lap": -1.0, "best_lap": -1.0, "finished": false, "finish_time": -1.0,
 		"reaction": 0.0, "extra_penalty": 0.0, "code": code_of(str(driver.get("name", "?"))),
-		"pit_lap": -1,
+		"pit_lap": -1, "compounds": [car.compound_id()], "plan": {},
 	}
 	entries.append(entry)
 	if ai != null:
@@ -139,7 +150,64 @@ func start(seed_value: int) -> void:
 		_marks[b] = 0.0
 	clock = 0.0
 	running = true
-	_plan_pits(seed_value)
+	if strategy == null:
+		_plan_pits(seed_value)
+
+
+## Paso 49: con todos en la grilla, antes del semáforo. Con estrategia: desgaste de carrera, el
+## plan de cada uno (la IA con el compuesto de largada de su plan, al azar con la semilla entre
+## los buenos; el jugador, el mejor con el compuesto que eligió) y el segundo compuesto para su
+## parada. Sin estrategia, como en el Paso 48.
+func prepare(seed_value: int, race_strategy: RaceStrategy) -> void:
+	strategy = race_strategy
+	strategy_on = strategy != null and strategy.applies(laps)
+	if strategy == null:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([seed_value, "strategy"])
+	for entry in entries:
+		var car: CarController = entry["car"]
+		var ai: AiDriver = entry["ai"]
+		entry["pit_lap"] = -1
+		entry["plan"] = {}
+		if not strategy_on:
+			car.tyres.wear_scale = 1.0
+			continue
+		car.tyres.wear_scale = strategy.wear_scale
+		var plan := strategy.choose(laps, rng) if ai != null else strategy.choose(laps, null, car.compound_id())
+		if plan.is_empty():
+			continue
+		entry["plan"] = plan
+		if ai != null:
+			car.fit_tyres(str(plan["first"]))
+			ai.wear_aware = true
+			ai.refresh_speeds()
+			entry["pit_lap"] = int(plan["stint"]) - 1
+		entry["compounds"] = [car.compound_id()]
+		if pit_lane != null:
+			pit_lane.set_next_compound(car, str(plan["second"]))
+
+
+## Paso 49: después de cada parada (PitLane.stop_finished, lo llama Main), el compuesto nuevo
+## cuenta para la regla y la IA rehace sus velocidades (compuesto nuevo, sin desgaste).
+func on_stop_finished(car: CarController) -> void:
+	var entry := entry_of(car)
+	if entry.is_empty():
+		return
+	(entry["compounds"] as Array).append(car.compound_id())
+	if entry["ai"] != null:
+		(entry["ai"] as AiDriver).refresh_speeds()
+
+
+## Índice del centerline donde está `car` (0 si no está en el tráfico).
+func track_index(car: CarController) -> int:
+	var k := _traffic.slot(car) if _traffic != null else -1
+	return _traffic.index[k] if k >= 0 else 0
+
+
+## Vueltas que le faltan (contando la que está corriendo).
+func remaining_laps(entry: Dictionary) -> int:
+	return maxi(laps - int(entry["lap"]), 0)
 
 
 ## Vuelta de la parada planeada de cada auto de la IA (−1 = sin parada planeada).
@@ -170,8 +238,12 @@ func _check_pits() -> void:
 		var planned := int(entry["pit_lap"]) >= 0 and int(entry["lap"]) >= int(entry["pit_lap"]) \
 			and pit_lane.stops_of(car) == 0
 		var damaged := car.damage.is_wing_broken() or car.damage.punctures.has(true)
-		if planned or damaged:
+		var worn := strategy_on and strategy.worn_out(car.max_tyre_wear(), remaining_laps(entry))
+		if planned or damaged or worn:
 			ai.pit_requested = true
+			if strategy_on and not (planned and not entry["plan"].is_empty()):
+				pit_lane.set_next_compound(car, strategy.next_compound(remaining_laps(entry) - 1,
+					entry["compounds"], true))
 
 
 func _physics_process(delta: float) -> void:
@@ -240,6 +312,9 @@ func finish(car: CarController) -> void:
 		return
 	entry["finished"] = true
 	entry["finish_time"] = clock
+	if strategy_on and not RaceStrategy.rule_met(entry["compounds"]):
+		entry["extra_penalty"] = float(entry["extra_penalty"]) + strategy.rule_penalty
+		rule_broken.emit(car, strategy.rule_penalty)
 	finish_order.append(car)
 	if not checkered:
 		checkered = true
@@ -332,7 +407,8 @@ func laps_behind(entry: Dictionary, leader: Dictionary) -> int:
 	return floori((lead - own) / total)
 
 
-## Filas de la torre de tiempos: {pos, code, color, gap, penalty, player, finished}.
+## Filas de la torre de tiempos: {pos, code, color, gap, penalty, player, finished, tyre
+## (letra del compuesto), tyre_color}.
 func tower_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	var list := standings()
@@ -354,9 +430,12 @@ func tower_rows() -> Array[Dictionary]:
 				text = "+%d %s" % [down, "vuelta" if down == 1 else "vueltas"]
 			else:
 				text = "+%.1f" % gap_to_leader(entry, leader)
+		var car: CarController = entry["car"]
+		var compound: Dictionary = car.tyres.compound() if is_instance_valid(car) else {}
 		rows.append({"pos": i + 1, "code": entry["code"], "color": DataLoader.team_primary(entry["team"]),
-			"gap": text, "penalty": penalty_of(entry), "player": entry["car"] == player,
-			"finished": entry["finished"]})
+			"gap": text, "penalty": penalty_of(entry), "player": car == player,
+			"finished": entry["finished"], "tyre": str(compound.get("short", "")),
+			"tyre_color": Color.from_string(str(compound.get("color", "#FFFFFF")), Color.WHITE)})
 	return rows
 
 

@@ -18,6 +18,7 @@
     { "id": "change_camera", "name": "Cambiar cámara" },
     { "id": "reset_car", "name": "Volver a la pista" },
     { "id": "pit_limiter", "name": "Limitador de boxes" },
+    { "id": "pit_compound", "name": "Compuesto de la parada" },
     { "id": "toggle_telemetry", "name": "Panel de cargas (F3)" },
     { "id": "racing_line", "name": "Línea de trazada" },
     { "id": "ghost", "name": "Auto fantasma" },

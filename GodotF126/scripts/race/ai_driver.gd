@@ -16,6 +16,7 @@ extends Node
 ## Paso 48: con `pit_requested` entra a boxes en la próxima pasada por la calle (PitLane): sigue
 ## el camino de la calle a la velocidad del limitador, se para en la caja de su equipo y vuelve
 ## a la línea; mientras tanto no pasa, no defiende y no cuenta como trabado ni afuera.
+## Paso 49: con `wear_aware` baja sus velocidades objetivo a medida que gasta los neumáticos.
 
 signal lap_completed(lap: int, time: float)
 
@@ -126,6 +127,9 @@ var traffic: RaceTraffic
 var pit_lane: PitLane
 var pit_requested: bool = false
 var pitting: bool = false
+## Paso 49: en carreras con estrategia rehace sus velocidades objetivo en cada vuelta con el
+## agarre que perdieron los neumáticos (RacingLine.speeds_for con desgaste).
+var wear_aware: bool = false
 ## Carril propio (para pasar o defender): lateral absoluto al que apunta (+ derecha), hacia
 ## dónde se mueve y cuánto pesa contra la línea (1 = va por el carril; al terminar baja a 0 en
 ## ~1,5 s y vuelve a la línea). `shift` = cuánto se aparta de la línea donde está el auto.
@@ -250,7 +254,7 @@ func _on_car_hit(_other: CarController, strength: float) -> void:
 
 ## Recalcula sus velocidades objetivo (después de cambiarle el setup o el compuesto).
 func refresh_speeds() -> void:
-	_speeds = _line.speeds_for(car)
+	_speeds = _line.speeds_for(car, wear_aware)
 	_top = car.get_top_speed()
 
 
@@ -717,6 +721,8 @@ func _track_progress(delta: float) -> void:
 		lap_time = 0.0
 		car.active_aero.refill()
 		_new_lap_factors()
+		if wear_aware:
+			refresh_speeds()
 	_last_lap_distance = distance
 	var off := absf(lateral) > _track.half_width(index) + off_track_margin
 	if off and pit_lane != null and pit_lane.contains(index, lateral):

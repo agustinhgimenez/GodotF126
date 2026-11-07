@@ -24,7 +24,7 @@
       "title": "Carrera",
       "rows": [
         { "actions": ["change_camera", "toggle_telemetry"], "text": "Cámara (6 vistas) · panel de cargas por rueda" },
-        { "actions": ["reset_car", "pit_limiter"], "text": "Volver a la pista · limitador de boxes" },
+        { "actions": ["reset_car", "pit_limiter", "pit_compound"], "text": "Volver a la pista · limitador · compuesto de la parada" },
         { "actions": ["racing_line", "ghost", "ai_rival"], "text": "Línea de trazada · auto fantasma · rival IA (práctica)" },
         { "keys": ["Esc"], "pad_keys": ["Start"], "text": "Pausa: opciones, controles, reiniciar" }
       ]
@@ -47,6 +47,7 @@
     "La línea de trazada se pone roja donde hay que frenar y amarilla donde hay que levantar; L la cambia.",
     "El auto fantasma repite tu mejor vuelta: si se escapa, ahí estás perdiendo tiempo. H lo muestra u oculta.",
     "En práctica, I suma un rival de la IA que sigue la línea de trazada: seguilo para aprender dónde frenar.",
+    "En carreras de 10 o 20 vueltas hay que usar dos compuestos: O elige el de la parada y el ingeniero avisa cuándo entrar.",
     "Con un mando, los gatillos aceleran y frenan de a poco: en Controles → Asignar controles se cambia cada botón.",
     "Con un volante, elegí Pedales: Volante (−1 a 1) en Asignar controles y la dirección sin asistencia en Opciones."
   ],

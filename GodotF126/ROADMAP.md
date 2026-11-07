@@ -95,8 +95,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 46 | Colisiones entre autos y penalizaciones | ✅ |
 | 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | ✅ |
 | 48 | Pit lane con limitador de velocidad y paradas en boxes | ✅ |
-| 49 | Estrategia: cambio de compuesto, radio del ingeniero | ⏳ Siguiente |
-| 50 | Banderas amarilla y azul, **Safety Car** | |
+| 49 | Estrategia: cambio de compuesto, radio del ingeniero | ✅ |
+| 50 | Banderas amarilla y azul, **Safety Car** | ⏳ Siguiente |
 | 51 | **Replays** con cámaras de TV | |
 | 52 | Pantalla de resultados de carrera con puntos | |
 
@@ -1019,3 +1019,26 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   La primera versión ensanchaba la colisión de la pista hasta el fondo de la calle, y la vuelta con el piloto automático del Paso 36 cambiaba hasta 0,1 s (los triángulos nuevos cambian cómo apoyan las ruedas): por eso la calle quedó sobre el suelo general, que ya está a la misma altura, y la vuelta volvió a dar exactamente lo mismo que antes: 1:42.383 / 1:41.017 / 1:41.050 (y 1:42.533 / 1:41.100 / 1:41.017 con `--fixed-fps 60`). **Las pruebas anteriores siguen bien**: Pasos 44, 45, 46 y 47 con 0 fallas (la carrera del Paso 47 da el mismo resultado: Norris 2:41,967, 13 pasadas, 0 rescates). Capturas: `informes/capturas/paso48-calle.png` (la calle con los garajes), `paso48-cenital.png` (vista desde arriba de la entrada), `paso48-limitador.png` (el jugador con el limitador encendido), `paso48-parada.png` (parado en el box de Alpine) y `paso48-carrera.png` (Norris y Verstappen en boxes, "BOX" en la torre).
 - **Cómo probar**: F5, práctica libre. Después de la última curva, abrirse a la izquierda antes del muro de boxes, apretar P antes de la línea "PIT 80" (llegar a menos de 80 km/h) y frenar en el rectángulo rosa de Alpine (o el del equipo elegido). Probar también pasar sin limitador para ver la penalización.
+
+### Paso 49 — Estrategia: cambio de compuesto, radio del ingeniero
+- **Estrategia en carreras de 10 y 20 vueltas** (`data/strategy.json`, desde 8 vueltas): los neumáticos se gastan **2,5 veces más rápido** (si no, una carrera corta no alcanza para gastar nada) y hay que **usar dos compuestos**: quien termina con uno solo recibe **+30 s** ("Un solo compuesto"). En carreras de 2 a 5 vueltas y en práctica todo sigue como antes.
+- **Modelo de estrategia** (`scripts/race/race_strategy.gd`, `RaceStrategy`): desgaste por vuelta de cada compuesto (blando 0,056 · medio 0,035 · duro 0,021, sacado del desgaste por MJ de `car.json`), cuántas vueltas aguanta hasta el 75 % (13 / 21 / 35) y cuánto cuesta cada vuelta según el agarre y el desgaste. Arma todos los planes de **una parada** con dos compuestos distintos que no pasen el límite y los ordena por tiempo total (con 21 s por la parada). A 10 vueltas el mejor es blando 6 + medio 4; a 20, medio 11 + blando 9.
+- **La IA elige su plan** con la semilla de la sesión entre los que quedan a menos de 4 s del mejor, así no larga toda con lo mismo (en la prueba: 11 con blandos, 9 con medios y 1 con duros). Para en la vuelta del plan con el segundo compuesto, y si se gasta antes de tiempo (límite + 8 %, faltando 2 vueltas o más) para igual. Si para por un alerón o un pinchazo, elige con `next_compound` uno que cumpla la regla y aguante hasta el final.
+- **La IA siente el desgaste**: al cerrar cada vuelta rehace sus velocidades de la línea con el agarre de sus neumáticos gastados (`RacingLine.speeds_for(car, true)`, 1,75 ms), así va un poco más lenta antes de parar y vuelve a su ritmo con los nuevos.
+- **El jugador**: arranca con el compuesto elegido en el setup y recibe el mejor plan para ese compuesto. Con **O** (se puede cambiar en Controles) elige el compuesto que le van a poner en la próxima parada; el HUD dice cuál es el recomendado y si ya lo usó. En la calle de boxes el cartel de la parada muestra el compuesto (por ejemplo "· DURO").
+- **Radio del ingeniero** (`scripts/race/engineer_radio.gd`, `EngineerRadio`): un panel arriba a la derecha ("RADIO · INGENIERO", del color del equipo) con mensajes de 5 s, nunca dos a menos de 6 s y sin repetir uno que ya está en la cola. Dice el plan al largar, recuerda la regla, en cada vuelta la posición y las diferencias con el de adelante y el de atrás, **"Box, box. Entrá esta vuelta: blando."** cuando toca parar (también con alerón roto, pinchazo, neumáticos gastados o la regla sin cumplir faltando 3 vueltas, y otra vez 900 m antes de la entrada), el desgaste al 30 % y 50 %, cuando el de adelante o el de atrás entra a boxes, "neumáticos fríos" al salir y la última vuelta. Por ahora es sólo texto, sin voz.
+- **Torre de tiempos y resultado**: la torre muestra la letra del compuesto de cada auto con su color (S rojo, M amarillo, H blanco) y el resultado tiene una columna "Neum." con los compuestos usados (por ejemplo "M-S").
+- **Verificación** (`paso49_strategy.gd`):
+
+| Prueba | Resultado |
+|---|---|
+| Modelo | 54 planes a 10 vueltas y 90 a 20, todos con dos compuestos y dentro del límite; misma semilla, mismo plan; `next_compound` no repite el compuesto si falta cumplir la regla |
+| Práctica | desgaste normal; O pasa medio → duro → blando; sin elegir se pone el mismo compuesto; parada con duros nuevos (desgaste 0); con desgaste la IA baja 2,02 % sus velocidades |
+| Regla | con un solo compuesto: +30 s y aviso |
+| Carrera de 10 vueltas (el jugador manejado por la IA, siguiendo la radio) | plan del jugador medio 4 + blando; la radio avisó "Box, box" en la vuelta 4 y paró en la 4; terminó M-S, 4.º. Las 21 IA pararon y usaron dos compuestos; nadie pasó el límite de desgaste; 5 golpes a muros, 0 rescates; ganó Verstappen (M-S) |
+| Radio | 16 mensajes en 836 s: plan, regla, diferencias, box, otro que entra a boxes, neumáticos fríos, desgaste, última vuelta; nunca dos a menos de 6 s |
+| Desgaste medido contra el modelo | medio 0,032 (0,035) · blando 0,061 (0,056) · duro 0,020 (0,021) por vuelta |
+
+  El desgaste por vuelta del modelo empezó en 0,016 y se ajustó a 0,014 con lo medido en carrera. La radio avisaba el desgaste recién al 50 %, que en 10 vueltas casi nunca llega: ahora avisa al 30 % y al 50 %.
+  **Se arregló un cierre de Godot que venía del Paso 47**: al salir de una carrera después de unos 30 s con toques entre autos (volver al menú, pasar a la clasificación o reiniciar), Jolt se caía al liberar los autos con el reporte de contactos encendido (sólo con Jolt; con GodotPhysics3D no pasaba). Ahora cada auto apaga `contact_monitor` y se saca del espacio de física en `NOTIFICATION_EXIT_TREE`, antes de que lo haga `CollisionObject3D`. La prueba completa del Paso 47 (carrera, clasificación y otra carrera) termina sin cerrarse y la repetición `paso49_reload.gd` (3 carreras de 30 s seguidas) también. **Las pruebas anteriores siguen bien**: Pasos 47 y 48 con 0 fallas (la carrera del Paso 47 da el mismo resultado: Norris 2:41,967) y la vuelta del Paso 36 igual que antes (1:42.533 / 1:41.100 / 1:41.017 con `--fixed-fps 60`). Capturas: `informes/capturas/paso49-radio.png` (el plan en la radio), `paso49-box.png` ("Box, box"), `paso49-calle.png` (en la calle con el compuesto de la parada) y `paso49-resultado.png` (la columna de compuestos).
+- **Cómo probar**: F5, Carrera de 10 vueltas. Leer el plan en la radio, apretar O para ver los compuestos y entrar a boxes cuando el ingeniero dice "Box, box". Probar también terminar sin parar para ver los +30 s.

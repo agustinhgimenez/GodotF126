@@ -1,0 +1,38 @@
+{
+  "description": "Estrategia y radio del ingeniero (Paso 49). En carreras de 'min_laps' vueltas o más: los neumáticos se gastan 'wear_scale' veces más rápido (para que 10–20 vueltas se sientan como una carrera completa) y hay que usar 2 compuestos distintos (si no, 'rule_penalty' s al terminar). El plan de cada auto sale de un modelo simple: el neumático más gastado pierde 'wear_per_lap' por vuelta con el medio a ritmo de carrera (× el 'wear_per_mj' de cada compuesto contra el del medio, × 'wear_scale'); una vuelta tarda 'base_lap' s × (1 + 'grip_time' × (agarre que falta por compuesto y desgaste)); parar cuesta 'pit_loss' s; un juego no se usa más allá de 'wear_limit' de desgaste. La IA elige al azar (semilla de la sesión) entre los planes a menos de 'choice_spread' s del mejor; si el neumático llega a 'wear_limit' + 'wear_margin' antes de lo planeado, para igual. 'radio': cada cuánto puede hablar el ingeniero ('min_gap' s entre mensajes, cada uno 'show_time' s en pantalla), avisos de desgaste ('wear_calls'), metros antes de la entrada de boxes para el recordatorio de 'Box' ('box_call_distance') y los textos ({lap}, {compound}, {wear}, {pos}, {name}, {gap}, {laps}).",
+  "min_laps": 8,
+  "wear_scale": 2.5,
+  "rule_penalty": 30.0,
+  "reference_compound": "medium",
+  "wear_per_lap": 0.014,
+  "base_lap": 80.0,
+  "grip_time": 0.6,
+  "pit_loss": 21.0,
+  "wear_limit": 0.75,
+  "wear_margin": 0.08,
+  "choice_spread": 4.0,
+  "radio": {
+    "min_gap": 6.0,
+    "show_time": 5.0,
+    "wear_calls": [0.3, 0.5],
+    "box_call_distance": 900.0,
+    "texts": {
+      "plan": "Plan: una parada en la vuelta {lap}, a {compound}.",
+      "short_race": "Carrera corta: no hace falta parar. Sólo si rompés el alerón.",
+      "rule": "Recordá: hay que usar dos compuestos.",
+      "box": "Box, box. Entrá esta vuelta: {compound}.",
+      "box_damage": "Box, box. Alerón roto: entrá esta vuelta.",
+      "box_puncture": "Box, box. Pinchazo: entrá despacio.",
+      "rule_late": "Todavía no usaste otro compuesto: tenés que parar ({laps} vueltas).",
+      "wear": "Neumáticos al {wear} %.",
+      "worn": "Neumáticos al {wear} %: estamos perdiendo mucho tiempo.",
+      "gaps": "P{pos}. Adelante {ahead} a {gap_ahead} s, atrás {behind} a {gap_behind} s.",
+      "gaps_leader": "P1. {behind} a {gap_behind} s.",
+      "gaps_last": "P{pos}. {ahead} a {gap_ahead} s adelante.",
+      "cold": "Neumáticos fríos: cuidado en las primeras curvas.",
+      "rival_pit": "{name} entró a boxes.",
+      "compound": "Para la parada: {compound}.",
+      "last_lap": "Última vuelta. Vamos."
+    }
+  }
+}

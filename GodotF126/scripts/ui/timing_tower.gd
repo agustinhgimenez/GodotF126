@@ -2,9 +2,10 @@ class_name TimingTower
 extends PanelContainer
 ## Torre de tiempos de la carrera (Paso 47), a la izquierda del HUD: posición, franja del
 ## equipo, código del piloto, distancia al líder (la fila del líder dice la vuelta) y
-## penalización. La fila del jugador va resaltada.
+## penalización. La fila del jugador va resaltada. Paso 49: letra del compuesto puesto, en su
+## color.
 
-const WIDTH := 212.0
+const WIDTH := 232.0
 const ROW_HEIGHT := 19.0
 const COLOR_PLAYER := Color(1, 1, 1, 0.18)
 const COLOR_PENALTY := Color(1.0, 0.35, 0.3)
@@ -43,6 +44,8 @@ func show_rows(rows: Array[Dictionary]) -> void:
 		row["pos"].text = str(data["pos"])
 		row["stripe"].color = data["color"]
 		row["code"].text = str(data["code"])
+		row["tyre"].text = str(data.get("tyre", ""))
+		row["tyre"].add_theme_color_override("font_color", data.get("tyre_color", Color.WHITE))
 		row["gap"].text = str(data["gap"])
 		row["gap"].add_theme_color_override("font_color", COLOR_FINISHED if data["finished"] else Color(0.85, 0.86, 0.9))
 		var penalty := float(data["penalty"])
@@ -69,12 +72,14 @@ func _make_row() -> Dictionary:
 	line.add_child(stripe)
 	var code := _label(40.0)
 	line.add_child(code)
+	var tyre := _label(14.0, HORIZONTAL_ALIGNMENT_CENTER)
+	line.add_child(tyre)
 	var gap := _label(84.0, HORIZONTAL_ALIGNMENT_RIGHT)
 	line.add_child(gap)
 	var penalty := _label(30.0, HORIZONTAL_ALIGNMENT_RIGHT)
 	penalty.add_theme_color_override("font_color", COLOR_PENALTY)
 	line.add_child(penalty)
-	return {"box": box, "pos": pos, "stripe": stripe, "code": code, "gap": gap, "penalty": penalty}
+	return {"box": box, "pos": pos, "stripe": stripe, "code": code, "tyre": tyre, "gap": gap, "penalty": penalty}
 
 
 func _label(width: float, align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT) -> Label:

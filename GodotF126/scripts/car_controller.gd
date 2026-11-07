@@ -220,6 +220,14 @@ var _wing_base: Transform3D = Transform3D.IDENTITY
 @onready var _front_wing: Node3D = $FrontWing
 
 
+# Jolt se cae al liberar la escena si el auto sale del espacio con contactos reportados
+# (después de varios toques en carrera): se lo saca antes que CollisionObject3D.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EXIT_TREE:
+		contact_monitor = false
+		PhysicsServer3D.body_set_space(get_rid(), RID())
+
+
 func _ready() -> void:
 	spawn_transform = global_transform
 	_wing_base = _front_wing.transform
@@ -441,6 +449,29 @@ func fit_tyres(id: String) -> void:
 	tyres.select(id)
 	for wheel in wheels:
 		tyres.fit(wheel)
+
+
+## Paso 49: id del compuesto puesto.
+func compound_id() -> String:
+	return str(tyres.compound().get("id", ""))
+
+
+## Paso 49: desgaste de la rueda más gastada (0–1).
+func max_tyre_wear() -> float:
+	var most := 0.0
+	for wheel in wheels:
+		most = maxf(most, wheel.wear)
+	return most
+
+
+## Paso 49: lo que queda del agarre por el desgaste medio de las 4 ruedas (1 = nuevas).
+func tyre_wear_grip() -> float:
+	if wheels.is_empty():
+		return 1.0
+	var total := 0.0
+	for wheel in wheels:
+		total += wheel.wear
+	return 1.0 - tyres.wear_grip_loss * total / wheels.size()
 
 
 func _unhandled_input(event: InputEvent) -> void:
