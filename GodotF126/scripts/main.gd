@@ -77,6 +77,9 @@ var race_control: RaceControl
 ## Paso 51: grabación de la carrera y repetición (sólo en carrera; null fuera de ella).
 var recorder: RaceRecorder
 var replay: ReplayViewer
+## Paso 52: resultado con puntos (se arma al terminar la carrera) y si se pudo guardar.
+var results: RaceResults
+var results_saved: bool = false
 ## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
 var qualifying: Array[Dictionary] = []
 var _car_data: Dictionary = {}
@@ -292,7 +295,7 @@ func _on_lights_out() -> void:
 	if start_lights.jumped:
 		lap_timer.add_penalty(float(_start_data.get("jump_penalty", 5.0)), "Largada en falso")
 		if race != null:
-			race.entry_of(car)["extra_penalty"] = float(_start_data.get("jump_penalty", 5.0))
+			race.add_extra_penalty(car, float(_start_data.get("jump_penalty", 5.0)), "Largada en falso")
 	lap_timer.start_now()
 	if race != null:
 		race.start(GameState.session_seed)
@@ -586,9 +589,7 @@ func _on_pit_speeding(who: CarController, kmh: float, seconds: float) -> void:
 	if who == car:
 		lap_timer.add_penalty(seconds, reason)
 	if race != null:
-		var entry := race.entry_of(who)
-		if not entry.is_empty():
-			entry["extra_penalty"] = float(entry["extra_penalty"]) + seconds
+		race.add_extra_penalty(who, seconds, reason)
 	if who == car or race != null:
 		hud.show_message("%s: %s (%d km/h) · +%d s" % [reason, RaceStewards.car_name(who), roundi(kmh), roundi(seconds)],
 			3.0, RaceHUD.COLOR_WARNING if who == car else RaceHUD.COLOR_NEUTRAL)
@@ -674,54 +675,89 @@ func _on_session_finished() -> void:
 		results_screen.open(lap_timer, _session_subtitle())
 
 
-## Resultado de la carrera (Paso 47): posición, piloto, equipo, vueltas, tiempo o distancia
-## al ganador, penalización y mejor vuelta. La pantalla completa es del Paso 52.
+## Resultado de la carrera (Paso 47; con puntos, podio, equipos y sanciones desde el Paso 52).
+## La carrera se guarda en `results.save_path` para el campeonato.
 func _open_race_results() -> void:
-	var rows: Array = []
-	var list := race.classification()
-	var winner: Dictionary = list[0]
-	var fastest := -1.0
-	for row in list:
-		var best := float(row["entry"]["best_lap"])
-		if best > 0.0 and (fastest < 0.0 or best < fastest):
-			fastest = best
-	var mine := 0
-	for p in list.size():
-		var row: Dictionary = list[p]
-		var entry: Dictionary = row["entry"]
-		var time_text := LapTimer.format_time(float(row["total"]))
-		if p > 0:
-			var down := int(winner["laps"]) - int(row["laps"])
-			time_text = "+%d %s" % [down, "vuelta" if down == 1 else "vueltas"] if down > 0 \
-				else "+%.3f" % (float(row["total"]) - float(winner["total"]))
-		if row["estimated"]:
-			time_text = "≈ " + time_text
-		var best := float(entry["best_lap"])
-		var is_player: bool = entry["car"] == car
-		if is_player:
-			mine = p + 1
-		var tyres: Array[String] = []
-		for id in entry["compounds"]:
-			tyres.append(strategy.short_name(str(id)))
-		rows.append({"cells": [str(p + 1), "%s  #%s" % [str(entry["driver"].get("name", "")), UiKit.number_text(entry["driver"].get("number", ""))],
-			str(entry["team"].get("name", "")), str(row["laps"]), "-".join(tyres), time_text,
-			"+%d s" % roundi(float(row["penalty"])) if float(row["penalty"]) > 0.0 else "",
-			LapTimer.format_time(best) if best > 0.0 else "--"],
-			"color": Color(1.0, 0.85, 0.2) if is_player else (ResultsScreen.COLOR_BEST if best > 0.0 and is_equal_approx(best, fastest) else Color.WHITE),
-			"highlight": is_player})
-	var summary: Array = [
-		["Ganador: %s" % str(winner["entry"]["driver"].get("name", "")), Color.WHITE],
-		["Terminaste P%d (largaste P%d)" % [mine, int(race.entry_of(car)["grid"]) + 1], Color(1.0, 0.85, 0.2)],
-		["Vuelta más rápida (violeta): %s" % LapTimer.format_time(fastest), ResultsScreen.COLOR_BEST],
-	]
+	results = RaceResults.load_default()
+	results.build(race, stewards, pit_lane, car)
+	results_saved = results.save({"track_id": TRACK_ID, "track": track_name, "laps": race.laps,
+		"seed": GameState.session_seed, "player_driver_id": str(selected_driver.get("id", ""))})
+	var views: Array[Dictionary] = [_driver_view(), _team_view(), _penalty_view()]
+	var podium: Array = []
+	for row in results.drivers.slice(0, 3):
+		podium.append({"code": row["code"], "detail": "%d pts" % row["points"], "color": row["color"]})
+	var mine := results.player_row
+	var summary: Array = []
+	if not mine.is_empty():
+		var points := int(mine["points"])
+		summary.append(["P%d (largaste P%d, %s): %d %s" % [mine["pos"], mine["grid"], RaceResults.change_text(int(mine["change"])),
+			points, "punto" if points == 1 else "puntos"], Color(1.0, 0.85, 0.2)])
+		summary.append(["%s: %d pts" % [mine["team"], results.team_points(str(mine["team_id"]))], Color.WHITE])
+	for row in results.drivers:
+		if row["fastest"]:
+			summary.append(["Vuelta rápida: %s %s" % [row["code"], LapTimer.format_time(float(row["best_lap"]))],
+				ResultsScreen.COLOR_BEST])
+			break
 	if lap_timer.penalty > 0.0:
-		summary.append(["Tus penalizaciones: +%.0f s (%s)" % [lap_timer.penalty, lap_timer.penalty_reason], Color(1.0, 0.35, 0.3)])
-	summary.append(["≈ = estimado: seguía en pista al terminar vos", ResultsScreen.COLOR_HEADER])
+		summary.append(["Tus sanciones: +%.0f s" % lap_timer.penalty, Color(1.0, 0.35, 0.3)])
+	summary.append(["≈ estimado (seguía en pista) · ←/→ tabla", ResultsScreen.COLOR_HEADER])
 	if replay != null and replay.can_open():
 		results_screen.enable_replay()
-	results_screen.open_standings("Carrera — Resultado", _session_subtitle(),
-		["P", "Piloto", "Equipo", "V", "Neum.", "Tiempo", "Pen.", "Mejor vuelta"],
-		[34, 240, 120, 30, 66, 130, 56, 120], rows, summary)
+	results_screen.open_race("Carrera — Resultado", _session_subtitle(), views, podium, summary)
+
+
+func _driver_view() -> Dictionary:
+	var rows: Array = []
+	for row in results.drivers:
+		var tyres: Array[String] = []
+		for id in row["compounds"]:
+			tyres.append(strategy.short_name(str(id)))
+		var change := int(row["change"])
+		var color := Color(1.0, 0.85, 0.2) if row["player"] else (ResultsScreen.COLOR_BEST if row["fastest"] else Color.WHITE)
+		var best := float(row["best_lap"])
+		rows.append({"cells": [str(row["pos"]), RaceResults.change_text(change),
+			"%s  #%s" % [row["driver"], UiKit.number_text(row["number"])], row["team"], str(row["laps"]),
+			"-".join(tyres), str(row["stops"]), row["gap_text"],
+			"+%d s" % roundi(float(row["penalty"])) if float(row["penalty"]) > 0.0 else "",
+			LapTimer.format_time(best) if best > 0.0 else "--", str(row["points"]) if int(row["points"]) > 0 else ""],
+			"color": color, "highlight": row["player"],
+			"cell_colors": {1: ResultsScreen.change_color(change), 8: Color(1.0, 0.4, 0.35)}})
+	return {"name": "Pilotos", "left": 4,
+		"headers": ["P", "±", "Piloto", "Equipo", "V", "Neum.", "Par.", "Tiempo", "Pen.", "Mejor", "Pts"],
+		"widths": [28, 30, 196, 104, 22, 52, 34, 112, 46, 80, 34], "rows": rows}
+
+
+func _team_view() -> Dictionary:
+	var rows: Array = []
+	var my_team := str(selected_team.get("id", ""))
+	for team in results.teams:
+		var members: Array[String] = []
+		for member in team["members"]:
+			members.append("%s P%d (%d)" % [member["code"], member["pos"], member["points"]])
+		var mine: bool = team["team_id"] == my_team
+		rows.append({"cells": [str(team["pos"]), team["team"], "   ·   ".join(members), str(team["points"])],
+			"color": Color(1.0, 0.85, 0.2) if mine else Color.WHITE, "highlight": mine,
+			"cell_colors": {1: (team["color"] as Color).lightened(0.2)}})
+	return {"name": "Equipos", "left": 3, "headers": ["P", "Equipo", "Pilotos (puesto y puntos)", "Pts"],
+		"widths": [28, 200, 520, 60], "rows": rows}
+
+
+func _penalty_view() -> Dictionary:
+	var rows: Array = []
+	for item in results.penalties:
+		var penalty: bool = item["action"] == "penalty"
+		rows.append({"cells": [_clock_text(float(item["time"])), "%s (%s)" % [item["driver"], item["code"]],
+			item["label"], item["text"]],
+			"color": Color(1.0, 0.85, 0.2) if item["car"] == car else (Color.WHITE if penalty else ResultsScreen.COLOR_HEADER),
+			"highlight": item["car"] == car})
+	if rows.is_empty():
+		rows.append({"cells": ["", "Sin sanciones ni advertencias", "", ""], "color": ResultsScreen.COLOR_HEADER})
+	return {"name": "Sanciones", "left": 4, "headers": ["Min.", "Piloto", "Sanción", "Motivo"],
+		"widths": [60, 230, 140, 420], "rows": rows}
+
+
+static func _clock_text(seconds: float) -> String:
+	return "%d:%02d" % [floori(seconds / 60.0), floori(fmod(seconds, 60.0))]
 
 
 ## Resultado de la clasificación (Paso 47): la grilla con tu mejor vuelta válida y los tiempos

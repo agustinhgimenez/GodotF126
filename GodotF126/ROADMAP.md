@@ -10,7 +10,7 @@ Los pasos están agrupados en **fases**. El orden prioriza primero lo que más c
 |---|---|---|
 | **H1 — Demo de cursada** ✅ | Paso 24 | Elegir escudería/piloto, caja manual, cockpit con volante y manos, sonido, vuelta cronometrada, resultado |
 | **H2 — Simulador** ✅ | Paso 38 | Física de neumáticos, aero activa 2026, ERS, setup, telemetría para entrenar |
-| **H3 — Juego completo** | Paso 52 | Rivales con IA, carrera con largada, fantasma, replays |
+| **H3 — Juego completo** ✅ | Paso 52 | Rivales con IA, carrera con largada, fantasma, replays |
 | **H4 — Entrega final** | Paso 60 | Tests, optimización, `.exe`, documentación y defensa |
 
 Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo menú → pista → resultado). El resto suma nivel.
@@ -86,7 +86,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 42 | Exportación a CSV | ✅ |
 | 43 | **Auto fantasma** de la mejor vuelta | ✅ |
 
-## Fase F — Rivales y carrera (H3) ⏳
+## Fase F — Rivales y carrera (H3) ✅
 
 | Paso | Contenido | Estado |
 |---|---|---|
@@ -98,13 +98,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 49 | Estrategia: cambio de compuesto, radio del ingeniero | ✅ |
 | 50 | Banderas amarilla y azul, **Safety Car** | ✅ |
 | 51 | **Replays** con cámaras de TV | ✅ |
-| 52 | Pantalla de resultados de carrera con puntos | ⏳ Siguiente |
+| 52 | Pantalla de resultados de carrera con puntos | ✅ |
 
 ## Fase G — Contenido extra
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 53 | Generador de pistas por puntos de control, reutilizable para otros circuitos | |
+| 53 | Generador de pistas por puntos de control, reutilizable para otros circuitos | ⏳ Siguiente |
 | 54 | Segunda pista | |
 | 55 | Modo campeonato con varias carreras | |
 | 56 | Lluvia y pista mojada | |
@@ -1088,3 +1088,26 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   Primero la pose grabada iba 0,9 m atrás de la real: cada nodo lee las poses del paso de física anterior, así que la muestra se marca con el reloj de antes de sumar el cuadro. **Las pruebas anteriores siguen bien**: Pasos 47 y 50 con 0 fallas (el 47 tuvo un cierre de Jolt al salir con la carrera abierta, el mismo 1 de 4 conocido del Paso 50). Capturas: `informes/capturas/paso51-resultado.png` (el botón), `paso51-tv.png` (cámara de TV), `paso51-incidente.png` (el aviso), `paso51-persecucion.png` y `paso51-a-bordo.png`.
 - **Cómo probar**: F5, Carrera de 2 vueltas. En plena carrera apretar Esc → "Repetición", mirar con C, Q/E e I, y salir con Esc para seguir corriendo. Al terminar, "Ver repetición" en el resultado.
+
+### Paso 52 — Pantalla de resultados de carrera con puntos
+- **Puntos** (`scripts/race/race_results.gd`, `RaceResults`, datos en `data/points.json`): 25-18-15-12-10-8-6-4-2-1 a los 10 primeros, como en 2026. No hay punto por vuelta rápida (se sacó en 2025), pero se puede activar en el JSON (`fastest_lap_points`, sólo si termina entre los `fastest_lap_top` primeros). Los equipos suman los puntos de sus dos pilotos; si empatan, gana el que tiene el mejor puesto.
+- **Resultado de la carrera**, con tres vistas que se cambian con el botón "Ver …" o con ←/→:
+  - **Pilotos**: posición, lugares ganados o perdidos contra la grilla (verde / rojo), piloto, equipo, vueltas, compuestos, paradas, tiempo o diferencia ("+1 vuelta" si quedó doblado; "≈" si seguía en pista), sanción, mejor vuelta y puntos. La vuelta más rápida en violeta y el jugador en amarillo.
+  - **Equipos**: los 11 con sus dos pilotos (puesto y puntos) y el total.
+  - **Sanciones**: minuto de carrera, piloto, sanción ("+5 s" o "Advertencia 1/3") y motivo. Están las de los comisarios (toques y banderas) y las que antes sólo sumaban segundos: largada en falso, exceso de velocidad en boxes y un solo compuesto (`RaceSession.add_extra_penalty()` ahora guarda el motivo).
+  - A la derecha: **podio** con los 3 primeros (escalones del color del equipo, código y puntos), tu puesto con los lugares ganados y los puntos, los puntos de tu equipo y la vuelta más rápida. Siguen "Ver repetición", Repetir y Menú principal.
+- **Guardado**: cada carrera queda en `user://last_race.json` (pista, vueltas, semilla, piloto del jugador, pilotos y equipos con puntos) para el campeonato del Paso 55.
+- **Verificación** (`paso52_results.gd`, carrera de 2 vueltas con el jugador manejado por la IA):
+
+| Prueba | Resultado |
+|---|---|
+| Tabla de puntos | 25 a 1 y 0 desde el 11.º; sin punto por vuelta rápida; otra tabla del JSON y el punto por vuelta rápida sólo en el top |
+| Clasificación | mismo orden que la carrera; 101 puntos en total (VER 25, NOR 18, COL 15…); el jugador P3 largando P4 (+1); vuelta más rápida VER 1:18.467; diferencias "+s" (sin doblados en 2 vueltas) |
+| Equipos | 11 equipos de 2, suma de sus pilotos, ordenados (McLaren 28, Red Bull 27, Ferrari 20, Alpine 16…) |
+| Sanciones | 5 de los comisarios y una armada a los 30 s ("Exceso de velocidad en boxes" a Hadjar): aparece con el motivo, en su fila (+5 s) y en orden por el reloj de carrera |
+| Guardado | `user://last_race.json` con 22 pilotos, 11 equipos y 101 puntos, la pista, las vueltas y el piloto del jugador |
+| Pantalla | 22 filas de 11 columnas; podio VER-NOR-COL; botones dentro de la pantalla (el último termina en 662 de 720 px); botón y ←/→ cambian la vista y dan la vuelta; "Ver repetición" sigue andando y al volver queda la misma vista; el contrarreloj no muestra podio ni vistas |
+
+  **Las pruebas anteriores siguen bien**: Pasos 47, 50 y 51 con 0 fallas y código de salida 0 (la carrera del Paso 47 sigue dando Norris 2:41,667). Capturas: `informes/capturas/paso52-pilotos.png`, `paso52-equipos.png` y `paso52-sanciones.png`.
+- **Fase F cerrada: hito H3 alcanzado** (rivales con IA, carrera con largada, fantasma, repeticiones y resultado con puntos).
+- **Cómo probar**: F5, Carrera de 2 vueltas. Al terminar, mirar el podio y los puntos; apretar ←/→ (o "Ver equipos") para ver los equipos y las sanciones.

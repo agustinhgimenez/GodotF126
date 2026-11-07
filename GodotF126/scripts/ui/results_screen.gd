@@ -7,6 +7,8 @@ extends CanvasLayer
 ## Paso 47: open_standings() muestra una tabla de posiciones (clasificación o carrera de 22
 ## autos) con el resumen y los botones a la derecha, y un botón extra opcional ("Correr la
 ## carrera" después de la clasificación). Paso 51: "Ver repetición" después de la carrera.
+## Paso 52: open_race() muestra el podio a la derecha y varias vistas de la tabla (pilotos,
+## equipos, sanciones) que se cambian con el botón "Ver …" o con ←/→.
 
 signal repeat_requested
 signal menu_requested
@@ -31,7 +33,40 @@ var _summary: VBoxContainer
 var _repeat_button: Button
 var _next_button: Button
 var _replay_button: Button
+var _view_button: Button
 var _buttons: Array[Button] = []
+var _podium: Podium
+## Paso 52: vistas de open_race() ({name, headers, widths, rows, left}) y la que se ve.
+var views: Array[Dictionary] = []
+var view_index: int = 0
+var _left_columns: int = 3
+
+
+## Podio de los 3 primeros: escalones del color del equipo (2.º, 1.º, 3.º), código y puntos.
+class Podium extends Control:
+	const STEP_HEIGHTS := [56.0, 40.0, 30.0]
+	const ORDER := [1, 0, 2]
+	var places: Array = []
+
+	func _draw() -> void:
+		var font := get_theme_default_font()
+		var width := size.x / 3.0
+		for slot in 3:
+			var i: int = ORDER[slot]
+			if i >= places.size():
+				continue
+			var place: Dictionary = places[i]
+			var color: Color = place.get("color", Color.WHITE)
+			var h: float = STEP_HEIGHTS[i]
+			var rect := Rect2(slot * width + 4.0, size.y - h, width - 8.0, h)
+			draw_rect(rect, color.darkened(0.25))
+			draw_rect(Rect2(rect.position, Vector2(rect.size.x, 4.0)), color.lightened(0.25))
+			draw_string(font, Vector2(rect.position.x, rect.position.y + h * 0.5 + 10.0), str(i + 1),
+				HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 26, Color.WHITE)
+			draw_string(font, Vector2(rect.position.x, rect.position.y - 26.0), str(place.get("code", "")),
+				HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 20, Color.WHITE)
+			draw_string(font, Vector2(rect.position.x, rect.position.y - 8.0), str(place.get("detail", "")),
+				HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 14, Color(0.8, 0.82, 0.88))
 
 
 func _ready() -> void:
@@ -39,6 +74,15 @@ func _ready() -> void:
 	layer = 11
 	_build_ui()
 	_root.visible = false
+
+
+## Paso 52: verde si ganó lugares, rojo si perdió, gris si quedó igual.
+static func change_color(change: int) -> Color:
+	if change > 0:
+		return Color(0.4, 0.9, 0.45)
+	if change < 0:
+		return Color(1.0, 0.4, 0.35)
+	return COLOR_HEADER
 
 
 func is_open() -> bool:
@@ -54,6 +98,9 @@ func set_accent(color: Color) -> void:
 ## Arma la tabla desde el historial del cronómetro y pausa el juego.
 func open(timer: LapTimer, subtitle: String) -> void:
 	_subtitle.text = subtitle
+	views.clear()
+	_view_button.visible = false
+	_podium.visible = false
 	_table.columns = COLUMN_WIDTHS.size()
 	_fill_table(timer)
 	_fill_summary(timer)
@@ -68,32 +115,11 @@ func open_standings(title: String, subtitle: String, headers: Array, widths: Arr
 		summary: Array, next_text: String = "") -> void:
 	_title.text = title
 	_subtitle.text = subtitle
-	for child in _table.get_children():
-		child.queue_free()
-	_table.columns = headers.size()
-	_table.add_theme_constant_override("v_separation", 1)
-	UiKit.place(_table, Vector4(0, 0, 0, 0), Vector4(50, 150, 940, 700))
-	for i in headers.size():
-		_add_cell(str(headers[i]), i, 16, COLOR_HEADER, widths)
-	for row in rows:
-		var color: Color = row.get("color", Color.WHITE)
-		var cells: Array = row["cells"]
-		for i in cells.size():
-			var label := _add_cell(str(cells[i]), i, 15, color, widths)
-			if row.get("highlight", false):
-				label.add_theme_color_override("font_outline_color", Color(0.35, 0.3, 0.05))
-				label.add_theme_constant_override("outline_size", 6)
-	for child in _summary.get_children():
-		child.queue_free()
-	for line in summary:
-		var label := UiKit.make_label(str(line[0]), 18)
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.add_theme_color_override("font_color", line[1])
-		_summary.add_child(label)
-	_bottom.vertical = true
-	_bottom.add_theme_constant_override("separation", 24)
-	_summary.custom_minimum_size = Vector2(300, 0)
-	UiKit.place(_bottom, Vector4(0, 0, 0, 0), Vector4(955, 150, 1255, 700))
+	views.clear()
+	_view_button.visible = false
+	_podium.visible = false
+	_show_table(headers, widths, rows)
+	_show_summary(summary, 18)
 	_next_button.visible = not next_text.is_empty()
 	_next_button.text = next_text
 	get_tree().paused = true
@@ -101,10 +127,84 @@ func open_standings(title: String, subtitle: String, headers: Array, widths: Arr
 	(_next_button if _next_button.visible else _repeat_button).grab_focus()
 
 
+## Paso 52: resultado de la carrera. views = [{name, headers, widths, rows, left (columnas
+## alineadas a la izquierda)}], la primera se muestra; podium = [{code, detail, color}] del 1.º
+## al 3.º. Las filas pueden traer "cell_colors" ({columna: Color}).
+func open_race(title: String, subtitle: String, view_list: Array[Dictionary], podium: Array,
+		summary: Array) -> void:
+	_title.text = title
+	_subtitle.text = subtitle
+	views = view_list
+	_podium.places = podium
+	_podium.visible = not podium.is_empty()
+	_podium.queue_redraw()
+	_show_summary(summary, 16)
+	_next_button.visible = false
+	_view_button.visible = views.size() > 1
+	show_view(0)
+	get_tree().paused = true
+	_root.visible = true
+	_repeat_button.grab_focus()
+
+
+func show_view(index: int) -> void:
+	if views.is_empty():
+		return
+	view_index = wrapi(index, 0, views.size())
+	var view := views[view_index]
+	_show_table(view["headers"], view["widths"], view["rows"], int(view.get("left", 3)))
+	_view_button.text = "Ver %s" % str(views[(view_index + 1) % views.size()]["name"]).to_lower()
+
+
+func view_name() -> String:
+	return str(views[view_index]["name"]) if not views.is_empty() else ""
+
+
+func _show_table(headers: Array, widths: Array, rows: Array, left: int = 3) -> void:
+	for child in _table.get_children():
+		_table.remove_child(child)
+		child.queue_free()
+	_left_columns = left
+	_table.columns = headers.size()
+	_table.add_theme_constant_override("v_separation", 1)
+	UiKit.place(_table, Vector4(0, 0, 0, 0), Vector4(50, 150, 940, 700))
+	for i in headers.size():
+		_add_cell(str(headers[i]), i, 16, COLOR_HEADER, widths)
+	for row in rows:
+		var color: Color = row.get("color", Color.WHITE)
+		var cell_colors: Dictionary = row.get("cell_colors", {})
+		var cells: Array = row["cells"]
+		for i in cells.size():
+			var label := _add_cell(str(cells[i]), i, 15, cell_colors.get(i, color), widths)
+			if row.get("highlight", false):
+				label.add_theme_color_override("font_outline_color", Color(0.35, 0.3, 0.05))
+				label.add_theme_constant_override("outline_size", 6)
+
+
+func _show_summary(summary: Array, font_size: int) -> void:
+	for child in _summary.get_children():
+		if child != _podium:
+			child.queue_free()
+	for line in summary:
+		var label := UiKit.make_label(str(line[0]), font_size)
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.add_theme_color_override("font_color", line[1])
+		_summary.add_child(label)
+	_bottom.vertical = true
+	_bottom.add_theme_constant_override("separation", 20)
+	_summary.custom_minimum_size = Vector2(300, 0)
+	UiKit.place(_bottom, Vector4(0, 0, 0, 0), Vector4(955, 150, 1255, 700))
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if is_open() and event.is_action_pressed("ui_cancel"):
+	if not is_open():
+		return
+	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		_leave(menu_requested)
+	elif views.size() > 1 and (event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right")):
+		get_viewport().set_input_as_handled()
+		show_view(view_index + (1 if event.is_action_pressed("ui_right") else -1))
 
 
 func _leave(request: Signal) -> void:
@@ -163,7 +263,8 @@ func _fill_table(timer: LapTimer) -> void:
 
 func _fill_summary(timer: LapTimer) -> void:
 	for child in _summary.get_children():
-		child.queue_free()
+		if child != _podium:
+			child.queue_free()
 	_summary.add_child(UiKit.make_label("Tiempo total   %s" % LapTimer.format_time(timer.total_time()), 26))
 	if timer.penalty > 0.0:
 		var penalty := UiKit.make_label("Penalización   +%.0f s (%s)" % [timer.penalty, timer.penalty_reason], 20)
@@ -217,7 +318,7 @@ func _session_best_sectors(history: Array[Dictionary]) -> Array[float]:
 
 
 func _add_cell(text: String, column: int, font_size: int, color: Color, widths: Array = COLUMN_WIDTHS) -> Label:
-	var align := HORIZONTAL_ALIGNMENT_LEFT if column == 0 or (widths != COLUMN_WIDTHS and column <= 2) \
+	var align := HORIZONTAL_ALIGNMENT_LEFT if column == 0 or (widths != COLUMN_WIDTHS and column < _left_columns) \
 		else HORIZONTAL_ALIGNMENT_RIGHT
 	var label := UiKit.make_label(text, font_size, align)
 	label.custom_minimum_size = Vector2(float(widths[column]), 0)
@@ -265,12 +366,18 @@ func _build_ui() -> void:
 	_summary.add_theme_constant_override("separation", 4)
 	_summary.custom_minimum_size = Vector2(560, 0)
 	_bottom.add_child(_summary)
+	_podium = Podium.new()
+	_podium.custom_minimum_size = Vector2(300, 106)
+	_podium.visible = false
+	_summary.add_child(_podium)
 
 	var actions := VBoxContainer.new()
 	actions.add_theme_constant_override("separation", 12)
 	_bottom.add_child(actions)
 	_next_button = _add_button(actions, "", func() -> void: _leave(next_requested))
 	_next_button.visible = false
+	_view_button = _add_button(actions, "", func() -> void: show_view(view_index + 1))
+	_view_button.visible = false
 	_replay_button = _add_button(actions, "Ver repetición", func() -> void: replay_requested.emit())
 	_replay_button.visible = false
 	_repeat_button = _add_button(actions, "Repetir", func() -> void: _leave(repeat_requested))

@@ -201,6 +201,11 @@ func blame(incident: Dictionary) -> Dictionary:
 	return {"guilty": null, "victim": null, "kind": "racing", "closing": side_closing}
 
 
+## Reloj de los incidentes ("time"): s de escena desde setup().
+func clock() -> float:
+	return _clock
+
+
 func penalty_of(car: CarController) -> float:
 	return float(penalties.get(car, 0.0))
 

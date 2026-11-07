@@ -66,7 +66,8 @@ var checkered: bool = false
 ## Un diccionario por auto: car, driver, team, ai (AiDriver o null), grid (0 = pole), quali (s),
 ## progress (m desde la meta, negativo en la grilla), lap (vueltas completas), last_lap,
 ## best_lap, finished, finish_time, reaction, extra_penalty, code (3 letras), pit_lap (vueltas
-## completas con las que pide boxes, −1 sin parada planeada), compounds (ids usados), plan.
+## completas con las que pide boxes, −1 sin parada planeada), compounds (ids usados), plan,
+## extra_reasons (Paso 52: {time, seconds, reason} de cada suma a extra_penalty).
 var entries: Array[Dictionary] = []
 var player: CarController
 var finish_order: Array[CarController] = []
@@ -119,7 +120,7 @@ func add_entry(car: CarController, driver: Dictionary, team: Dictionary, ai: AiD
 		"progress": 0.0, "last": 0.0, "start_progress": 0.0, "lap": 0, "lap_start": 0.0,
 		"last_lap": -1.0, "best_lap": -1.0, "finished": false, "finish_time": -1.0,
 		"reaction": 0.0, "extra_penalty": 0.0, "code": code_of(str(driver.get("name", "?"))),
-		"pit_lap": -1, "compounds": [car.compound_id()], "plan": {},
+		"pit_lap": -1, "compounds": [car.compound_id()], "plan": {}, "extra_reasons": [],
 	}
 	entries.append(entry)
 	if ai != null:
@@ -133,6 +134,16 @@ func entry_of(car: CarController) -> Dictionary:
 		if entry["car"] == car:
 			return entry
 	return {}
+
+
+## Paso 52: sanción que no viene de los comisarios (largada en falso, exceso en boxes, un solo
+## compuesto); queda con el motivo para el resultado.
+func add_extra_penalty(car: CarController, seconds: float, reason: String) -> void:
+	var entry := entry_of(car)
+	if entry.is_empty() or seconds <= 0.0:
+		return
+	entry["extra_penalty"] = float(entry["extra_penalty"]) + seconds
+	(entry["extra_reasons"] as Array).append({"time": clock, "seconds": seconds, "reason": reason})
 
 
 ## Semáforo apagado: arranca el reloj; los de la IA largan después de su reacción.
@@ -321,7 +332,7 @@ func finish(car: CarController) -> void:
 	entry["finished"] = true
 	entry["finish_time"] = clock
 	if strategy_on and not RaceStrategy.rule_met(entry["compounds"]):
-		entry["extra_penalty"] = float(entry["extra_penalty"]) + strategy.rule_penalty
+		add_extra_penalty(car, strategy.rule_penalty, "Un solo compuesto")
 		rule_broken.emit(car, strategy.rule_penalty)
 	finish_order.append(car)
 	if not checkered:

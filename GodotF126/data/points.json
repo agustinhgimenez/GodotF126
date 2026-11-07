@@ -1,0 +1,7 @@
+{
+  "description": "Puntos de la carrera (Paso 52). points: del 1.º en adelante (reglamento 2026: 25-18-15-12-10-8-6-4-2-1). fastest_lap_points: puntos extra por la vuelta más rápida si termina entre los fastest_lap_top primeros (0 = no hay, como desde 2025). save_path: la última carrera, para el campeonato.",
+  "points": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+  "fastest_lap_points": 0,
+  "fastest_lap_top": 10,
+  "save_path": "user://last_race.json"
+}
