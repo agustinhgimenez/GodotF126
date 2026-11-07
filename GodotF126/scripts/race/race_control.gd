@@ -169,6 +169,11 @@ func safety_car_active() -> bool:
 	return not sc_state.is_empty()
 
 
+## El auto del Safety Car (oculto cuando no está en pista); lo graba y lo mueve el replay.
+func safety_car_node() -> Node3D:
+	return _sc_node
+
+
 ## Saca el Safety Car ya (también lo usan las pruebas).
 func deploy_safety_car() -> void:
 	if safety_car_active() or _race == null or not _race.running or _race.checkered:

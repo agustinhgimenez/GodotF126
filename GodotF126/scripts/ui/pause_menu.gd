@@ -2,8 +2,8 @@ class_name PauseMenu
 extends CanvasLayer
 ## Menú de pausa de la carrera (Paso 15), armado por código.
 ## Esc pausa el árbol (física, cronómetro y audio del auto quedan congelados) y muestra
-## Continuar / Reiniciar / Setup (sólo en práctica, Paso 35) / Telemetría (Paso 39) / Opciones /
-## Controles / Menú / Salir.
+## Continuar / Repetición (sólo en carrera, Paso 51) / Reiniciar / Setup (sólo en práctica,
+## Paso 35) / Telemetría (Paso 39) / Opciones / Controles / Menú / Salir.
 ## Este nodo sigue procesando en pausa.
 
 signal paused_changed(paused: bool)
@@ -11,6 +11,8 @@ signal restart_requested
 signal menu_requested
 ## El setup cambió (se avisa al cerrar la pantalla de setup).
 signal setup_changed
+## Paso 51: botón "Repetición" (sólo en carrera).
+signal replay_requested
 
 var accent: Color = Color("#FF87BC")
 
@@ -26,6 +28,7 @@ var _telemetry: TelemetryPanel
 var _telemetry_button: Button
 var _analysis: TelemetryAnalysis
 var _continue_button: Button
+var _replay_button: Button
 var _options_button: Button
 var _controls_button: Button
 var _buttons: Array[Button] = []
@@ -179,6 +182,23 @@ func _leave(request: Signal) -> void:
 	request.emit()
 
 
+## Paso 51: muestra el botón de la repetición.
+func enable_replay() -> void:
+	_replay_button.visible = true
+
+
+## Paso 51: la repetición tapa la pausa (el árbol sigue en pausa); al cerrarla vuelve.
+func hide_for_replay() -> void:
+	_root.visible = false
+	set_process_unhandled_input(false)
+
+
+func show_after_replay() -> void:
+	_root.visible = true
+	set_process_unhandled_input(true)
+	_show_main(_replay_button)
+
+
 func _build_ui() -> void:
 	_root = Control.new()
 	_root.name = "Root"
@@ -204,6 +224,8 @@ func _build_ui() -> void:
 	UiKit.place(_main_panel, Vector4(0, 0, 0, 0), Vector4(80, 200, 500, 560))
 	_root.add_child(_main_panel)
 	_continue_button = _add_button("Continuar", close)
+	_replay_button = _add_button("Repetición", func() -> void: replay_requested.emit())
+	_replay_button.visible = false
 	_add_button("Reiniciar", func() -> void: _leave(restart_requested))
 	_setup_button = _add_button("Setup del auto", _on_setup_pressed)
 	_setup_button.visible = false

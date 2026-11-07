@@ -1,0 +1,23 @@
+{
+  "description": "Replays de la carrera (Paso 51). Se graba cada 'interval' s la pose de los 22 autos y del Safety Car, hasta 'max_minutes' minutos. La repetición se abre desde la pausa (arranca 'start_before_end' s antes de ese momento) o desde el resultado (arranca 'start_before_finish' s antes de la llegada del jugador). Flechas izquierda / derecha mueven 'seek_step' s; arriba / abajo cambian entre 'speeds'; Espacio pausa; C cambia de cámara (TV con las torres de la pista, persecución y a bordo); Q / E sigue al auto de adelante o de atrás; I salta al incidente siguiente ('incident_lead' s antes); Inicio vuelve a la largada; Esc sale. 'chase': cámara de persecución ('distance' m detrás, 'height' m arriba, mira 'look_ahead' m adelante del auto, suavizado 'smoothing', 'fov'). 'onboard': cámara a bordo ('position' [x, y, z] en el auto, 'pitch' grados, 'fov'). La torre se refresca cada 'tower_refresh' s.",
+  "interval": 0.1,
+  "max_minutes": 60.0,
+  "start_before_end": 15.0,
+  "start_before_finish": 12.0,
+  "seek_step": 5.0,
+  "speeds": [0.25, 0.5, 1.0, 2.0, 4.0],
+  "incident_lead": 4.0,
+  "tower_refresh": 0.25,
+  "chase": {
+    "distance": 9.0,
+    "height": 3.2,
+    "look_ahead": 6.0,
+    "smoothing": 6.0,
+    "fov": 65.0
+  },
+  "onboard": {
+    "position": [0.0, 1.3, 0.75],
+    "pitch": -6.0,
+    "fov": 72.0
+  }
+}

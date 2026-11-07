@@ -97,8 +97,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 48 | Pit lane con limitador de velocidad y paradas en boxes | ✅ |
 | 49 | Estrategia: cambio de compuesto, radio del ingeniero | ✅ |
 | 50 | Banderas amarilla y azul, **Safety Car** | ✅ |
-| 51 | **Replays** con cámaras de TV | ⏳ Siguiente |
-| 52 | Pantalla de resultados de carrera con puntos | |
+| 51 | **Replays** con cámaras de TV | ✅ |
+| 52 | Pantalla de resultados de carrera con puntos | ⏳ Siguiente |
 
 ## Fase G — Contenido extra
 
@@ -1067,3 +1067,24 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   El primero del Safety Car al principio quedaba a 70–100 m: frenaba para la velocidad que el Safety Car tenía en ese momento (lento en una curva cuando el líder todavía estaba en la recta). Ahora sigue el perfil del Safety Car en su propia posición. Las amarillas y el Safety Car salían solos en la curva 1 de la largada (el embudo baja a todos a menos de 30 km/h): por eso los 15 s de gracia, la fila que no cuenta y 3 autos lentos (no 2) para el Safety Car.
   **El cierre de Jolt del Paso 49 no estaba del todo arreglado**: repitiendo 3 carreras seguidas (`paso49_reload.gd`), el Paso 49 se cerraba en 3 de 4 corridas, al cambiar de escena o al salir (siempre en la misma dirección de Godot). Los autos de la IA y la calle de boxes se agregan después del auto y de la pista, así que al liberar la escena salían en otro orden. Ahora `Main` tiene un nodo guardián que siempre es su último hijo (Godot saca primero al último) y que saca todos los autos y áreas del espacio de Jolt antes que cualquier otra cosa. Las 3 carreras seguidas pasan en las 4 corridas; queda 1 cierre de 4 al salir de Godot con la carrera abierta (`quit()`, después de terminar todo). **Las pruebas anteriores siguen bien**: Pasos 47 y 48 con 0 fallas (la carrera del Paso 47 cambia un poco con las banderas: gana Norris en 2:41,667). La vuelta del Paso 36 da ahora 1:42.417 / 1:40.950 / 1:40.967 con `--fixed-fps 60`, igual con y sin los cambios de este paso (también en el commit del Paso 49), así que no viene del Paso 50. Capturas: `informes/capturas/paso50-amarilla.png`, `paso50-azul.png`, `paso50-safety-car.png`, `paso50-fila.png` y `paso50-resultado.png`.
 - **Cómo probar**: F5, Carrera de 5 vueltas. Para ver una amarilla y el Safety Car, frenar y quedarse parado en la pista después de los primeros 15 s: a los 1,5 s sale la amarilla y a los 6 s el Safety Car. Ponerse detrás, no pasar a nadie y esperar la bandera verde en la meta.
+
+### Paso 51 — Replays con cámaras de TV
+- **Grabador** (`scripts/race/race_recorder.gd`, `RaceRecorder`, datos en `data/replay.json`; sólo en carrera). Cada **0,1 s** guarda la posición y la rotación de los 22 autos, un número para el orden (avance en metros, o el tiempo de llegada si ya terminó) y el Safety Car. Todo va en un solo arreglo de floats: **0,42 MB por minuto**, **0,05 ms** por muestra (sin pasar de 60 minutos). Entre dos muestras interpola la posición y la rotación (error contra lo real: 2 cm).
+- **Repetición** (`scripts/ui/replay_viewer.gd`, `ReplayViewer`): se abre desde la pausa (botón **"Repetición"**, arranca 15 s antes de ahora) o desde el resultado (**"Ver repetición"**, arranca 12 s antes de tu llegada). El juego queda en pausa: los autos se mueven a su pose grabada y al salir (Esc) vuelven exactamente a donde estaban, con su velocidad, y la carrera sigue.
+  - **Cámaras** (C): **TV** (las 10 torres del Paso 18, que cortan siguiendo al auto con la velocidad grabada), **persecución** (detrás y arriba, suavizada) y **a bordo**.
+  - **Controles**: Espacio pausa, ←/→ 5 s, flechas arriba/abajo velocidad (×0,25 a ×4), Q/E auto anterior/siguiente, I próximo incidente (4 s antes), Inicio vuelve a la largada. La barra de abajo muestra los incidentes como marcas y se puede hacer clic o arrastrar para ir a cualquier momento.
+  - **Pantalla**: "● REPETICIÓN", reloj de carrera y vuelta; la torre con las diferencias de ese momento (vueltas de menos y sanciones hasta ahí) y el auto seguido resaltado; abajo piloto, posición, velocidad, cámara y velocidad de reproducción. Al pasar por un incidente aparece el aviso ("Advertencia 1/3 a Hamilton: se cerró sobre Verstappen").
+  - **Incidentes**: los de los comisarios (sanciones y advertencias) y los de dirección de carrera (amarillas, Safety Car, verde).
+- `TvCameras` acepta otro auto a seguir y una fuente de velocidad; `RaceControl.safety_car_node()` da el Safety Car para grabarlo.
+- **Verificación** (`paso51_replay.gd`, carrera de 2 vueltas con el jugador manejado por la IA):
+
+| Prueba | Resultado |
+|---|---|
+| Desde la pausa (a los 60 s) | tapa la pausa y el HUD; los 22 autos vuelven 15 s atrás; la carrera no corre; se detiene al llegar a ahora; Esc devuelve los autos a su lugar (0,0000 m), la cámara del jugador y la pausa; la carrera sigue |
+| Grabación | 1745 muestras en 174 s; poses contra las reales en 4 instantes: 0,022 m máx; orden igual al de la carrera (4/4); 0,42 MB/min; 0,049 ms por muestra |
+| Desde el resultado | botón "Ver repetición"; arranca 12 s antes de la llegada (159,9 s); cámara de TV con el jugador, 2 cortes de torre; al final la torre coincide con el resultado (10/10) |
+| Incidentes | 3 naturales (2 advertencias, 1 sanción); I salta 4 s antes y sigue al auto; se ve el aviso |
+| Cámaras y controles | persecución a 12 m detrás; a bordo; C vuelve a la TV; E sigue al de atrás; pausa; ← 5 s; ×0,25; Esc vuelve al resultado |
+
+  Primero la pose grabada iba 0,9 m atrás de la real: cada nodo lee las poses del paso de física anterior, así que la muestra se marca con el reloj de antes de sumar el cuadro. **Las pruebas anteriores siguen bien**: Pasos 47 y 50 con 0 fallas (el 47 tuvo un cierre de Jolt al salir con la carrera abierta, el mismo 1 de 4 conocido del Paso 50). Capturas: `informes/capturas/paso51-resultado.png` (el botón), `paso51-tv.png` (cámara de TV), `paso51-incidente.png` (el aviso), `paso51-persecucion.png` y `paso51-a-bordo.png`.
+- **Cómo probar**: F5, Carrera de 2 vueltas. En plena carrera apretar Esc → "Repetición", mirar con C, Q/E e I, y salir con Esc para seguir corriendo. Al terminar, "Ver repetición" en el resultado.

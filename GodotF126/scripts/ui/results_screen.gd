@@ -6,11 +6,13 @@ extends CanvasLayer
 ## Pausa el árbol mientras se muestra; este nodo sigue procesando.
 ## Paso 47: open_standings() muestra una tabla de posiciones (clasificación o carrera de 22
 ## autos) con el resumen y los botones a la derecha, y un botón extra opcional ("Correr la
-## carrera" después de la clasificación).
+## carrera" después de la clasificación). Paso 51: "Ver repetición" después de la carrera.
 
 signal repeat_requested
 signal menu_requested
 signal next_requested
+## Paso 51: botón "Ver repetición" (sólo después de la carrera).
+signal replay_requested
 
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_HEADER := Color(0.7, 0.72, 0.78)
@@ -28,6 +30,7 @@ var _bottom: BoxContainer
 var _summary: VBoxContainer
 var _repeat_button: Button
 var _next_button: Button
+var _replay_button: Button
 var _buttons: Array[Button] = []
 
 
@@ -108,6 +111,21 @@ func _leave(request: Signal) -> void:
 	_root.visible = false
 	get_tree().paused = false
 	request.emit()
+
+
+## Paso 51: muestra el botón de la repetición.
+func enable_replay() -> void:
+	_replay_button.visible = true
+
+
+## Paso 51: la repetición tapa el resultado (el árbol sigue en pausa); al cerrarla vuelve.
+func hide_for_replay() -> void:
+	_root.visible = false
+
+
+func show_after_replay() -> void:
+	_root.visible = true
+	_replay_button.grab_focus()
 
 
 func _fill_table(timer: LapTimer) -> void:
@@ -253,6 +271,8 @@ func _build_ui() -> void:
 	_bottom.add_child(actions)
 	_next_button = _add_button(actions, "", func() -> void: _leave(next_requested))
 	_next_button.visible = false
+	_replay_button = _add_button(actions, "Ver repetición", func() -> void: replay_requested.emit())
+	_replay_button.visible = false
 	_repeat_button = _add_button(actions, "Repetir", func() -> void: _leave(repeat_requested))
 	_add_button(actions, "Menú principal", func() -> void: _leave(menu_requested))
 

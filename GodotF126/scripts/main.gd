@@ -74,6 +74,9 @@ var pit_lane: PitLane
 var strategy: RaceStrategy
 var radio: EngineerRadio
 var race_control: RaceControl
+## Paso 51: grabación de la carrera y repetición (sólo en carrera; null fuera de ella).
+var recorder: RaceRecorder
+var replay: ReplayViewer
 ## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
 var qualifying: Array[Dictionary] = []
 var _car_data: Dictionary = {}
@@ -81,6 +84,8 @@ var _laps: int = 0
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 var _physics_guard: Node
+var _replay_from_results: bool = false
+var _hud_was_visible: bool = true
 
 @onready var track: BakuTrack = $BakuTrack
 @onready var car: CarController = $Car
@@ -362,9 +367,48 @@ func _setup_race() -> void:
 	add_child(race_control)
 	race_control.setup(race, traffic, track, racing_line, pit_lane, stewards, car, radio)
 	hud.bind_race_control(race_control)
+	var replay_data := DataLoader.load_json(RaceRecorder.DATA_PATH)
+	recorder = RaceRecorder.new()
+	recorder.name = "RaceRecorder"
+	recorder.configure(replay_data)
+	add_child(recorder)
+	recorder.setup(race, race_control, traffic)
+	replay = ReplayViewer.new()
+	replay.name = "ReplayViewer"
+	add_child(replay)
+	replay.configure(replay_data)
+	replay.setup(recorder, tv_cameras, stewards, race_control, car, self, DataLoader.team_primary(selected_team))
+	replay.closed.connect(_on_replay_closed)
+	pause_menu.enable_replay()
+	pause_menu.replay_requested.connect(_open_replay.bind(false))
+	results_screen.replay_requested.connect(_open_replay.bind(true))
 	var mine := race.entry_of(car)
 	hud.show_message("Largás P%d (%s)" % [int(mine["grid"]) + 1,
 		"clasificación %s" % LapTimer.format_time(float(mine["quali"])) if float(mine["quali"]) > 0.0 else "sin tiempo"], 4.0)
+
+
+## Paso 51: repetición desde la pausa (unos segundos antes de ahora) o desde el resultado (un
+## poco antes de tu llegada). El árbol ya está en pausa; el HUD se esconde mientras dura.
+func _open_replay(from_results: bool) -> void:
+	if replay == null or not replay.can_open():
+		hud.show_message("Todavía no hay nada grabado", 2.0)
+		return
+	_replay_from_results = from_results
+	_hud_was_visible = hud.visible
+	if from_results:
+		results_screen.hide_for_replay()
+	else:
+		pause_menu.hide_for_replay()
+	hud.visible = false
+	replay.open(replay.finish_start() if from_results else replay.default_start())
+
+
+func _on_replay_closed() -> void:
+	hud.visible = _hud_was_visible
+	if _replay_from_results:
+		results_screen.show_after_replay()
+	else:
+		pause_menu.show_after_replay()
 
 
 ## Botón "Correr la carrera" del resultado de la clasificación.
@@ -673,6 +717,8 @@ func _open_race_results() -> void:
 	if lap_timer.penalty > 0.0:
 		summary.append(["Tus penalizaciones: +%.0f s (%s)" % [lap_timer.penalty, lap_timer.penalty_reason], Color(1.0, 0.35, 0.3)])
 	summary.append(["≈ = estimado: seguía en pista al terminar vos", ResultsScreen.COLOR_HEADER])
+	if replay != null and replay.can_open():
+		results_screen.enable_replay()
 	results_screen.open_standings("Carrera — Resultado", _session_subtitle(),
 		["P", "Piloto", "Equipo", "V", "Neum.", "Tiempo", "Pen.", "Mejor vuelta"],
 		[34, 240, 120, 30, 66, 130, 56, 120], rows, summary)

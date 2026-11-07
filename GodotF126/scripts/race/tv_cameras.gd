@@ -5,7 +5,7 @@ extends Node3D
 ## Una sola Camera3D salta (corte) a la torre más cercana a donde va a estar el auto, lo
 ## sigue con look_at suavizado y ajusta el zoom para que el auto ocupe siempre lo mismo.
 ## Se usan cuando la cámara del auto está en el modo "Cámaras de pista" y en los replays
-## (Paso 51).
+## (Paso 51: `follow()` cambia el auto seguido y `velocity_source` da su velocidad).
 
 signal camera_cut(index: int)
 
@@ -23,6 +23,10 @@ var look_smoothing: float = 7.0
 var positions: PackedVector3Array = PackedVector3Array()
 var active: bool = false
 var current_index: int = -1
+
+## Paso 51: si es válida, da la velocidad del auto seguido (en el replay el árbol está en pausa
+## y la del RigidBody3D no sirve).
+var velocity_source: Callable = Callable()
 
 var _car: Node3D
 var _camera: Camera3D
@@ -91,6 +95,18 @@ func get_camera() -> Camera3D:
 	return _camera
 
 
+func target() -> Node3D:
+	return _car
+
+
+## Paso 51: sigue a otro auto (corta a la torre más cercana si está activa).
+func follow(car: Node3D, velocity: Callable = Callable()) -> void:
+	_car = car
+	velocity_source = velocity
+	if active and not positions.is_empty() and _car != null:
+		_cut_to(_best_index())
+
+
 func _process(delta: float) -> void:
 	if not active or _car == null or positions.is_empty():
 		return
@@ -108,7 +124,9 @@ func _process(delta: float) -> void:
 
 func _predicted() -> Vector3:
 	var velocity := Vector3.ZERO
-	if _car is RigidBody3D:
+	if velocity_source.is_valid():
+		velocity = velocity_source.call()
+	elif _car is RigidBody3D:
 		velocity = (_car as RigidBody3D).linear_velocity
 	return _car.global_position + velocity * look_ahead
 
