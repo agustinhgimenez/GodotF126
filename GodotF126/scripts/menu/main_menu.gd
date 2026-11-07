@@ -126,6 +126,10 @@ func _show_modes() -> void:
 
 
 func _on_mode_confirmed(mode_id: String, laps: int, compound_id: String) -> void:
+	# Clasificación nueva: otra semilla para la IA. La carrera usa la última clasificación.
+	if mode_id == GameState.MODE_QUALIFYING or (mode_id == GameState.MODE_RACE and GameState.qualifying_time < 0.0):
+		GameState.session_seed = 0
+		GameState.qualifying_time = -1.0
 	GameState.selected_mode = mode_id
 	GameState.lap_count = laps
 	GameState.tyre_compound = compound_id

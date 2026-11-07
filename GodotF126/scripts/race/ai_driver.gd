@@ -82,11 +82,20 @@ var squeeze_margin: float = 5.0
 var squeeze_time: float = 0.4
 ## Paso 46: metros que mira adelante la velocidad de curva de su carril (0 = no la mira).
 var lane_look: float = 40.0
+## Paso 47: cuántos autos adelante mira para no acercarse de atrás.
+var follow_count: int = 3
+## Paso 47: m/s debajo de los cuales sólo sigue al que ya está en su carril (largada).
+var start_follow_speed: float = 8.0
+## Paso 47: deja su fila de la largada a `hold_release_time` s de la primera frenada.
+var hold_release_time: float = 2.5
 ## La maniobra empieza en recta, con el de adelante a menos de `pass_start_gap` m y la frenada
 ## a menos de `pass_start_time` s (hasta ahí aprovecha el rebufo).
 var pass_start_gap: float = 30.0
 var pass_start_time: float = 2.5
 var defend_time: float = 1.0
+## Paso 47: decide cada tantos cuadros de física (los autos lejos del jugador, 2) y mientras
+## tanto mantiene los pedales y el volante.
+var think_every: int = 1
 
 ## Índice del centerline donde está el auto y desplazamiento lateral (+ derecha).
 var index: int = -1
@@ -116,6 +125,9 @@ var lane_now: float = 0.0
 var lane_goal: float = 0.0
 var lane_weight: float = 0.0
 var shift: float = 0.0
+## Paso 47: en la largada sigue por su fila de la grilla hasta la primera frenada.
+var _holding: bool = false
+var _hold_lateral: float = 0.0
 ## Auto que está intentando pasar (null si ninguno) y de qué lado (−1 izq., +1 der.).
 var passing: CarController = null
 var pass_side: float = 0.0
@@ -157,6 +169,8 @@ var _corner_of: PackedInt32Array = PackedInt32Array()
 var _corner_factor: PackedFloat32Array = PackedFloat32Array()
 var _inside: PackedFloat32Array = PackedFloat32Array()
 var _apexes: PackedInt32Array = PackedInt32Array()
+var _frame: int = 0
+var _pending_delta: float = 0.0
 
 
 func configure(data: Dictionary) -> void:
@@ -168,6 +182,9 @@ func configure(data: Dictionary) -> void:
 			set(key, maxf(float(data[key]), 0.0))
 	off_line_pace = clampf(float(data.get("off_line_pace", off_line_pace)), 0.5, 1.0)
 	pass_brake_bonus = clampf(float(data.get("pass_brake_bonus", pass_brake_bonus)), 1.0, 1.2)
+	follow_count = clampi(int(data.get("follow_count", follow_count)), 1, 5)
+	start_follow_speed = maxf(float(data.get("start_follow_speed", start_follow_speed)), 0.0)
+	hold_release_time = maxf(float(data.get("hold_release_time", hold_release_time)), 0.0)
 	set_pace(float(data.get("pace", pace)))
 
 
@@ -199,6 +216,7 @@ func setup(driven: CarController, track: BakuTrack, line: RacingLine, cars: Race
 	_line = line
 	traffic = cars
 	car.set_meta("ai", true)
+	_frame = seed_value
 	_start = track.checkpoint_indices[0] if not track.checkpoint_indices.is_empty() else track.start_index()
 	var n := line.distances.size()
 	_total = line.distances[n - 1] + track.centerline[n - 1].distance_to(track.centerline[0])
@@ -248,6 +266,14 @@ func place_at(i: int, speed: float = 0.0, offset: float = NAN) -> void:
 	lane_weight = 0.0
 	passing = null
 	_defending = false
+	_holding = false
+
+
+## Paso 47: largada en fila de a dos; va por `offset` m de costado hasta la primera frenada
+## (o hasta que pase o defienda) y después vuelve a la línea.
+func hold_lane(offset: float) -> void:
+	_holding = true
+	_hold_lateral = offset
 
 
 ## Metros desde la meta hasta el índice i (0 a largo de la pista).
@@ -262,6 +288,12 @@ func lap_distance() -> float:
 func _physics_process(delta: float) -> void:
 	if car == null or not car.controls_enabled:
 		return
+	_pending_delta += delta
+	_frame += 1
+	if _frame % maxi(think_every, 1) != 0:
+		return
+	delta = _pending_delta
+	_pending_delta = 0.0
 	var located := _track.locate(car.global_position, index)
 	index = int(located.x)
 	lateral = located.y
@@ -349,8 +381,12 @@ func _pedals(v: float, delta: float = 0.0) -> Vector2:
 	speed_error = target - v
 	var throttle := clampf(0.5 + speed_error / maxf(throttle_band, 0.1), 0.0, 1.0)
 	var brake := clampf((-speed_error - brake_deadband) / maxf(brake_band, 0.1), 0.0, 1.0)
-	if brake > 0.0:
+	# Paso 47: si tiene que pararse (fila detrás de otro) no empuja con el acelerador de mantener.
+	if brake > 0.0 or target < 1.0:
 		throttle = 0.0
+	# Casi quieto, frenar pondría reversa (caja automática): suelta el freno.
+	if v < 0.6:
+		brake = 0.0
 	return Vector2(throttle, brake)
 
 
@@ -386,17 +422,30 @@ func _lane_limit() -> float:
 ## Velocidad máxima para no acercarse de atrás al auto que tiene en su carril (el de ahora o
 ## el que va a llevar al pasar por donde está el otro). Mientras no esté al lado, cuenta que el
 ## otro puede volver a su línea: también está en el carril si la línea pasa por ahí.
+## Paso 47: mira hasta `follow_count` autos adelante (en fila de a dos el más cercano suele
+## ir por el otro carril).
 func _follow_limit(v: float) -> float:
 	if traffic == null or _slot < 0:
 		return INF
-	var j := traffic.nearest(_slot, true, overtake_range)
-	if j < 0:
-		return INF
+	var limit := INF
+	var j := _slot
+	for step in follow_count:
+		j = traffic.nearest(j, true, overtake_range)
+		if j < 0 or j == _slot or traffic.gap(_slot, j) > overtake_range:
+			break
+		limit = minf(limit, _follow_limit_to(j, v))
+	return limit
+
+
+func _follow_limit_to(j: int, v: float) -> float:
 	var their_i := traffic.index[j]
 	var lane := _planned_lateral(their_i)
 	var width := traffic.car_width + 0.4
-	var near := absf(traffic.lateral[j] - lane) < width or absf(traffic.lateral[j] - lateral) < width
-	if not near and traffic.gap(_slot, j) >= traffic.car_length and not _diving_on(j):
+	# En la grilla escalonada (más despacio que `start_follow_speed` o en su fila) sólo cuenta
+	# dónde está cada uno.
+	var moving := v > start_follow_speed and not _holding
+	var near := (moving and absf(traffic.lateral[j] - lane) < width) or absf(traffic.lateral[j] - lateral) < width
+	if not near and moving and traffic.gap(_slot, j) >= traffic.car_length and not _diving_on(j):
 		var n := _line.offsets.size()
 		var span := posmod(_track.index_at_distance(their_i, maxf(traffic.speed[j], 0.0) * follow_predict + 5.0) - their_i, n)
 		for step in range(0, span + 1, 3):
@@ -406,7 +455,9 @@ func _follow_limit(v: float) -> float:
 				break
 	if not near:
 		return INF
-	var room := traffic.gap(_slot, j) - (follow_gap + follow_time * maxf(v, 0.0))
+	# Paso 47: en una horquilla el de adentro está más cerca que lo que dice la pista.
+	var apart := minf(traffic.gap(_slot, j), car.global_position.distance_to(traffic.cars[j].global_position))
+	var room := apart - (follow_gap + follow_time * maxf(v, 0.0))
 	var their := maxf(traffic.speed[j], 0.0)
 	if room >= 0.0:
 		return sqrt(their * their + 2.0 * follow_decel * room)
@@ -498,9 +549,14 @@ func _traffic(delta: float) -> void:
 		if _speeds[_track.index_at_distance(index, v * pass_start_time + 10.0)] < top:
 			_start_pass(ahead)
 	car.set_meta("passing", passing)
-	if passing == null and defend:
+	if passing == null and defend and not _holding:
 		_defend(on_straight)
-	var active := passing != null or _defending
+	if _holding and (passing != null
+			or _speeds[_track.index_at_distance(index, v * hold_release_time + 10.0)] < _speeds[index] * 0.95):
+		_holding = false
+	if _holding:
+		lane_goal = _hold_lateral
+	var active := passing != null or _defending or _holding
 	if passing != null:
 		var j := traffic.slot(passing)
 		var limit := maxf(_track.half_width(traffic.index[j]) - edge_margin, 0.0)
@@ -638,7 +694,7 @@ func _watch(delta: float) -> void:
 		var progress := fposmod(lap_distance() - _window_start + _total * 0.5, _total) - _total * 0.5
 		_window = 0.0
 		_window_start = lap_distance()
-		if progress < stuck_progress:
+		if progress < stuck_progress and not _queued():
 			_recover()
 			return
 	var forward := -car.global_transform.basis.z
@@ -646,6 +702,15 @@ func _watch(delta: float) -> void:
 	_wrong_for = _wrong_for + delta if forward.x * tangent.x + forward.z * tangent.z < 0.0 else 0.0
 	if _wrong_for > wrong_way_time:
 		_recover()
+
+
+## Paso 47: parado en la fila detrás de otro auto (a menos de `follow_gap` + 2 largos) no
+## está trabado.
+func _queued() -> bool:
+	if traffic == null or _slot < 0:
+		return false
+	var ahead := traffic.nearest(_slot, true, follow_gap + traffic.car_length * 2.0)
+	return ahead >= 0
 
 
 func _recover() -> void:

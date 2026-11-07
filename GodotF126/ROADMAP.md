@@ -93,8 +93,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 44 | IA que sigue la trazada con velocidad objetivo según curvatura | ✅ |
 | 45 | IA con niveles de dificultad, defensa y adelantamientos | ✅ |
 | 46 | Colisiones entre autos y penalizaciones | ✅ |
-| 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | ⏳ Siguiente |
-| 48 | Pit lane con limitador de velocidad y paradas en boxes | |
+| 47 | Clasificación y carrera con la **grilla 2026 completa** (22 autos) | ✅ |
+| 48 | Pit lane con limitador de velocidad y paradas en boxes | ⏳ Siguiente |
 | 49 | Estrategia: cambio de compuesto, radio del ingeniero | |
 | 50 | Banderas amarilla y azul, **Safety Car** | |
 | 51 | **Replays** con cámaras de TV | |
@@ -964,3 +964,36 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   La primera versión de la vuelta IA contra IA dio un toque real: el Experto se tiró por adentro de una curva lenta a 17 m/s (objetivo 14) y, con el volante a fondo, se fue de costado sobre el Medio a 3,7 m/s; los comisarios lo penalizaron bien. La línea calcula la velocidad con su curvatura, y el carril de adentro es más cerrado: de ahí la regla nueva del carril. **Las pruebas anteriores siguen bien**: la del Paso 45 con 0 fallas (mismos tiempos por nivel; lado a lado, separación mínima 2,2 m en lugar de 1,3), la del Paso 44 con 0 fallas, la de daños del Paso 36 con la misma tabla, y la vuelta con el piloto automático de siempre 1:42.383 / 1:41.017 / 1:41.050. Capturas: `informes/capturas/paso46-choque.png` (Russell le pega de atrás a Norris parado y el aviso de la penalización) y `paso46-jugador.png` (el jugador le pega de atrás a Norris: 5 s en su cronómetro).
 - **Cómo probar**: F5, práctica libre, apretar I, dejar que el rival se acerque y frenar fuerte delante de él, o pegarle de atrás: sale el aviso y, si fue culpa del jugador, la penalización aparece en los resultados.
+
+### Paso 47 — Clasificación y carrera con la grilla 2026 completa (22 autos)
+- **Dos modos nuevos** en el menú (`data/modes.json`): **Clasificación** (1, 2, 3 o 5 vueltas lanzadas, solo en pista) y **Carrera** (2, 3, 5, 10 o 20 vueltas, largada detenida con los 22 autos). La clasificación termina con la tabla de tiempos y el botón **"Correr la carrera"**, que arma la carrera con esa grilla; si se elige Carrera sin haber clasificado, el jugador larga con su récord de la pista (o último si no tiene).
+- **Clasificación estimada** (`RaceSession.qualifying()`): correr 21 vueltas de IA sería caro, así que el tiempo de cada rival sale de su ritmo. Cada nivel tiene su vuelta lanzada medida en el Paso 45 (`ai.json` → `lap_time`: Fácil 1:21,550 … Experto 1:16,500); cada piloto suma su `skill` (−2 a +2, Verstappen, Norris y Piastri arriba, Lindblad y Stroll abajo) × 0,01 al ritmo del nivel elegido, y el tiempo se interpola entre niveles con un ruido de hasta ±0,25 s. El ruido sale de la **semilla de la sesión**: la misma clasificación da la misma grilla y no depende de qué piloto eligió el jugador.
+- **Grilla y largada**: de a dos, 8 m entre puestos y ±2 m de costado, detrás de la línea. Semáforo del Paso 17; los autos de la IA esperan con los controles apagados y largan con una reacción de 0,18–0,45 s (con semilla). La largada en falso del jugador suma 5 s en la carrera también.
+- **Carrera** (`RaceSession`, nodo nuevo): ordena por vueltas y distancia (`RaceTraffic.distance`, desenvuelta por vuelta) y guarda cuándo pasa el líder por una marca cada 20 m, así la diferencia de cada uno es "cuánto después que el líder pasó por el mismo lugar" (los que todavía no llegaron a donde largó el líder: distancia / velocidad media del líder). Cuando el líder completa las vueltas sale la **bandera a cuadros**; cada uno termina al cruzar la meta. Cuando termina el jugador se abre el resultado; los que siguen en pista se cierran con su velocidad media (marcados con "≈").
+- **Torre de tiempos** (`TimingTower`, a la izquierda del HUD; se refresca 4 veces por segundo): posición, color del equipo, código de 3 letras, diferencia con el líder ("Vuelta 1/3" en la punta, "+N vuelta(s)" si lo doblaron) y penalizaciones en rojo; el jugador resaltado.
+- **Resultado**: posición, piloto, equipo, vueltas, tiempo o diferencia con el ganador, penalización (comisarios + largada en falso) y mejor vuelta; la más rápida en violeta, el jugador en amarillo. A la derecha: ganador, "Terminaste P5 (largaste P3)" y la vuelta más rápida. La pantalla completa sigue siendo del Paso 52.
+- **Costo** (lo más difícil del paso): en esta PC (Intel UHD, Compatibility) la carrera daba **29,5 FPS** contra 58,9 de la contrarreloj. Ahora:
+  - Neumáticos con 4 sub-pasos a menos de 150 m del jugador y 2 más lejos; los lejanos además deciden cada 2 cuadros (`ai.json` → `race`).
+  - Las piezas chicas de los autos de la IA (menos de 0,8 m) no se dibujan a más de 60 m de la cámara.
+  - `RaceTraffic` arma una vez por cuadro la lista de vecinos (el de adelante y el de atrás de cada uno) en lugar de buscarla en cada consulta.
+  - Resultado: **38 FPS** en carrera (sin ventana, ~12 ms de física y scripts por cuadro con 22 autos, contra 15,7 ms con todo a 8 sub-pasos). Falta medirlo en la PC del laboratorio.
+- **La IA en grupo** (con 22 autos aparecieron problemas que con 2 no se veían):
+  - **Largada**: en la grilla escalonada cada auto esperaba al de la otra fila (8 m adelante en diagonal), porque calculaba que su línea iba a cruzarse con la de él, y además todos "defendían" hacia adentro de la curva 1: el fondo largaba 10 s tarde, en fila. Ahora sigue por su fila de la grilla hasta 2,5 s antes de la primera frenada (`hold_lane()`, sin defender), y debajo de 8 m/s sólo frena por el auto que tiene en su carril.
+  - **Seguir**: mira hasta 3 autos encadenados adelante (en fila de a dos el más cercano suele ser el de la otra fila), en las horquillas toma la distancia en línea recta (el de adentro está más cerca de lo que dice la pista) y se acerca a cada uno con lo que frena a 15 m/s² (antes 25: sin aerodinámica, a poca velocidad no frena tanto, y en la curva 1 los autos se tocaban de atrás a 5–10 km/h y se llevaban 5 s).
+  - **Pedales**: parado no frena (con la caja automática eso pone reversa) y no acelera si la objetivo es casi 0 (empujaba al de adelante); en una fila detrás de otro auto no cuenta como "trabado".
+- **Verificación** (`paso47_race.gd`, carrera a 2 vueltas con el jugador manejado por la IA en Medio):
+
+| Prueba | Resultado |
+|---|---|
+| Vuelta estimada por nivel | 81,550 / 79,267 / 77,600 / 76,500 s (iguales a las medidas) |
+| Clasificación | 22 pilotos, misma semilla → misma grilla, ruido igual con otro piloto del jugador, jugador sin tiempo último, pole–último 1,92 s |
+| Grilla | 22 autos en carrera y en el tráfico; el jugador (1:18,600) larga P3; separación mínima 8,1 m; nadie se mueve antes del apagado |
+| Largada | sin largada en falso; a los 0,5 s largaron todos; a los 3,5 s casi todo el pelotón va a ~105 km/h de a dos |
+| Torre a los 9 s | 22 filas, la penalización de Piastri en rojo; los 22 dentro de 6,3 s |
+| Carrera | termina con la bandera a cuadros: Norris 2:41,967, Verstappen, Russell, Leclerc, el jugador 5.º; 13 pasadas, 0 golpes a muros, 0 salidas, 0 rescates |
+| Comisarios | 12 incidentes: 6 roces que no se investigan, 2 sin acción, 2 advertencias y 2 penalizaciones (en la curva 1 de la vuelta 1: Piastri se cerró sobre Leclerc, Albon le pegó de atrás a Hamilton) |
+| Resultado | 22 filas ordenadas por vueltas y tiempo con penalizaciones; penalización = comisarios + largada en falso |
+| Clasificación → carrera | 1 vuelta, sólo el jugador en pista; tabla con "Correr la carrera"; guarda el tiempo; la carrera arma 22 autos y el jugador larga donde clasificó |
+
+  Lo que más costó fue la curva 1 de la primera vuelta. La primera carrera completa dio **9 penalizaciones**, todas a 5–15 km/h: el pelotón se frenaba en cadena (cada uno apuntaba más lento que el de adelante) y los toques de atrás se juzgaban con la velocidad de 0,3 s antes, en plena frenada. Con la frenada de seguimiento realista quedaron en 1, pero el fondo seguía largando en fila; con la largada de a dos quedan 2 incidentes de carrera razonables y el pelotón llega junto a la curva 1. El resultado depende mucho de pequeños cambios (soltar la fila a 3 s de la frenada en lugar de 2,5 dio 3 penalizaciones): la curva 1 con 22 autos es caótica, como en la realidad. Los del fondo pierden mucho en esa curva (en 2 vueltas el último termina ~1 min detrás). **Sin la carrera nada cambió**: las pruebas de los Pasos 44, 45 y 46 siguen con 0 fallas y la vuelta con el piloto automático de siempre da 1:42.383 / 1:41.017 / 1:41.050 (esa prueba corre sin `--fixed-fps`; con `--fixed-fps 60` da 1:42.533 / 1:41.100 / 1:41.017, también con el código del Paso 46). Capturas: `informes/capturas/paso47-modos.png` (menú con los 4 modos), `paso47-clasificacion.png` (resultado de la clasificación con "Correr la carrera"), `paso47-grilla.png` (el jugador P3 en la grilla con el semáforo y la torre), `paso47-carrera.png` (a los 9 s, el aviso de la penalización de Piastri) y `paso47-resultado.png`.
+- **Cómo probar**: F5, Jugar → Clasificación (1 vuelta), dar una vuelta y en el resultado "Correr la carrera". Esperar el semáforo y largar: la torre de la izquierda muestra la posición; al terminar la carrera sale el resultado con los 22.

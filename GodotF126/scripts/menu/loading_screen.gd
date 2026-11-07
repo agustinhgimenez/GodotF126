@@ -131,8 +131,10 @@ func _read_session() -> void:
 		mode_id = str(modes.get("default_mode", GameState.MODE_PRACTICE))
 	var mode := DataLoader.find_mode(modes, mode_id)
 	_mode_text = str(mode.get("name", "Práctica libre"))
-	if mode_id == GameState.MODE_TIME_TRIAL:
-		var laps := GameState.lap_count if GameState.lap_count > 0 else int(mode.get("default_laps", 3))
+	if mode.has("lap_options"):
+		var laps := GameState.lap_count
+		if laps <= 0 or not float(laps) in mode.get("lap_options", []):
+			laps = int(mode.get("default_laps", 3))
 		_mode_text += " · %d %s" % [laps, "vuelta" if laps == 1 else "vueltas"]
 	var compounds = DataLoader.load_json(DataLoader.CAR_PATH).get("tyre_compounds", {})
 	if compounds is Dictionary:

@@ -39,6 +39,9 @@ var _line: RacingLine
 var _start: int = 0
 var _total: float = 0.0
 var _touching: Dictionary = {}
+var _ahead: PackedInt32Array = PackedInt32Array()
+var _behind: PackedInt32Array = PackedInt32Array()
+var _neighbours_ok: bool = false
 
 
 func configure(data: Dictionary) -> void:
@@ -67,6 +70,7 @@ func add_car(car: CarController) -> void:
 	if car in cars:
 		return
 	cars.append(car)
+	_neighbours_ok = false
 	index.append(-1)
 	lateral.append(0.0)
 	distance.append(0.0)
@@ -80,6 +84,7 @@ func remove_car(car: CarController) -> void:
 	if k < 0:
 		return
 	cars.remove_at(k)
+	_neighbours_ok = false
 	index.remove_at(k)
 	lateral.remove_at(k)
 	distance.remove_at(k)
@@ -107,6 +112,12 @@ func gap(a: int, b: int) -> float:
 ## El auto más cercano adelante (ahead) o atrás de `k` a menos de `within` m; −1 si no hay.
 ## No cuenta a los que están lejos de la pista (más de 8 m afuera de la línea blanca).
 func nearest(k: int, ahead: bool, within: float) -> int:
+	if _neighbours_ok and k < _ahead.size():
+		var j := _ahead[k] if ahead else _behind[k]
+		if j < 0:
+			return -1
+		var g := gap(k, j) if ahead else -gap(k, j)
+		return j if g >= 0.0 and g < within else -1
 	var best := -1
 	var best_gap := within
 	for j in cars.size():
@@ -125,6 +136,7 @@ func _physics_process(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	for k in range(cars.size() - 1, -1, -1):
 		if not is_instance_valid(cars[k]):
+			_neighbours_ok = false
 			cars.remove_at(k)
 			index.remove_at(k)
 			lateral.remove_at(k)
@@ -136,6 +148,7 @@ func _physics_process(delta: float) -> void:
 		var before := lateral[k]
 		_locate(k)
 		side_speed[k] = clampf((lateral[k] - before) / maxf(delta, 0.001), -20.0, 20.0)
+	_find_neighbours()
 	if cars.size() < 2:
 		_refresh_alone()
 	else:
@@ -143,6 +156,36 @@ func _physics_process(delta: float) -> void:
 			_update_car(k)
 		_check_contacts()
 	update_us = Time.get_ticks_usec() - t0
+
+
+## Paso 47 (22 autos): una vez por cuadro, el de adelante y el de atrás de cada uno (orden por
+## metros desde la meta, salteando a los que están lejos de la pista); nearest() los usa.
+func _find_neighbours() -> void:
+	var count := cars.size()
+	_ahead.resize(count)
+	_behind.resize(count)
+	var order: Array[int] = []
+	for k in count:
+		order.append(k)
+	order.sort_custom(func(a: int, b: int) -> bool: return distance[a] < distance[b])
+	var on_track: Array[bool] = []
+	for k in count:
+		on_track.append(absf(lateral[k]) <= _track.half_width(index[k]) + 8.0)
+	for p in count:
+		var k := order[p]
+		_ahead[k] = -1
+		_behind[k] = -1
+		for step in range(1, count):
+			var j := order[(p + step) % count]
+			if on_track[j]:
+				_ahead[k] = j
+				break
+		for step in range(1, count):
+			var j := order[posmod(p - step, count)]
+			if on_track[j]:
+				_behind[k] = j
+				break
+	_neighbours_ok = true
 
 
 func _locate(k: int) -> void:

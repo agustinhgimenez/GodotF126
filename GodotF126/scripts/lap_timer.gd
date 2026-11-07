@@ -74,6 +74,8 @@ func on_checkpoint(checkpoint: int) -> void:
 		elif _next_checkpoint == 0:
 			_finish_sector(SECTOR_COUNT - 1)
 			_complete_lap()
+			if finished:
+				return
 			if lap_limit > 0 and lap_history.size() >= lap_limit:
 				_finish_session()
 			else:
@@ -89,6 +91,13 @@ func on_checkpoint(checkpoint: int) -> void:
 func start_now() -> void:
 	if not running and not finished:
 		_start_lap()
+
+
+## Carrera (Paso 47): termina la sesión ya (bandera a cuadros para un auto doblado); la vuelta
+## en curso no se registra.
+func finish_now() -> void:
+	if not finished:
+		_finish_session()
 
 
 func add_penalty(seconds: float, reason: String) -> void:

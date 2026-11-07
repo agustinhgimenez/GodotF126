@@ -1,7 +1,7 @@
 class_name RaceHUD
 extends CanvasLayer
 ## HUD: tablero (Dashboard), neumáticos (TyrePanel), piloto/equipo, pista, tiempos por vuelta
-## y sectores.
+## y sectores. En carrera, la torre de tiempos (TimingTower, Paso 47).
 
 const COLOR_BEST := Color(0.75, 0.35, 1.0)
 const COLOR_SLOWER := Color(1.0, 0.85, 0.2)
@@ -31,6 +31,9 @@ var _start_hint: Label
 var _wheel_loads: WheelLoadsPanel
 var _tyres: TyrePanel
 var _delta_display: DeltaDisplay
+var _race: RaceSession
+var _tower: TimingTower
+var _tower_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -92,6 +95,21 @@ func bind_delta(live_delta: LiveDelta) -> void:
 	_delta_display.bind(live_delta, _timer)
 
 
+## Carrera (Paso 47): torre de tiempos a la izquierda (el panel de cargas pasa a su derecha).
+func bind_race(race: RaceSession) -> void:
+	_race = race
+	_tower = TimingTower.new()
+	_tower.name = "TimingTower"
+	_place(_tower, Vector4(0, 0, 0, 0), Vector4(24, 100, 24 + TimingTower.WIDTH, 110))
+	$Root.add_child(_tower)
+	_wheel_loads.offset_left += TimingTower.WIDTH + 12.0
+	_wheel_loads.offset_right += TimingTower.WIDTH + 12.0
+	_tower.show_rows(race.tower_rows())
+	race.checkered_flag.connect(func(leader: CarController) -> void:
+		if leader != _car:
+			show_message("¡BANDERA A CUADROS! Gana %s" % RaceStewards.car_name(leader), 3.0, COLOR_BEST))
+
+
 ## Largada detenida (Paso 17): muestra el semáforo hasta que termina la secuencia.
 func bind_start_lights(lights: StartLights) -> void:
 	_start_lights.visible = true
@@ -140,8 +158,13 @@ func show_message(text: String, seconds: float = 2.0, color: Color = COLOR_NEUTR
 	_message_until_ms = Time.get_ticks_msec() + int(seconds * 1000.0)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var now := Time.get_ticks_msec()
+	if _race != null:
+		_tower_timer -= delta
+		if _tower_timer <= 0.0:
+			_tower_timer = _race.tower_refresh
+			_tower.show_rows(_race.tower_rows())
 	if _message_label.visible and now > _message_until_ms:
 		_message_label.visible = false
 

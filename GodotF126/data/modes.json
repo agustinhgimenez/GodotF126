@@ -12,6 +12,15 @@
     "reaction_speed": 0.5,
     "hide_after": 2.0
   },
+  "race": {
+    "description": "Paso 47. Grilla de la carrera: el puesto p (0 = pole) va 'grid_distance' + p × 'slot_gap' m detrás de la línea, siguiendo el trazado, y a 'slot_side' m del centro (el pole a la derecha, después alterna). Los autos de la IA arrancan entre 'reaction_min' y 'reaction_max' s después del apagado (al azar con la semilla de la sesión). Posiciones: metros recorridos desde la largada; la distancia al líder es el tiempo desde que el primero pasó por ese punto (marcas cada 'mark_step' m). La torre de tiempos se refresca cada 'tower_refresh' s. Al terminar el jugador, los que siguen en pista cierran su vuelta con su velocidad media hasta ahí (estimado).",
+    "slot_gap": 8.0,
+    "slot_side": 2.0,
+    "reaction_min": 0.18,
+    "reaction_max": 0.45,
+    "mark_step": 20.0,
+    "tower_refresh": 0.25
+  },
   "modes": [
     {
       "id": "practice",
@@ -25,6 +34,22 @@
       "description": "Largada con semáforo y resultado por vuelta y sector",
       "standing_start": true,
       "lap_options": [1, 2, 3, 5, 10],
+      "default_laps": 3
+    },
+    {
+      "id": "qualifying",
+      "name": "Clasificación",
+      "description": "Vueltas lanzadas: tu mejor tiempo contra 21 rivales arma la grilla",
+      "standing_start": false,
+      "lap_options": [1, 2, 3, 5],
+      "default_laps": 3
+    },
+    {
+      "id": "race",
+      "name": "Carrera",
+      "description": "Grilla 2026 completa (22 autos), largada con semáforo y torre de tiempos",
+      "standing_start": true,
+      "lap_options": [2, 3, 5, 10, 20],
       "default_laps": 3
     }
   ]

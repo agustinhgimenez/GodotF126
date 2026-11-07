@@ -63,7 +63,12 @@ var ai_name: String = ""
 var traffic: RaceTraffic
 ## Comisarios (Paso 46): culpa y sanción de cada toque entre autos.
 var stewards: RaceStewards
+## Carrera con la grilla completa (Paso 47; null fuera del modo carrera).
+var race: RaceSession
+## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
+var qualifying: Array[Dictionary] = []
 var _car_data: Dictionary = {}
+var _laps: int = 0
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
 
@@ -176,17 +181,22 @@ func _ready() -> void:
 	ghost.setup(car, lap_timer, live_delta, team_color)
 	ghost.enabled = bool(Settings.get_value("ghost"))
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
-	car.was_reset.connect(lap_timer.abort_lap)
+	if not GameState.is_race():
+		car.was_reset.connect(lap_timer.abort_lap)
 	lap_timer.lap_started.connect(func(_lap: int) -> void: car.fuel.new_lap())
 	hud.bind_lap_timer(lap_timer)
 	hud.bind_delta(live_delta)
 	car.steering_wheel.bind_lap_timer(lap_timer)
 	car.steering_wheel.bind_delta(live_delta)
+	if GameState.is_race() or GameState.is_qualifying():
+		_setup_qualifying()
+	if GameState.is_race():
+		_setup_race()
 	if _standing_start:
 		_setup_start_lights()
 
 	pause_menu.set_accent(team_color)
-	if not GameState.is_time_trial():
+	if not GameState.is_competitive():
 		pause_menu.enable_setup(car_setup, car.setup_base())
 		pause_menu.setup_changed.connect(_on_setup_changed)
 	pause_menu.bind_telemetry(telemetry)
@@ -196,6 +206,7 @@ func _ready() -> void:
 	results_screen.set_accent(team_color)
 	results_screen.repeat_requested.connect(get_tree().reload_current_scene)
 	results_screen.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
+	results_screen.next_requested.connect(_go_to_race)
 	lap_timer.session_finished.connect(_on_session_finished)
 	Settings.changed.connect(_on_setting_changed)
 	var rumble_data = InputBindings.data().get("rumble", {})
@@ -217,13 +228,15 @@ func _setup_mode() -> void:
 	var mode := DataLoader.find_mode(modes, mode_id)
 	mode_name = str(mode.get("name", "Práctica libre"))
 	car.fill_fuel(car.fuel.practice_kg)
-	if mode_id == GameState.MODE_TIME_TRIAL:
+	if mode.has("lap_options"):
 		var laps := GameState.lap_count
-		if laps <= 0:
+		if laps <= 0 or not float(laps) in mode.get("lap_options", []):
 			laps = int(mode.get("default_laps", 3))
+		_laps = laps
 		lap_timer.lap_limit = laps
 		mode_name = "%s · %d %s" % [mode_name, laps, "vuelta" if laps == 1 else "vueltas"]
-		car.fill_fuel(car.fuel.race_load(laps))
+		# Clasificación: más la vuelta de salida hasta la meta.
+		car.fill_fuel(car.fuel.race_load(laps + (1 if mode_id == GameState.MODE_QUALIFYING else 0)))
 	mode_name += " · neumático %s" % str(car.tyres.compound()["name"]).to_lower()
 	hud.set_track_name("%s\n%s" % [track_name, mode_name])
 	_standing_start = bool(mode.get("standing_start", false))
@@ -234,8 +247,9 @@ func _setup_mode() -> void:
 ## Largada detenida (Paso 17): el auto va a la grilla detrás de la línea y el cronómetro
 ## arranca cuando se apaga el semáforo, no al cruzar la meta.
 func _setup_start_lights() -> void:
-	car.spawn_transform = track.get_grid_transform(float(_start_data.get("grid_distance", 6.0)))
-	car.reset_to_spawn()
+	if race == null:
+		car.spawn_transform = track.get_grid_transform(float(_start_data.get("grid_distance", 6.0)))
+		car.reset_to_spawn()
 	start_lights.configure(_start_data)
 	start_lights.lights_out.connect(_on_lights_out)
 	start_lights.reaction_measured.connect(func(seconds: float) -> void: lap_timer.reaction_time = seconds)
@@ -246,7 +260,76 @@ func _setup_start_lights() -> void:
 func _on_lights_out() -> void:
 	if start_lights.jumped:
 		lap_timer.add_penalty(float(_start_data.get("jump_penalty", 5.0)), "Largada en falso")
+		if race != null:
+			race.entry_of(car)["extra_penalty"] = float(_start_data.get("jump_penalty", 5.0))
 	lap_timer.start_now()
+	if race != null:
+		race.start(GameState.session_seed)
+
+
+## Clasificación de la sesión (Paso 47): la IA con tiempos estimados por ritmo (semilla de la
+## sesión) y el jugador con su vuelta de la clasificación o, si no corrió, con su récord.
+func _setup_qualifying() -> void:
+	if GameState.session_seed == 0:
+		GameState.session_seed = randi() % 1000000 + 1
+	var player_time := GameState.qualifying_time
+	if GameState.is_race() and player_time < 0.0:
+		player_time = lap_timer.record_lap
+	var ai_data := DataLoader.load_json(AI_PATH)
+	qualifying = RaceSession.qualifying(DataLoader.load_json(DataLoader.GRID_PATH),
+		str(selected_driver.get("id", "")), player_time, str(Settings.get_value("ai_level")), ai_data,
+		GameState.session_seed)
+	if GameState.is_qualifying() and qualifying.size() > 1:
+		var pole := qualifying[0] if not qualifying[0]["player"] else qualifying[1]
+		hud.show_message("Clasificación: la pole de la IA es %s (%s)" % [
+			LapTimer.format_time(float(pole["time"])), str(pole["driver"].get("name", ""))], 4.0)
+
+
+## Carrera (Paso 47): los 21 rivales en el orden de la clasificación, todos en la grilla.
+func _setup_race() -> void:
+	var ai_data := DataLoader.load_json(AI_PATH)
+	var modes := DataLoader.load_json(DataLoader.MODES_PATH)
+	race = RaceSession.new()
+	race.name = "RaceSession"
+	var race_data = modes.get("race", {})
+	var ai_race = ai_data.get("race", {})
+	race.configure(race_data if race_data is Dictionary else {}, ai_race if ai_race is Dictionary else {}, _start_data)
+	add_child(race)
+	race.setup(traffic, stewards, _laps)
+	race.player = car
+	var level := str(Settings.get_value("ai_level"))
+	var levels: Dictionary = ai_data.get("levels", {})
+	for p in qualifying.size():
+		var info: Dictionary = qualifying[p]
+		var place := race.slot_place(p)
+		var at := track.index_at_distance(track.start_index(), -place.x)
+		if info["player"]:
+			var heading := Basis.looking_at(track.flat_tangent(at), Vector3.UP)
+			car.spawn_transform = Transform3D(heading, track.edge_point(at, place.y, 0.0) + Vector3(0, 0.6, 0))
+			car.reset_to_spawn()
+			race.add_entry(car, selected_driver, selected_team, null, p, float(info["time"]))
+			continue
+		var driver := _add_ai_car(info["driver"], info["team"], ai_data, p + 1)
+		driver.set_level(level, levels)
+		driver.set_pace(float(info["pace"]))
+		driver.place_at(at, 0.0, place.y)
+		driver.hold_lane(place.y)
+		race.add_entry(driver.car, info["driver"], info["team"], driver, p, float(info["time"]))
+	hud.bind_race(race)
+	race.car_finished.connect(func(finished: CarController, _position: int) -> void:
+		if finished == car:
+			lap_timer.finish_now())
+	var mine := race.entry_of(car)
+	hud.show_message("Largás P%d (%s)" % [int(mine["grid"]) + 1,
+		"clasificación %s" % LapTimer.format_time(float(mine["quali"])) if float(mine["quali"]) > 0.0 else "sin tiempo"], 4.0)
+
+
+## Botón "Correr la carrera" del resultado de la clasificación.
+func _go_to_race() -> void:
+	var modes := DataLoader.load_json(DataLoader.MODES_PATH)
+	GameState.selected_mode = GameState.MODE_RACE
+	GameState.lap_count = int(DataLoader.find_mode(modes, GameState.MODE_RACE).get("default_laps", 3))
+	get_tree().reload_current_scene()
 
 
 func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:
@@ -257,6 +340,11 @@ func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:
 func _physics_process(delta: float) -> void:
 	if car.controls_enabled:
 		rumble.update(car, delta)
+	# En carrera, R deja el auto quieto sobre la pista donde está (Main procesa antes que Car).
+	if race != null and race.running and car.controls_enabled and Input.is_action_just_pressed("reset_car"):
+		var at := int(track.locate(car.global_position, track_limits.index).x)
+		var heading := Basis.looking_at(track.flat_tangent(at), Vector3.UP)
+		car.spawn_transform = Transform3D(heading, track.edge_point(at, racing_line.offsets[at], 0.0) + Vector3(0, 0.6, 0))
 
 
 func _exit_tree() -> void:
@@ -274,7 +362,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var note := "" if not on or ghost.reference() != null or live_delta.pick_reference() != null \
 			else " (aparece cuando haya una vuelta válida)"
 		hud.show_message("Auto fantasma: %s%s" % ["sí" if on else "no", note], 1.5)
-	elif event.is_action_pressed("ai_rival") and car.controls_enabled and not GameState.is_time_trial():
+	elif event.is_action_pressed("ai_rival") and car.controls_enabled and not GameState.is_competitive():
 		var ai_data := DataLoader.load_json(AI_PATH)
 		var most := int(ai_data.get("practice_rival", {}).get("max", 3))
 		if ai_cars.size() < most:
@@ -293,6 +381,26 @@ func _unhandled_input(event: InputEvent) -> void:
 func spawn_ai_rival(level: String = "") -> AiDriver:
 	var ai_data := DataLoader.load_json(AI_PATH)
 	var rival_data: Dictionary = ai_data.get("practice_rival", {})
+	var rival := _pick_rival(str(rival_data.get("driver_id", "")) if ai_cars.is_empty() else "")
+	_add_ai_car(rival["driver"], rival["team"], ai_data, ai_cars.size() + 1)
+	if level.is_empty():
+		level = str(Settings.get_value("ai_level"))
+	ai_driver.set_level(level, ai_data.get("levels", {}))
+	var here := int(track.locate(car.global_position, track_limits.index).x)
+	var behind := float(rival_data.get("spawn_behind", 40.0))
+	var at := track.index_at_distance(here, -behind)
+	for attempt in 20:
+		if not _spot_taken(at):
+			break
+		behind += 20.0
+		at = track.index_at_distance(here, -behind)
+	ai_driver.place_at(at, minf(maxf(car.forward_speed, 0.0), racing_line.target_speed[at]))
+	return ai_driver
+
+
+## Auto de la IA con el piloto y el equipo dados (bloques "car" y "driver" de ai.json), ya en
+## el tráfico; queda como ai_car / ai_driver. Falta el nivel y el lugar.
+func _add_ai_car(driver: Dictionary, team: Dictionary, ai_data: Dictionary, seed_value: int) -> AiDriver:
 	var car_info: Dictionary = ai_data.get("car", {})
 	ai_car = CAR_SCENE.instantiate() as CarController
 	ai_car.name = "AiRival%d" % (ai_cars.size() + 1)
@@ -315,36 +423,23 @@ func spawn_ai_rival(level: String = "") -> AiDriver:
 	ai_car.steer_response = float(car_info.get("steer_response", ai_car.steer_response))
 	ai_car.steer_limit = float(car_info.get("steer_limit", ai_car.steer_limit))
 	ai_car.tyre_substeps = clampi(int(car_info.get("tyre_substeps", CarController.TYRE_SUBSTEPS)), 1, CarController.TYRE_SUBSTEPS)
-	var rival := _pick_rival(str(rival_data.get("driver_id", "")) if ai_cars.is_empty() else "")
-	ai_name = str(rival["driver"].get("name", "IA"))
-	ai_car.set_meta("driver_id", str(rival["driver"].get("id", "")))
-	ai_car.set_meta("team_id", str(rival["team"].get("id", "")))
+	ai_name = str(driver.get("name", "IA"))
+	ai_car.set_meta("driver_id", str(driver.get("id", "")))
+	ai_car.set_meta("team_id", str(team.get("id", "")))
 	ai_car.set_meta("driver_name", ai_name)
-	ai_car.set_livery(DataLoader.team_primary(rival["team"]), DataLoader.team_secondary(rival["team"]),
-		UiKit.number_text(rival["driver"].get("number", "")))
+	ai_car.set_livery(DataLoader.team_primary(team), DataLoader.team_secondary(team),
+		UiKit.number_text(driver.get("number", "")))
 	ai_driver = AiDriver.new()
 	ai_driver.name = "AiDriver%d" % (ai_cars.size() + 1)
 	var driver_data = ai_data.get("driver", {})
 	if driver_data is Dictionary:
 		ai_driver.configure(driver_data)
-	ai_driver.seed_value = ai_cars.size() + 1
+	ai_driver.seed_value = seed_value
 	add_child(ai_driver)
 	traffic.add_car(ai_car)
 	ai_driver.setup(ai_car, track, racing_line, traffic)
-	if level.is_empty():
-		level = str(Settings.get_value("ai_level"))
-	ai_driver.set_level(level, ai_data.get("levels", {}))
 	ai_cars.append(ai_car)
 	ai_drivers.append(ai_driver)
-	var here := int(track.locate(car.global_position, track_limits.index).x)
-	var behind := float(rival_data.get("spawn_behind", 40.0))
-	var at := track.index_at_distance(here, -behind)
-	for attempt in 20:
-		if not _spot_taken(at):
-			break
-		behind += 20.0
-		at = track.index_at_distance(here, -behind)
-	ai_driver.place_at(at, minf(maxf(car.forward_speed, 0.0), racing_line.target_speed[at]))
 	return ai_driver
 
 
@@ -407,11 +502,93 @@ func _on_session_finished() -> void:
 	car.controls_enabled = false
 	rumble.stop()
 	pause_menu.set_process_unhandled_input(false)
+	if race != null:
+		race.cross_line(car)
+	if GameState.is_qualifying():
+		GameState.qualifying_time = lap_timer.best_lap
+		qualifying = RaceSession.qualifying(DataLoader.load_json(DataLoader.GRID_PATH),
+			str(selected_driver.get("id", "")), lap_timer.best_lap, str(Settings.get_value("ai_level")),
+			DataLoader.load_json(AI_PATH), GameState.session_seed)
 	await get_tree().create_timer(results_delay, false).timeout
 	car.engine_audio.set_muted(true)
 	car.audio_fx.set_muted(true)
 	hud.visible = false
-	results_screen.open(lap_timer, _session_subtitle())
+	if race != null:
+		_open_race_results()
+	elif GameState.is_qualifying():
+		_open_qualifying_results()
+	else:
+		results_screen.open(lap_timer, _session_subtitle())
+
+
+## Resultado de la carrera (Paso 47): posición, piloto, equipo, vueltas, tiempo o distancia
+## al ganador, penalización y mejor vuelta. La pantalla completa es del Paso 52.
+func _open_race_results() -> void:
+	var rows: Array = []
+	var list := race.classification()
+	var winner: Dictionary = list[0]
+	var fastest := -1.0
+	for row in list:
+		var best := float(row["entry"]["best_lap"])
+		if best > 0.0 and (fastest < 0.0 or best < fastest):
+			fastest = best
+	var mine := 0
+	for p in list.size():
+		var row: Dictionary = list[p]
+		var entry: Dictionary = row["entry"]
+		var time_text := LapTimer.format_time(float(row["total"]))
+		if p > 0:
+			var down := int(winner["laps"]) - int(row["laps"])
+			time_text = "+%d %s" % [down, "vuelta" if down == 1 else "vueltas"] if down > 0 \
+				else "+%.3f" % (float(row["total"]) - float(winner["total"]))
+		if row["estimated"]:
+			time_text = "≈ " + time_text
+		var best := float(entry["best_lap"])
+		var is_player: bool = entry["car"] == car
+		if is_player:
+			mine = p + 1
+		rows.append({"cells": [str(p + 1), "%s  #%s" % [str(entry["driver"].get("name", "")), UiKit.number_text(entry["driver"].get("number", ""))],
+			str(entry["team"].get("name", "")), str(row["laps"]), time_text,
+			"+%d s" % roundi(float(row["penalty"])) if float(row["penalty"]) > 0.0 else "",
+			LapTimer.format_time(best) if best > 0.0 else "--"],
+			"color": Color(1.0, 0.85, 0.2) if is_player else (ResultsScreen.COLOR_BEST if best > 0.0 and is_equal_approx(best, fastest) else Color.WHITE),
+			"highlight": is_player})
+	var summary: Array = [
+		["Ganador: %s" % str(winner["entry"]["driver"].get("name", "")), Color.WHITE],
+		["Terminaste P%d (largaste P%d)" % [mine, int(race.entry_of(car)["grid"]) + 1], Color(1.0, 0.85, 0.2)],
+		["Vuelta más rápida (violeta): %s" % LapTimer.format_time(fastest), ResultsScreen.COLOR_BEST],
+	]
+	if lap_timer.penalty > 0.0:
+		summary.append(["Tus penalizaciones: +%.0f s (%s)" % [lap_timer.penalty, lap_timer.penalty_reason], Color(1.0, 0.35, 0.3)])
+	summary.append(["≈ = estimado: seguía en pista al terminar vos", ResultsScreen.COLOR_HEADER])
+	results_screen.open_standings("Carrera — Resultado", _session_subtitle(),
+		["P", "Piloto", "Equipo", "V", "Tiempo", "Pen.", "Mejor vuelta"],
+		[34, 250, 130, 30, 130, 56, 120], rows, summary)
+
+
+## Resultado de la clasificación (Paso 47): la grilla con tu mejor vuelta válida y los tiempos
+## estimados de la IA; "Correr la carrera" larga con esa grilla.
+func _open_qualifying_results() -> void:
+	var rows: Array = []
+	var pole := float(qualifying[0]["time"])
+	var mine := 0
+	for p in qualifying.size():
+		var info: Dictionary = qualifying[p]
+		var time := float(info["time"])
+		if info["player"]:
+			mine = p + 1
+		rows.append({"cells": [str(p + 1), "%s  #%s" % [str(info["driver"].get("name", "")), UiKit.number_text(info["driver"].get("number", ""))],
+			str(info["team"].get("name", "")), LapTimer.format_time(time),
+			"" if p == 0 or time < 0.0 else "+%.3f" % (time - pole)],
+			"color": Color(1.0, 0.85, 0.2) if info["player"] else Color.WHITE, "highlight": info["player"]})
+	var summary: Array = [
+		["Pole: %s" % str(qualifying[0]["driver"].get("name", "")), Color.WHITE],
+		["Largás P%d" % mine if lap_timer.best_lap > 0.0 else "Sin vuelta válida: largás último", Color(1.0, 0.85, 0.2)],
+		["Los tiempos de la IA se estiman por el ritmo de cada piloto (nivel %s)" % AiDriver.level_name(
+			str(Settings.get_value("ai_level")), DataLoader.load_json(AI_PATH).get("levels", {})), ResultsScreen.COLOR_HEADER],
+	]
+	results_screen.open_standings("Clasificación — Resultado", _session_subtitle(),
+		["P", "Piloto", "Equipo", "Tiempo", "Dif."], [34, 280, 150, 130, 110], rows, summary, "Correr la carrera")
 
 
 func _session_subtitle() -> String:
@@ -443,7 +620,7 @@ func _on_setting_changed(key: String) -> void:
 	rumble.intensity = float(Settings.get_value("vibration")) / 100.0
 	racing_line.set_mode(str(Settings.get_value("racing_line")))
 	ghost.enabled = bool(Settings.get_value("ghost"))
-	if (key == "ai_level" or key.is_empty()) and not ai_drivers.is_empty():
+	if (key == "ai_level" or key.is_empty()) and not ai_drivers.is_empty() and race == null:
 		var levels = DataLoader.load_json(AI_PATH).get("levels", {})
 		for driver in ai_drivers:
 			driver.set_level(str(Settings.get_value("ai_level")), levels)
