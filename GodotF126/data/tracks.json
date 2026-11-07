@@ -10,6 +10,7 @@
       "scene": "res://scenes/tracks/track.tscn",
       "type": "callejero",
       "real_length_km": 6.003,
+      "length_km": 2.57,
       "placeholder": true,
       "notes": "Trazado aproximado inspirado en Bakú, a escala reducida (~2,6 km): recta larga junto al mar, ángulos rectos de la ciudad, subida al sector estrecho del castillo (7,6 m) y bajada. NO es el layout oficial FIA.",
       "status": "jugable",
@@ -211,6 +212,7 @@
       "scene": "res://scenes/tracks/track.tscn",
       "status": "prueba",
       "records_key": "prueba",
+      "ai_lap_times": {"easy": 57.833, "medium": 56.833, "hard": 56.033, "expert": 55.383},
       "centerline": {
         "default_corner_radius": 25.0,
         "start": [300, 0],
@@ -231,12 +233,67 @@
       ]
     },
     {
-      "id": "segunda_pista",
-      "name": "A definir",
-      "display_name": "Segunda pista (Paso 7)",
-      "scene": "",
+      "id": "buenos_aires",
+      "name": "Buenos Aires",
+      "display_name": "Argentina — Autódromo de Buenos Aires (placeholder)",
+      "country": "Argentina",
+      "city": "Buenos Aires",
+      "scene": "res://scenes/tracks/track.tscn",
+      "type": "autódromo",
+      "length_km": 3.8,
       "placeholder": true,
-      "status": "planificada"
+      "notes": "Paso 54: autódromo permanente inventado, inspirado en el de Buenos Aires (recta larga, una 'S', un curvón rápido de radio grande, chicana, horquilla y la vuelta de cierre; sentido horario, llano y con césped). NO es el layout oficial de ningún circuito.",
+      "status": "jugable",
+      "records_key": "buenos_aires",
+      "ai_lap_times": {"description": "Paso 54: vuelta lanzada de cada nivel de la IA en esta pista (s); la clasificación estimada usa estos en vez de los de ai.json (medidos en Bakú).", "easy": 96.7, "medium": 94.3, "hard": 92.567, "expert": 91.35},
+      "ground": {"color": [0.3, 0.46, 0.22]},
+      "centerline": {
+        "width": 13.0,
+        "default_corner_radius": 30.0,
+        "start": [150, 0],
+        "spawn": [135, 0],
+        "point_format": "[x, z, ancho, altura, escapatoria 0-1, radio de la esquina]",
+        "points": [
+          [-450, 0, 13, 0, 1, 45],
+          [450, 0, 13, 0, 1, 28],
+          [450, 150, 13, 0.5, 1, 40],
+          [620, 230, 13, 1, 1, 40],
+          [650, 700, 13, 2, 1, 100],
+          [360, 700, 12, 2, 1, 20],
+          [335, 680, 12, 2, 1, 20],
+          [285, 680, 12, 2, 1, 20],
+          [260, 700, 12, 2, 1, 20],
+          [150, 700, 13, 2, 1, 30],
+          [150, 500, 13, 1.5, 1, 35],
+          [-380, 500, 13, 1, 1, 22],
+          [-380, 420, 13, 1, 1, 22],
+          [-150, 420, 13, 1, 1, 30],
+          [-150, 250, 13, 0.5, 1, 35],
+          [-450, 250, 13, 0, 1, 40]
+        ]
+      },
+      "layout": {
+        "verge": 2.5,
+        "runoff_width": 14.0
+      },
+      "pit_lane": {"auto": true},
+      "landmarks": [
+        {"name": "Obelisco", "type": "tower", "position": [0, 0, -320], "top_radius": 0.6, "bottom_radius": 3.5, "height": 68, "color": [0.92, 0.9, 0.84], "clearance": 15}
+      ],
+      "city": {
+        "buildings": {"rows": 0, "fill_spacing": 0},
+        "grandstands": {
+          "colors": ["#6ca0dc", "#f2f2f2"],
+          "list": [
+            {"name": "Principal", "from": -300, "to": 60, "side": -1},
+            {"name": "Curva 1", "from": 250, "to": 330, "side": -1}
+          ]
+        },
+        "ads": {
+          "texts": ["AUTÓDROMO BA", "F126 SIMULATOR", "GODOT 4.7", "MATERIA 350", "BUENOS AIRES GP", "LA PAMPA"],
+          "colors": ["#6ca0dc", "#1a1a1f", "#b31a1a", "#0f6b3a", "#c7a00a"]
+        }
+      }
     }
   ]
 }

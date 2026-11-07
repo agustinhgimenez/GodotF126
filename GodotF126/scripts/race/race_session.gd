@@ -523,6 +523,20 @@ static func estimate_lap(pace: float, levels: Dictionary) -> float:
 	return lerpf(a.y, b.y, (pace - a.x) / maxf(b.x - a.x, 0.0001))
 
 
+## Paso 54: los "lap_time" de ai.json están medidos en Bakú; si la pista trae "ai_lap_times"
+## ({nivel: s}, vuelta lanzada de cada nivel en esa pista) devuelve una copia con esos tiempos.
+static func track_ai_data(ai_data: Dictionary, track_info: Dictionary) -> Dictionary:
+	var times = track_info.get("ai_lap_times", {})
+	if not times is Dictionary or times.is_empty():
+		return ai_data
+	var data := ai_data.duplicate(true)
+	var levels: Dictionary = data.get("levels", {})
+	for id in times:
+		if levels.has(id) and levels[id] is Dictionary:
+			levels[id]["lap_time"] = float(times[id])
+	return data
+
+
 ## Clasificación: la IA con su vuelta estimada ± `quali_spread` s (semilla `seed_value`; el ruido
 ## no depende de qué piloto maneja el jugador) y el jugador con `player_time` (−1 = sin tiempo,
 ## al fondo). Devuelve {driver, team, time, pace, player} de la pole al último.

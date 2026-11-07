@@ -137,6 +137,7 @@ var pit_open: PackedFloat32Array = PackedFloat32Array()
 ## monumentos y problemas del trazado que encontró validate().
 var track_info: Dictionary = {}
 var sea_data: Dictionary = {}
+var ground_color: Color = Color(0.62, 0.58, 0.5)   ## Paso 54: "ground": {"color"} de la pista
 var landmarks: Array = []
 var errors: PackedStringArray = PackedStringArray()
 var warnings: PackedStringArray = PackedStringArray()
@@ -343,6 +344,9 @@ func _load_layout() -> void:
 		city_enabled = false
 	var sea = info.get("sea", {})
 	sea_data = sea if sea is Dictionary else {}
+	var ground = info.get("ground", {})
+	if ground is Dictionary:
+		ground_color = _color3(ground.get("color", []), ground_color)
 	var marks = info.get("landmarks", [])
 	landmarks = marks if marks is Array else []
 	var pit = info.get("pit_lane", {})
@@ -921,7 +925,7 @@ func _build_ground_and_sea() -> void:
 	ground_visual.name = "GroundVisual"
 	ground_visual.mesh = ground_mesh
 	ground_visual.position = Vector3(0, -0.01, 0)
-	ground_visual.material_override = _make_material(Color(0.62, 0.58, 0.5))
+	ground_visual.material_override = _make_material(ground_color)
 	ground.add_child(ground_visual)
 
 	# Mar ("sea" de la pista; en Bakú el Caspio al sur de la recta principal): shader de agua

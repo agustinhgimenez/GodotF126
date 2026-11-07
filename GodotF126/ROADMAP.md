@@ -105,8 +105,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Paso | Contenido | Estado |
 |---|---|---|
 | 53 | Generador de pistas por puntos de control, reutilizable para otros circuitos | ✅ |
-| 54 | Segunda pista | ⏳ Siguiente |
-| 55 | Modo campeonato con varias carreras | |
+| 54 | Segunda pista | ✅ |
+| 55 | Modo campeonato con varias carreras | ⏳ Siguiente |
 | 56 | Lluvia y pista mojada | |
 
 ## Fase H — Ingeniería y entrega (H4)
@@ -1137,3 +1137,24 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   **Las pruebas anteriores siguen bien**: la vuelta del Paso 36 da exactamente 1:42,417 / 1:40,950 / 1:40,967 y los Pasos 47, 48, 51 y 52 dan 0 fallas (la carrera del Paso 47 sigue dando Norris 2:41,667). Las pruebas viejas sólo cambiaron el tipo (`TrackGenerator`) y el nombre del nodo (`Track`). Capturas: `informes/capturas/paso53-plano-baku.png`, `paso53-plano-prueba.png`, `paso53-prueba-curva.png`, `paso53-prueba-carrera.png` y `paso53-prueba-resultado.png`.
 - **Cómo probar**: abrir `scenes/track_preview.tscn` y apretar F6 (←/→ cambia de pista). Para correr en la pista de prueba: `Godot --path GodotF126 -- --track prueba` y elegir cualquier modo.
+
+### Paso 54 — Segunda pista
+- **Autódromo de Buenos Aires (placeholder)** (`"buenos_aires"` en `data/tracks.json`): circuito permanente **inventado**, inspirado en el de Buenos Aires, NO el layout oficial. 3798 m en sentido horario, llano (hasta 2 m), 13 m de ancho: recta principal de 820 m, curva 1 cerrada, una "S", un curvón largo de 100 m de radio, chicana, la recta del fondo, una horquilla en dos curvas y la vuelta de cierre. 16 puntos de control y nada más: boxes (a la derecha, adentro), 3 zonas de modo recta, 16 curvas con carteles, cámaras de TV y línea ideal salen del generador del Paso 53. Banquinas más anchas (2,5 m) y escapatorias de 14 m.
+- **Escenario de autódromo**: piso de césped (`"ground": {"color"}`, nuevo en el generador), sin mar, sin edificios (`"city"` con `rows: 0` y `fill_spacing: 0`), dos tribunas celestes y blancas (recta principal y curva 1), publicidad propia y el Obelisco (68 m) como monumento. El color de piso de cada horario de `lighting.json` es el de Bakú: una pista con `"ground"` propio lo conserva.
+- **Elegir la pista en el menú**: nueva tarjeta "Pista ‹ Bakú ›" arriba de los modos (←/→ o Enter cambian entre las pistas con `"status": "jugable"`; muestra tipo, país y largo). Al confirmar el modo queda en `GameState.selected_track`; si cambia la pista, la clasificación anterior deja de valer para la carrera. La pantalla de carga, el HUD, los récords, la telemetría, el fantasma y el resultado guardado ya usaban la pista elegida (Paso 53). La pista de prueba no sale en el menú (`"status": "prueba"`).
+- **El menú de modos entra en pantalla**: pista + 4 modos + neumáticos + setup no caben en 720 px (desde el Paso 47 la tarjeta de setup quedaba afuera). Ahora el panel va en un `ScrollContainer` que sigue el foco, sin barra visible.
+- **IA calibrada por pista**: la clasificación estimada usaba la vuelta de cada nivel medida en Bakú (~79 s en Medio). Cada pista puede traer `"ai_lap_times"` (`RaceSession.track_ai_data()` los pone en lugar de los de `ai.json`). Medidos con el auto manejado por la IA, sin ajuste de piloto, en la segunda vuelta: Buenos Aires Fácil 1:36,700 · Medio 1:34,300 · Difícil 1:32,567 · Experto 1:31,350; pista de prueba 57,833 / 56,833 / 56,033 / 55,383. El mismo método en Bakú da 81,30 / 78,97 / 77,55 / 76,45 s, a menos de 0,3 s de los de `ai.json`.
+- **Verificación** (`paso54_track.gd`; tiempos de la IA con `paso54_ailaps.gd`):
+
+| Prueba | Resultado |
+|---|---|
+| Trazado | 3798 m, 0 errores y 0 avisos, horario, boxes adentro, recta de 820 m, 16 curvas, 3 zonas, césped y sin mar |
+| IA por pista | Buenos Aires usa sus tiempos (Medio 94,3 s) y `ai.json` queda igual; Bakú sin cambios; pole estimada de la IA 1:33,254 (antes habría sido ~1:18, de Bakú) |
+| Menú | tarjeta "Pista ‹ Bakú ›" → con → "Buenos Aires" (Autódromo · Argentina · 3,8 km); con el foco en Setup el panel se desplaza y la tarjeta termina en 712 de 720 px; al confirmar, `selected_track = buenos_aires` y la clasificación de Bakú deja de valer |
+| Práctica | pantalla de carga con el nombre, récords con su clave, sin edificios, 2 tribunas, 342 paneles, el Obelisco, 10 cámaras de TV, 28 carteles, césped verde |
+| Manejo | 2 vueltas con la IA en Medio: 1:35,667 y 1:34,300 (la calibrada) sin golpes, salidas ni rescates |
+| Clasificación y carrera | con 93,5 s el jugador larga P4 (no en la pole); carrera de 22 a 2 vueltas que termina, ganador Piastri, 0 rescates; el resultado guardado es de Buenos Aires |
+| Boxes | Norris, Verstappen y Alonso con parada forzada: los tres paran en su caja de la calle automática (2,4 s) sin exceso de velocidad |
+
+  En la carrera con ventana (capturas) la IA no es determinista: en una de tres corridas tuvo 9 golpes a muros y 2 rescates; en las otras, 0. **Las pruebas anteriores siguen bien**: Bakú idéntica a la huella del Paso 53, la vuelta del Paso 36 1:42,417 / 1:40,950 / 1:40,967, y los Pasos 47 (Norris 2:41,667), 52 y 53 con 0 fallas. Capturas: `informes/capturas/paso54-plano.png`, `paso54-menu-pista.png`, `paso54-menu-setup.png`, `paso54-carga.png`, `paso54-recta.png`, `paso54-curvon.png`, `paso54-grilla.png`, `paso54-carrera.png` y `paso54-resultado.png`.
+- **Cómo probar**: F5, Jugar, y en la tarjeta "Pista" apretar → hasta "Buenos Aires"; elegir un modo y un piloto.

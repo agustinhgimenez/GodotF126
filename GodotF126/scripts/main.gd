@@ -306,7 +306,7 @@ func _setup_qualifying() -> void:
 	var player_time := GameState.qualifying_time
 	if GameState.is_race() and player_time < 0.0:
 		player_time = lap_timer.record_lap
-	var ai_data := DataLoader.load_json(AI_PATH)
+	var ai_data := RaceSession.track_ai_data(DataLoader.load_json(AI_PATH), track.track_info)
 	qualifying = RaceSession.qualifying(DataLoader.load_json(DataLoader.GRID_PATH),
 		str(selected_driver.get("id", "")), player_time, str(Settings.get_value("ai_level")), ai_data,
 		GameState.session_seed)
@@ -659,7 +659,7 @@ func _on_session_finished() -> void:
 		GameState.qualifying_time = lap_timer.best_lap
 		qualifying = RaceSession.qualifying(DataLoader.load_json(DataLoader.GRID_PATH),
 			str(selected_driver.get("id", "")), lap_timer.best_lap, str(Settings.get_value("ai_level")),
-			DataLoader.load_json(AI_PATH), GameState.session_seed)
+			RaceSession.track_ai_data(DataLoader.load_json(AI_PATH), track.track_info), GameState.session_seed)
 	await get_tree().create_timer(results_delay, false).timeout
 	car.engine_audio.set_muted(true)
 	car.audio_fx.set_muted(true)
@@ -822,9 +822,13 @@ func _on_setting_changed(key: String) -> void:
 
 
 ## Paso 23: preset de luz según la opción "Hora" y sombras / reflejos según la calidad.
+## Paso 54: el "ground_color" de los presets es el de Bakú; una pista con "ground" propio lo conserva.
 func _apply_lighting() -> void:
-	LightingRig.apply($WorldEnvironment.environment, $Sun,
-		LightingRig.get_preset(str(Settings.get_value("time_of_day"))), Settings.quality(),
+	var preset := LightingRig.get_preset(str(Settings.get_value("time_of_day")))
+	if track.track_info.has("ground"):
+		preset = preset.duplicate()
+		preset.erase("ground_color")
+	LightingRig.apply($WorldEnvironment.environment, $Sun, preset, Settings.quality(),
 		track.get_sea(), track.get_ground_visual())
 
 

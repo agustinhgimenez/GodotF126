@@ -1,7 +1,8 @@
 class_name ModeSelect
 extends VBoxContainer
 ## Elección del modo de juego (Paso 16), armada por código desde data/modes.json.
-## Una tarjeta por modo; en las que tienen "lap_options" (contrarreloj) ← → cambian la
+## Arriba, la tarjeta de pista (Paso 54): ← → (o Enter) cambian entre las pistas "jugable" de
+## data/tracks.json. Una tarjeta por modo; en las que tienen "lap_options" (contrarreloj) ← → cambian la
 ## cantidad de vueltas. Debajo, la tarjeta de neumáticos (Paso 33): ← → (o Enter) cambian
 ## el compuesto ("tyre_compounds" de data/car.json). La última tarjeta abre el setup del
 ## auto (Paso 35). Enter en un modo confirma y Esc vuelve al menú.
@@ -26,6 +27,11 @@ var _tyre_title: Label
 var _tyre_description: Label
 var _setup_button: Button
 var _setup_description: Label
+var _tracks: Array = []
+var _track_index: int = 0
+var _track_button: Button
+var _track_title: Label
+var _track_description: Label
 
 
 func _ready() -> void:
@@ -34,8 +40,18 @@ func _ready() -> void:
 
 
 ## compounds: bloque "tyre_compounds" de car.json; current_compound vacío = su "default".
+## tracks: data/tracks.json; current_track vacío = su "default_track_id".
 func setup(data: Dictionary, current_mode: String, current_laps: int, compounds: Dictionary = {},
-		current_compound: String = "") -> void:
+		current_compound: String = "", tracks: Dictionary = {}, current_track: String = "") -> void:
+	for info in tracks.get("tracks", []):
+		if info is Dictionary and str(info.get("status", "")) == "jugable":
+			_tracks.append(info)
+	if not _tracks.is_empty():
+		var wanted := current_track if not current_track.is_empty() else str(tracks.get("default_track_id", ""))
+		for i in _tracks.size():
+			if str(_tracks[i].get("id", "")) == wanted:
+				_track_index = i
+		add_child(_make_track_card())
 	_modes = data.get("modes", [])
 	_current_mode = current_mode if not current_mode.is_empty() else str(data.get("default_mode", ""))
 	for mode in _modes:
@@ -62,7 +78,7 @@ func setup(data: Dictionary, current_mode: String, current_laps: int, compounds:
 	_setup_description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_setup_button.pressed.connect(func() -> void: setup_requested.emit())
 	add_child(_setup_button)
-	var hint := UiKit.make_label("← → vueltas y neumáticos · Enter para confirmar · Esc para volver", 16)
+	var hint := UiKit.make_label("← → pista, vueltas y neumáticos · Enter para confirmar · Esc para volver", 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
 	add_child(hint)
 
@@ -98,6 +114,15 @@ func set_accent(color: Color) -> void:
 		UiKit.apply_button_style(_tyre_button, color)
 	if _setup_button != null:
 		UiKit.apply_button_style(_setup_button, color)
+	if _track_button != null:
+		UiKit.apply_button_style(_track_button, color)
+
+
+## Id de la pista elegida (vacío si tracks.json no trae pistas jugables).
+func track_id() -> String:
+	if _tracks.is_empty():
+		return ""
+	return str(_tracks[_track_index].get("id", ""))
 
 
 ## Id del compuesto elegido (vacío si car.json no trae compuestos).
@@ -144,6 +169,41 @@ func _make_tyre_card() -> Button:
 			_cycle_compound(-1)
 			_tyre_button.accept_event())
 	return _tyre_button
+
+
+func _make_track_card() -> Button:
+	var parts := _card("")
+	_track_button = parts[0]
+	_track_title = parts[1]
+	_track_description = parts[2]
+	_refresh_track()
+	_track_button.pressed.connect(_cycle_track.bind(1))
+	_track_button.gui_input.connect(func(event: InputEvent) -> void:
+		if event.is_action_pressed("ui_right"):
+			_cycle_track(1)
+			_track_button.accept_event()
+		elif event.is_action_pressed("ui_left"):
+			_cycle_track(-1)
+			_track_button.accept_event())
+	return _track_button
+
+
+func _cycle_track(direction: int) -> void:
+	_track_index = posmod(_track_index + direction, _tracks.size())
+	_refresh_track()
+
+
+func _refresh_track() -> void:
+	var info: Dictionary = _tracks[_track_index]
+	_track_title.text = "Pista   ‹ %s ›" % str(info.get("name", info.get("id", "")))
+	var parts := PackedStringArray()
+	for key in ["type", "country"]:
+		if not str(info.get(key, "")).is_empty():
+			parts.append(str(info[key]))
+	if info.has("length_km"):
+		parts.append(("%.1f km" % float(info["length_km"])).replace(".", ","))
+	var text := " · ".join(parts)
+	_track_description.text = text.left(1).to_upper() + text.substr(1)
 
 
 ## [Button, título, descripción] de una tarjeta.

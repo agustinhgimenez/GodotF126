@@ -231,9 +231,12 @@ func _draw_aero_zones() -> void:
 func _draw_sectors() -> void:
 	for c in track.checkpoint_indices.size():
 		var i: int = track.checkpoint_indices[c]
-		var a := _screen(track.edge_point(i, -track.wall_offset(i, -1.0), 0.0))
-		var b := _screen(track.edge_point(i, track.wall_offset(i, 1.0), 0.0))
-		draw_line(a, b, SECTOR, 2.0)
+		if c == 0:
+			continue
+		var a := _screen(track.edge_point(i, -track.wall_offset(i, -1.0) - 8.0 / _scale, 0.0))
+		var b := _screen(track.edge_point(i, track.wall_offset(i, 1.0) + 8.0 / _scale, 0.0))
+		draw_line(a, b, SECTOR, 3.0)
+		draw_string(_font, b + Vector2(4, 4), "S%d" % (c + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, SECTOR)
 
 
 func _draw_start() -> void:

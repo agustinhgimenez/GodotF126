@@ -126,6 +126,12 @@ func _show_modes() -> void:
 
 
 func _on_mode_confirmed(mode_id: String, laps: int, compound_id: String) -> void:
+	# Otra pista: la clasificación anterior no vale para la carrera.
+	var track_id := _modes.track_id()
+	if not track_id.is_empty() and track_id != TrackGenerator.resolve_track_id(GameState.selected_track):
+		GameState.qualifying_time = -1.0
+	if not track_id.is_empty():
+		GameState.selected_track = track_id
 	# Clasificación nueva: otra semilla para la IA. La carrera usa la última clasificación.
 	if mode_id == GameState.MODE_QUALIFYING or (mode_id == GameState.MODE_RACE and GameState.qualifying_time < 0.0):
 		GameState.session_seed = 0
@@ -274,14 +280,24 @@ func _build_ui() -> void:
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
 	_main_panel.add_child(hint)
 
+	# Paso 54: pista + 4 modos + neumáticos + setup no entran en 720 px; el panel se desplaza
+	# siguiendo el foco (sin barra visible).
+	var modes_scroll := ScrollContainer.new()
+	modes_scroll.name = "ModeScroll"
+	modes_scroll.follow_focus = true
+	modes_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	modes_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	UiKit.place(modes_scroll, Vector4(0, 0, 0, 0), Vector4(80, 210, 660, 712))
+	root.add_child(modes_scroll)
 	_modes = ModeSelect.new()
 	_modes.name = "ModeSelect"
-	UiKit.place(_modes, Vector4(0, 0, 0, 0), Vector4(80, 210, 640, 560))
-	root.add_child(_modes)
+	_modes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	modes_scroll.add_child(_modes)
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	var compounds = car_data.get("tyre_compounds", {})
 	_modes.setup(DataLoader.load_json(DataLoader.MODES_PATH), GameState.selected_mode, GameState.lap_count,
-		compounds if compounds is Dictionary else {}, GameState.tyre_compound)
+		compounds if compounds is Dictionary else {}, GameState.tyre_compound,
+		DataLoader.load_json(DataLoader.TRACKS_PATH), GameState.selected_track)
 	_modes.confirmed.connect(_on_mode_confirmed)
 	_modes.cancelled.connect(_on_modes_cancelled)
 	_modes.setup_requested.connect(_open_setup)
