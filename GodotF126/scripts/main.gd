@@ -27,6 +27,7 @@ const DEFAULT_KEYS := {
 	"racing_line": [KEY_L],
 	"ghost": [KEY_H],
 	"ai_rival": [KEY_I],
+	"pit_limiter": [KEY_P],
 }
 const CAR_SCENE := preload("res://scenes/car.tscn")
 const AI_PATH := "res://data/ai.json"
@@ -65,6 +66,8 @@ var traffic: RaceTraffic
 var stewards: RaceStewards
 ## Carrera con la grilla completa (Paso 47; null fuera del modo carrera).
 var race: RaceSession
+## Calle de boxes (Paso 48): limitador (tecla P), paradas y sanciones por exceso de velocidad.
+var pit_lane: PitLane
 ## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
 var qualifying: Array[Dictionary] = []
 var _car_data: Dictionary = {}
@@ -154,6 +157,15 @@ func _ready() -> void:
 	traffic.setup(track, racing_line)
 	traffic.add_car(car)
 	car.set_meta("driver_name", str(selected_driver.get("name", "Jugador")))
+	car.set_meta("team_id", str(selected_team.get("id", "")))
+	pit_lane = PitLane.new()
+	pit_lane.name = "PitLane"
+	pit_lane.configure(track.pit_data, grid)
+	add_child(pit_lane)
+	pit_lane.setup(track, traffic)
+	traffic.pit_lane = pit_lane
+	track_limits.pit_lane = pit_lane
+	pit_lane.speeding.connect(_on_pit_speeding)
 	stewards = RaceStewards.new()
 	stewards.name = "RaceStewards"
 	stewards.configure(DataLoader.load_json(RaceStewards.DATA_PATH))
@@ -186,6 +198,7 @@ func _ready() -> void:
 	lap_timer.lap_started.connect(func(_lap: int) -> void: car.fuel.new_lap())
 	hud.bind_lap_timer(lap_timer)
 	hud.bind_delta(live_delta)
+	hud.bind_pit(pit_lane)
 	car.steering_wheel.bind_lap_timer(lap_timer)
 	car.steering_wheel.bind_delta(live_delta)
 	if GameState.is_race() or GameState.is_qualifying():
@@ -297,6 +310,8 @@ func _setup_race() -> void:
 	add_child(race)
 	race.setup(traffic, stewards, _laps)
 	race.player = car
+	race.pit_lane = pit_lane
+	car.repair_on_reset = false
 	var level := str(Settings.get_value("ai_level"))
 	var levels: Dictionary = ai_data.get("levels", {})
 	for p in qualifying.size():
@@ -362,6 +377,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var note := "" if not on or ghost.reference() != null or live_delta.pick_reference() != null \
 			else " (aparece cuando haya una vuelta válida)"
 		hud.show_message("Auto fantasma: %s%s" % ["sí" if on else "no", note], 1.5)
+	elif event.is_action_pressed("pit_limiter") and car.controls_enabled:
+		pit_lane.toggle_limiter(car)
 	elif event.is_action_pressed("ai_rival") and car.controls_enabled and not GameState.is_competitive():
 		var ai_data := DataLoader.load_json(AI_PATH)
 		var most := int(ai_data.get("practice_rival", {}).get("max", 3))
@@ -438,6 +455,7 @@ func _add_ai_car(driver: Dictionary, team: Dictionary, ai_data: Dictionary, seed
 	add_child(ai_driver)
 	traffic.add_car(ai_car)
 	ai_driver.setup(ai_car, track, racing_line, traffic)
+	ai_driver.pit_lane = pit_lane
 	ai_cars.append(ai_car)
 	ai_drivers.append(ai_driver)
 	return ai_driver
@@ -464,6 +482,21 @@ func _on_incident_decided(incident: Dictionary) -> void:
 		lap_timer.add_penalty(float(incident["seconds"]), why.left(1).to_upper() + why.substr(1))
 	if incident["a"] == car or incident["b"] == car or action == "penalty":
 		hud.show_message(stewards.describe(incident), 3.0)
+
+
+## Exceso de velocidad en la calle de boxes: la del jugador va al cronómetro; en carrera, a la
+## penalización de cada uno.
+func _on_pit_speeding(who: CarController, kmh: float, seconds: float) -> void:
+	var reason := "Exceso de velocidad en boxes"
+	if who == car:
+		lap_timer.add_penalty(seconds, reason)
+	if race != null:
+		var entry := race.entry_of(who)
+		if not entry.is_empty():
+			entry["extra_penalty"] = float(entry["extra_penalty"]) + seconds
+	if who == car or race != null:
+		hud.show_message("%s: %s (%d km/h) · +%d s" % [reason, RaceStewards.car_name(who), roundi(kmh), roundi(seconds)],
+			3.0, RaceHUD.COLOR_WARNING if who == car else RaceHUD.COLOR_NEUTRAL)
 
 
 ## Saca a todos los rivales de la IA.

@@ -13,6 +13,9 @@ extends Node
 ## (mejor por adentro de la próxima curva, nunca por afuera si todavía no está al lado) y vuelve
 ## a la línea al pasarlo; con alguien al lado le deja `lane_clear` m; con un auto a menos de
 ## `defend_time` s atrás hace una sola defensa por recta hacia el lado de adentro.
+## Paso 48: con `pit_requested` entra a boxes en la próxima pasada por la calle (PitLane): sigue
+## el camino de la calle a la velocidad del limitador, se para en la caja de su equipo y vuelve
+## a la línea; mientras tanto no pasa, no defiende y no cuenta como trabado ni afuera.
 
 signal lap_completed(lap: int, time: float)
 
@@ -118,6 +121,11 @@ var max_lateral: float = 0.0
 
 ## Tráfico: autos en pista (null = maneja solo, como en el Paso 44).
 var traffic: RaceTraffic
+## Paso 48: calle de boxes (null = sin boxes), si pidió entrar y si está en el camino de boxes
+## (desde `PitLane.ai_approach` m antes de la entrada hasta `ai_merge` m después de la salida).
+var pit_lane: PitLane
+var pit_requested: bool = false
+var pitting: bool = false
 ## Carril propio (para pasar o defender): lateral absoluto al que apunta (+ derecha), hacia
 ## dónde se mueve y cuánto pesa contra la línea (1 = va por el carril; al terminar baja a 0 en
 ## ~1,5 s y vuelve a la línea). `shift` = cuánto se aparta de la línea donde está el auto.
@@ -267,6 +275,7 @@ func place_at(i: int, speed: float = 0.0, offset: float = NAN) -> void:
 	passing = null
 	_defending = false
 	_holding = false
+	pitting = false
 
 
 ## Paso 47: largada en fila de a dos; va por `offset` m de costado hasta la primera frenada
@@ -299,6 +308,7 @@ func _physics_process(delta: float) -> void:
 	lateral = located.y
 	max_lateral = maxf(max_lateral, absf(lateral))
 	var v := car.forward_speed
+	_update_pit()
 	_traffic(delta)
 	car.ai_inputs = Vector3(0.0, 0.0, _steer(v))
 	var pedals := _pedals(v, delta)
@@ -321,8 +331,25 @@ func _steer(v: float) -> float:
 	return clampf(forward.signed_angle_to(to_target, Vector3.UP) * steer_gain, -1.0, 1.0)
 
 
+## Empieza el camino de boxes al llegar a la entrada con el pedido hecho (si ya la pasó, en la
+## vuelta siguiente) y lo termina después de la salida.
+func _update_pit() -> void:
+	if pit_lane == null or not pit_lane.enabled():
+		pitting = false
+		return
+	var s := _track.start_offset(index)
+	if not pitting:
+		pitting = pit_requested and s > pit_lane.entry - pit_lane.ai_approach and s < pit_lane.entry - 5.0
+	elif s > pit_lane.exit + pit_lane.ai_merge or s < pit_lane.entry - pit_lane.ai_approach - 20.0:
+		pitting = false
+		pit_requested = false
+
+
 ## Lateral que planea llevar en el índice j: la línea mezclada con su carril, dentro de la pista.
+## Paso 48: entrando a boxes, el camino de la calle.
 func _planned_lateral(j: int) -> float:
+	if pitting:
+		return pit_lane.path_lateral(j, _line.offsets[j], car)
 	if lane_weight <= 0.0:
 		return _line.offsets[j]
 	var limit := maxf(_track.half_width(j) - edge_margin, 0.0)
@@ -333,7 +360,7 @@ func _planned_lateral(j: int) -> float:
 ## tenga al lado.
 func _desired_lateral(j: int) -> float:
 	var wanted := _planned_lateral(j)
-	if traffic == null or _slot < 0:
+	if traffic == null or _slot < 0 or pitting:
 		return wanted
 	var adjusted := wanted
 	for k in traffic.cars.size():
@@ -367,6 +394,8 @@ func _pedals(v: float, delta: float = 0.0) -> Vector2:
 			target *= off_line_pace
 		if passing != null and _pass_inside and _track.corner_mask[index] <= 0.0:
 			target *= pass_brake_bonus
+	if pitting:
+		target = minf(target, pit_lane.speed_cap(index, car))
 	var limit := minf(minf(_follow_limit(v), _yield_limit()), _lane_limit())
 	var drift := absf(lateral - wanted)
 	if v < 8.0:
@@ -390,11 +419,11 @@ func _pedals(v: float, delta: float = 0.0) -> Vector2:
 	return Vector2(throttle, brake)
 
 
-## Por su carril (pasando o defendiendo) la curva puede ser más cerrada que la de la línea:
+## Por su carril (pasando, defendiendo o entrando a boxes) la curva puede ser más cerrada que la de la línea:
 ## velocidad para llegar a cada punto de los próximos `lane_look` m (cada 5 m) a la de curva del
 ## camino que planea (curvatura con los puntos 5 m antes y después), frenando como la línea.
 func _lane_limit() -> float:
-	if lane_weight <= 0.0 or lane_look <= 0.0:
+	if (lane_weight <= 0.0 and not pitting) or lane_look <= 0.0:
 		return INF
 	var count := int(lane_look / 5.0) + 3
 	var path := PackedVector3Array()
@@ -520,6 +549,15 @@ func _corner_factor_at(i: int) -> float:
 ## Adelantar y defender: decide `shift_goal` y mueve `shift` hacia ahí.
 func _traffic(delta: float) -> void:
 	_slot = traffic.slot(car) if traffic != null else -1
+	if pitting:
+		passing = null
+		_defending = false
+		_holding = false
+		lane_weight = 0.0
+		car.set_meta("passing", null)
+		shift = _planned_lateral(index) - _line.offsets[index]
+		_overtake_mode(false)
+		return
 	if _slot < 0:
 		lane_weight = move_toward(lane_weight, 0.0, delta / 1.5)
 		shift = _planned_lateral(index) - _line.offsets[index]
@@ -681,6 +719,8 @@ func _track_progress(delta: float) -> void:
 		_new_lap_factors()
 	_last_lap_distance = distance
 	var off := absf(lateral) > _track.half_width(index) + off_track_margin
+	if off and pit_lane != null and pit_lane.contains(index, lateral):
+		off = false
 	if off and not _off:
 		off_tracks += 1
 	_off = off
@@ -689,6 +729,11 @@ func _track_progress(delta: float) -> void:
 ## Trabado (no avanza por la pista) o de contramano (más de 90° contra el trazado) demasiado
 ## tiempo: vuelve a la línea, quieto, y la vuelta en curso no cuenta.
 func _watch(delta: float) -> void:
+	if pitting:
+		_window = 0.0
+		_window_start = lap_distance()
+		_wrong_for = 0.0
+		return
 	_window += delta
 	if _window >= stuck_time:
 		var progress := fposmod(lap_distance() - _window_start + _total * 0.5, _total) - _total * 0.5

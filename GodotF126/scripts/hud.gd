@@ -8,6 +8,7 @@ const COLOR_SLOWER := Color(1.0, 0.85, 0.2)
 const COLOR_NEUTRAL := Color.WHITE
 const COLOR_INVALID := Color(0.6, 0.6, 0.64)
 const COLOR_WARNING := Color(1.0, 0.35, 0.3)
+const COLOR_PIT := Color(0.35, 0.75, 1.0)
 const LAP_FREEZE_MS := 3000
 
 var _car: CarController = null
@@ -34,6 +35,8 @@ var _delta_display: DeltaDisplay
 var _race: RaceSession
 var _tower: TimingTower
 var _tower_timer: float = 0.0
+var _pit: PitLane
+var _pit_label: Label
 
 
 func _ready() -> void:
@@ -57,11 +60,11 @@ func bind_car(car: CarController) -> void:
 	car.fuel.ran_out.connect(func() -> void: show_message("¡SIN COMBUSTIBLE!", 3.0, COLOR_WARNING))
 	car.damage.wing_damaged.connect(func(health: float) -> void:
 		if car.damage.is_wing_broken():
-			show_message("¡ALERÓN DELANTERO ROTO! · R: boxes", 3.0, COLOR_WARNING)
+			show_message("¡ALERÓN DELANTERO ROTO! · %s" % _repair_hint(), 3.0, COLOR_WARNING)
 		else:
 			show_message("Alerón delantero dañado: %d %%" % roundi(health * 100.0), 2.0, COLOR_SLOWER))
 	car.damage.punctured.connect(func(index: int) -> void:
-		show_message("¡PINCHAZO! Neumático %s · R: boxes" % CarDamage.wheel_name(index), 3.0, COLOR_WARNING))
+		show_message("¡PINCHAZO! Neumático %s · %s" % [CarDamage.wheel_name(index), _repair_hint()], 3.0, COLOR_WARNING))
 	car.ers.mode_changed.connect(func(mode_name: String) -> void:
 		show_message("ERS: modo %s" % mode_name.to_lower(), 1.0, Dashboard.COLOR_ERS))
 	car.traction_control_changed.connect(func(level: int) -> void:
@@ -108,6 +111,24 @@ func bind_race(race: RaceSession) -> void:
 	race.checkered_flag.connect(func(leader: CarController) -> void:
 		if leader != _car:
 			show_message("¡BANDERA A CUADROS! Gana %s" % RaceStewards.car_name(leader), 3.0, COLOR_BEST))
+
+
+## Paso 48: en carrera R no repara: hay que entrar a boxes.
+func _repair_hint() -> String:
+	return "R: boxes" if _car == null or _car.repair_on_reset else "entrá a boxes"
+
+
+## Calle de boxes (Paso 48): aviso fijo en la calle (limitador, parada) y mensajes del limitador,
+## la parada y las sanciones por exceso de velocidad.
+func bind_pit(pit: PitLane) -> void:
+	_pit = pit
+	pit.limiter_changed.connect(func(car: CarController, on: bool) -> void:
+		if car == _car:
+			show_message("Limitador de boxes" if on else "Limitador apagado", 1.2, COLOR_PIT if on else COLOR_NEUTRAL))
+	pit.stop_finished.connect(func(car: CarController, wing: bool) -> void:
+		if car == _car:
+			show_message("Neumáticos nuevos (%s)%s · ¡SALÍ!" % [str(car.tyres.compound()["name"]).to_lower(),
+				" · alerón nuevo" if wing else ""], 2.5, COLOR_PIT))
 
 
 ## Largada detenida (Paso 17): muestra el semáforo hasta que termina la secuencia.
@@ -171,6 +192,8 @@ func _process(delta: float) -> void:
 	if _car != null:
 		var kmh := _car.get_speed_kmh()
 		_drift_label.visible = kmh > 30.0 and _car.get_slip_angle_deg() > 12.0
+		if _pit != null:
+			_update_pit_label(kmh)
 
 	if _timer != null:
 		if _start_hint.visible:
@@ -190,6 +213,29 @@ func _process(delta: float) -> void:
 			if _timer.current_invalid:
 				_lap_label.text += " · INVALIDADA"
 			_set_color(_time_label, COLOR_INVALID if _timer.current_invalid else COLOR_NEUTRAL)
+
+
+func _update_pit_label(kmh: float) -> void:
+	var text := ""
+	var color := COLOR_PIT
+	if _pit.in_service(_car):
+		text = "PARADA EN BOXES  %.1f s" % maxf(_pit.service_left(_car), 0.0)
+	elif _car.pit_limit > 0.0:
+		text = "LIMITADOR  %d km/h" % roundi(kmh)
+	elif _pit.in_lane(_car):
+		text = "CALLE DE BOXES · %s: LIMITADOR" % _action_key("pit_limiter")
+		color = COLOR_SLOWER
+	_pit_label.visible = not text.is_empty()
+	if _pit_label.visible:
+		_pit_label.text = text
+		_set_color(_pit_label, color)
+
+
+func _action_key(action: String) -> String:
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			return InputBindings.key_text((event as InputEventKey).physical_keycode)
+	return action
 
 
 func _lap_text(lap: int) -> String:
@@ -337,6 +383,12 @@ func _build_ui() -> void:
 	_drift_label.visible = false
 	_place(_drift_label, Vector4(0.5, 0, 0.5, 0), Vector4(-200, 250, 200, 290))
 	root.add_child(_drift_label)
+
+	# Abajo a la izquierda, arriba de la ayuda: limitador y parada en boxes (Paso 48).
+	_pit_label = _make_label(30)
+	_pit_label.visible = false
+	_place(_pit_label, Vector4(0, 1, 0, 1), Vector4(24, -132, 520, -90))
+	root.add_child(_pit_label)
 
 	# Centro: semáforo de largada (sólo en largada detenida).
 	_start_lights = StartLightsDisplay.new()

@@ -5,6 +5,7 @@ extends Node
 ## desplazamiento lateral). Si las cuatro ruedas pasan la línea blanca del mismo lado,
 ## invalida la vuelta en curso. Si alguna rueda pisa un piano, avisa al auto
 ## (kerb_contact) para la vibración de cámara y el retumbe de CarAudioFx.
+## Paso 48: del lado de boxes, dentro de la calle (PitLane.contains) no cuenta.
 
 signal exceeded
 
@@ -18,6 +19,8 @@ var index: int = -1
 var lateral: float = 0.0
 var off_track: bool = false
 var on_kerb: bool = false
+## Paso 48: en la calle de boxes no hay límites de pista (null = sin calle).
+var pit_lane: PitLane
 
 var _track: BakuTrack
 var _car: CarController
@@ -47,7 +50,7 @@ func _physics_process(_delta: float) -> void:
 	var half := _track.half_width(index)
 
 	var was_off := off_track
-	off_track = absf(lateral) - car_half_width > half
+	off_track = absf(lateral) - car_half_width > half and not (pit_lane != null and pit_lane.contains(index, lateral))
 	if off_track and not was_off:
 		exceeded.emit()
 		_timer.invalidate_lap("Límites de pista")

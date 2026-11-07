@@ -49,6 +49,8 @@ const MAX_HANDBRAKE_FACTOR := 3.0
 ## Sub-pasos de los neumáticos por cuadro de física: la curva de Pacejka es rígida y a 60 Hz
 ## el auto oscilaría a baja velocidad.
 const TYRE_SUBSTEPS := 8
+## m/s debajo del límite en que el limitador de boxes empieza a cortar el acelerador.
+const PIT_LIMITER_BAND := 1.5
 ## Nodo de la rueda, lado (−1 izq., +1 der.), delantera.
 const WHEEL_NODES := [["WheelFL", -1.0, true], ["WheelFR", 1.0, true], ["WheelRL", -1.0, false], ["WheelRR", 1.0, false]]
 ## Bloque "chassis" de data/car.json: grupo → {clave del JSON: propiedad}.
@@ -153,6 +155,12 @@ var slipstream: float = 0.0
 var tyre_substeps: int = TYRE_SUBSTEPS
 ## 0–1: cuánto está pisando un piano (lo escribe TrackLimits; lo usa CarAudioFx).
 var kerb_contact: float = 0.0
+## Paso 48: limitador de la calle de boxes (m/s; 0 = apagado): corta el acelerador al llegar.
+var pit_limit: float = 0.0
+## Paso 48: parado en su caja: frenado y sin pedales ni dirección (lo maneja PitLane).
+var pit_hold: bool = false
+## Paso 48: reset_to_spawn() repara los daños (en carrera no: hay que entrar a boxes).
+var repair_on_reset: bool = true
 var spawn_transform: Transform3D = Transform3D.IDENTITY
 var wheels: Array[CarWheel] = []
 var tyre := TyreModel.new()
@@ -572,9 +580,14 @@ func _physics_process(delta: float) -> void:
 	_accel_velocity = linear_velocity
 	local_acceleration = local_acceleration.lerp(global_transform.basis.orthonormalized().transposed() * world_accel, 0.2)
 
-	var pedals := _map_pedals(throttle, brake)
+	if pit_hold:
+		steer_input = 0.0
+		handbrake = false
+	var pedals := Vector2(0.0, 1.0) if pit_hold else _map_pedals(throttle, brake)
 	if fuel.is_empty():
 		pedals.x = 0.0
+	if pit_limit > 0.0 and gearbox.gear != Gearbox.REVERSE:
+		pedals.x = minf(pedals.x, clampf((pit_limit - forward_speed) / PIT_LIMITER_BAND, 0.0, 1.0))
 	_update_powertrain(pedals.x, delta)
 	fuel.update(_combustion_power(pedals.x), delta)
 	if absf(_applied_fuel - fuel.kg) > 0.05:
@@ -1015,11 +1028,14 @@ func reset_to_spawn() -> void:
 	_steer = 0.0
 	_impact = 0.0
 	kerb_contact = 0.0
-	# Un neumático gastado del todo volvería a pinchar: en boxes se cambia ese.
-	for wheel in wheels:
-		if wheel.wear >= 1.0:
-			tyres.fit(wheel)
-	damage.repair()
+	pit_hold = false
+	pit_limit = 0.0
+	if repair_on_reset:
+		# Un neumático gastado del todo volvería a pinchar: en boxes se cambia ese.
+		for wheel in wheels:
+			if wheel.wear >= 1.0:
+				tyres.fit(wheel)
+		damage.repair()
 	for wheel in wheels:
 		wheel.reset()
 	active_aero.reset()

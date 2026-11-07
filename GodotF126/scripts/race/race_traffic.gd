@@ -10,6 +10,7 @@ extends Node
 ## - los contactos: dos autos con los centros a menos de `car_length` hacia adelante y `car_width`
 ##   de costado, medidos desde uno de ellos (la caja de colisión de car.tscn), se están tocando
 ##   (cuenta cada contacto nuevo).
+## Paso 48: los autos en la calle de boxes (PitLane.contains) sólo son vecinos entre ellos.
 ## Bloque "traffic" de data/ai.json.
 
 signal contact(a: CarController, b: CarController)
@@ -33,6 +34,8 @@ var side_speed: PackedFloat32Array = PackedFloat32Array()
 var contacts: int = 0
 ## Costo del último cuadro (µs).
 var update_us: float = 0.0
+## Paso 48: calle de boxes (null = sin calle).
+var pit_lane: PitLane
 
 var _track: BakuTrack
 var _line: RacingLine
@@ -120,8 +123,9 @@ func nearest(k: int, ahead: bool, within: float) -> int:
 		return j if g >= 0.0 and g < within else -1
 	var best := -1
 	var best_gap := within
+	var group := maxi(_group(k), 0)
 	for j in cars.size():
-		if j == k or absf(lateral[j]) > _track.half_width(index[j]) + 8.0:
+		if j == k or _group(j) != group:
 			continue
 		var g := gap(k, j) if ahead else -gap(k, j)
 		if g >= 0.0 and g < best_gap:
@@ -168,24 +172,33 @@ func _find_neighbours() -> void:
 	for k in count:
 		order.append(k)
 	order.sort_custom(func(a: int, b: int) -> bool: return distance[a] < distance[b])
-	var on_track: Array[bool] = []
+	var groups := PackedInt32Array()
 	for k in count:
-		on_track.append(absf(lateral[k]) <= _track.half_width(index[k]) + 8.0)
+		groups.append(_group(k))
 	for p in count:
 		var k := order[p]
+		var group := maxi(groups[k], 0)
 		_ahead[k] = -1
 		_behind[k] = -1
 		for step in range(1, count):
 			var j := order[(p + step) % count]
-			if on_track[j]:
+			if groups[j] == group:
 				_ahead[k] = j
 				break
 		for step in range(1, count):
 			var j := order[posmod(p - step, count)]
-			if on_track[j]:
+			if groups[j] == group:
 				_behind[k] = j
 				break
 	_neighbours_ok = true
+
+
+## 0 = en pista, 1 = en la calle de boxes, −1 = lejos de la pista (más de 8 m afuera de la
+## línea blanca; busca vecinos en pista pero nadie lo tiene de vecino).
+func _group(k: int) -> int:
+	if pit_lane != null and pit_lane.contains(index[k], lateral[k]):
+		return 1
+	return 0 if absf(lateral[k]) <= _track.half_width(index[k]) + 8.0 else -1
 
 
 func _locate(k: int) -> void:

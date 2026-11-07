@@ -24,7 +24,7 @@
       "title": "Carrera",
       "rows": [
         { "actions": ["change_camera", "toggle_telemetry"], "text": "Cámara (6 vistas) · panel de cargas por rueda" },
-        { "actions": ["reset_car"], "text": "Volver a la pista" },
+        { "actions": ["reset_car", "pit_limiter"], "text": "Volver a la pista · limitador de boxes" },
         { "actions": ["racing_line", "ghost", "ai_rival"], "text": "Línea de trazada · auto fantasma · rival IA (práctica)" },
         { "keys": ["Esc"], "pad_keys": ["Start"], "text": "Pausa: opciones, controles, reiniciar" }
       ]

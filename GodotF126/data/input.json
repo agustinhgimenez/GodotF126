@@ -17,6 +17,7 @@
     { "id": "brake_bias_forward", "name": "Reparto de frenada adelante" },
     { "id": "change_camera", "name": "Cambiar cámara" },
     { "id": "reset_car", "name": "Volver a la pista" },
+    { "id": "pit_limiter", "name": "Limitador de boxes" },
     { "id": "toggle_telemetry", "name": "Panel de cargas (F3)" },
     { "id": "racing_line", "name": "Línea de trazada" },
     { "id": "ghost", "name": "Auto fantasma" },
@@ -38,6 +39,7 @@
     "brake_bias_forward": { "button": 14 },
     "change_camera": { "button": 3 },
     "reset_car": { "button": 4 },
+    "pit_limiter": { "button": 1 },
     "toggle_telemetry": { "button": 8 },
     "pause": { "button": 6 }
   },

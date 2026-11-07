@@ -8,6 +8,10 @@ extends Node3D
 ## escapatoria del lado de afuera, con el muro más lejos. La línea blanca es el límite.
 ## Paso 21: los puntos de control salen de data/tracks.json ("centerline"), cada uno con
 ## ancho de pista, altura y cuánta escapatoria admite; todo se interpola por el trazado.
+## Paso 48: calle de boxes ("pit_lane" en data/tracks.json) junto a la recta principal: el muro
+## de ese lado se abre hasta el borde de afuera de la calle (la calle, a altura 0, apoya en el
+## suelo general), con el muro de boxes entre la pista y la calle, una caja por equipo y sus
+## garajes.
 
 ## checkpoint 0 = meta; 1..SECTOR_COUNT-1 = fin de cada sector.
 signal checkpoint_crossed(checkpoint: int, body: Node3D)
@@ -47,6 +51,9 @@ const KERB_WHITE := Color(0.95, 0.95, 0.95)
 const BARRIER_RED := Color(0.85, 0.1, 0.1)
 const BARRIER_WHITE := Color(0.92, 0.92, 0.92)
 const STONE_COLOR := Color(0.72, 0.62, 0.46)
+const PIT_COLOR := Color(0.21, 0.21, 0.23)
+const PIT_WALL_COLOR := Color(0.88, 0.88, 0.9)
+const PIT_WALL_TOP := Color(0.55, 0.56, 0.6)
 const SEA_SHADER := "res://shaders/sea.gdshader"
 ## Lado del suelo (y ancho del mar): con la neblina, el borde no se ve desde la pista.
 const GROUND_SIZE := 8000.0
@@ -108,9 +115,18 @@ var max_width: float = 0.0
 ## Paso 22: ciudad generada (nodo "City"); null si city_enabled es false.
 var city: CityBuilder
 var city_data: Dictionary = {}
+## Paso 48: bloque "pit_lane" de data/tracks.json (vacío = sin calle de boxes).
+var pit_data: Dictionary = {}
+## Metros desde la línea de largada de cada índice (de −media vuelta a +media vuelta).
+var start_offsets: PackedFloat32Array = PackedFloat32Array()
+## Por índice: 0–1 cuánto está abierta la calle de boxes (rampas en la entrada y la salida).
+var pit_open: PackedFloat32Array = PackedFloat32Array()
 
 ## Puntos de control: [x, z, ancho, altura, escapatoria, radio de la esquina].
 var _control: Array[PackedFloat32Array] = []
+## Hasta dónde llega el piso de la pista a cada lado (los muros sin la calle de boxes).
+var _road_left: PackedFloat32Array = PackedFloat32Array()
+var _road_right: PackedFloat32Array = PackedFloat32Array()
 var _rights: PackedVector3Array = PackedVector3Array()
 
 
@@ -124,6 +140,7 @@ func _ready() -> void:
 	_build_asphalt()
 	_build_kerbs()
 	_build_walls()
+	_build_pit_lane()
 	_find_corner_starts()
 	_build_brake_boards()
 	_build_start_line()
@@ -249,6 +266,8 @@ func _load_layout() -> void:
 		if city_info is Dictionary:
 			city_data = city_info
 			city_enabled = city_enabled and bool(city_info.get("enabled", true))
+		var pit = info.get("pit_lane", {})
+		pit_data = pit if pit is Dictionary else {}
 		var boards = info.get("brake_boards", {})
 		if boards is Dictionary:
 			var distances = boards.get("distances", [])
@@ -351,6 +370,76 @@ func _compute_layout() -> void:
 		var runoff := runoff_width * runoff_scale[i]
 		wall_left[i] = base + runoff * open_left[i]
 		wall_right[i] = base + runoff * open_right[i]
+	_compute_pit_layout()
+
+
+## Metros desde la línea de cada índice y apertura de la calle de boxes; el muro de ese lado
+## se corre hasta el borde de afuera de la calle. El piso de la pista sigue hasta donde estaba
+## el muro: la calle (altura 0) apoya en el suelo general.
+func _compute_pit_layout() -> void:
+	var n := centerline.size()
+	_road_left = wall_left.duplicate()
+	_road_right = wall_right.duplicate()
+	start_offsets.resize(n)
+	pit_open.resize(n)
+	var start := _nearest_index(start_point)
+	var travelled := 0.0
+	for k in n:
+		var i := (start + k) % n
+		start_offsets[i] = travelled if travelled <= track_length * 0.5 else travelled - track_length
+		travelled += centerline[i].distance_to(centerline[(i + 1) % n])
+	var side := pit_side()
+	for i in n:
+		pit_open[i] = _pit_open_at(start_offsets[i]) if has_pit_lane() else 0.0
+		if pit_open[i] <= 0.0:
+			continue
+		var outer := pit_lane_end(i)
+		if side < 0.0:
+			wall_left[i] = maxf(wall_left[i], lerpf(wall_left[i], outer, pit_open[i]))
+		else:
+			wall_right[i] = maxf(wall_right[i], lerpf(wall_right[i], outer, pit_open[i]))
+
+
+func _pit_open_at(s: float) -> float:
+	var entry := pit_value("entry", -470.0)
+	var exit := pit_value("exit", 120.0)
+	var entry_end := entry + pit_value("entry_ramp", 45.0)
+	var exit_start := exit - pit_value("exit_ramp", 45.0)
+	if s <= entry or s >= exit:
+		return 0.0
+	if s < entry_end:
+		return smoothstep(entry, entry_end, s)
+	if s > exit_start:
+		return 1.0 - smoothstep(exit_start, exit, s)
+	return 1.0
+
+
+func has_pit_lane() -> bool:
+	return not pit_data.is_empty()
+
+
+func pit_value(key: String, fallback: float) -> float:
+	return float(pit_data.get(key, fallback))
+
+
+## Lado de la calle de boxes (−1 izquierda, +1 derecha).
+func pit_side() -> float:
+	return -1.0 if pit_value("side", -1.0) < 0.0 else 1.0
+
+
+## Metros desde la línea de largada hasta el índice i (de −media vuelta a +media vuelta).
+func start_offset(i: int) -> float:
+	return start_offsets[i] if i >= 0 and i < start_offsets.size() else 0.0
+
+
+## Del centro al lado de la calle del muro de boxes (donde empieza la calle).
+func pit_lane_start(i: int) -> float:
+	return half_width(i) + verge + pit_value("wall_thickness", 0.6)
+
+
+## Del centro al muro de afuera de la calle.
+func pit_lane_end(i: int) -> float:
+	return pit_lane_start(i) + pit_value("width", 8.0)
 
 
 func _moving_max(values: PackedFloat32Array, radius: int) -> PackedFloat32Array:
@@ -630,10 +719,10 @@ func _build_road_collision() -> void:
 	var n := centerline.size()
 	for i in n:
 		var j := (i + 1) % n
-		var a := _edge(i, -wall_left[i], 0.0)
-		var b := _edge(i, wall_right[i], 0.0)
-		var c := _edge(j, wall_right[j], 0.0)
-		var d := _edge(j, -wall_left[j], 0.0)
+		var a := _edge(i, -_road_left[i], 0.0)
+		var b := _edge(i, _road_right[i], 0.0)
+		var c := _edge(j, _road_right[j], 0.0)
+		var d := _edge(j, -_road_left[j], 0.0)
 		faces.append_array([a, b, c, a, c, d])
 	var shape := ConcavePolygonShape3D.new()
 	shape.set_faces(faces)
@@ -721,6 +810,152 @@ func _build_walls() -> void:
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
 	walls.add_child(collision)
+
+
+## Calle de boxes: piso (del borde de la pista al muro de afuera), línea del carril de las
+## cajas, líneas del limitador, muro de boxes con colisión, la marca de cada caja en el color de
+## su equipo, garajes detrás del muro de afuera y carteles.
+func _build_pit_lane() -> void:
+	if not has_pit_lane():
+		return
+	var n := centerline.size()
+	var side := pit_side()
+	var holder := Node3D.new()
+	holder.name = "PitLane"
+	add_child(holder)
+	var teams: Array = DataLoader.load_json(DataLoader.GRID_PATH).get("teams", [])
+	var work := pit_value("work_line", 4.1)
+	var first_box := pit_value("first_box", -300.0)
+	var spacing := pit_value("box_spacing", 18.0)
+	var boxes_from := first_box - spacing
+	var boxes_to := first_box + spacing * maxi(teams.size(), 1)
+	var limits := [pit_value("limit_from", -400.0), pit_value("limit_to", 60.0)]
+
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in n:
+		var j := (i + 1) % n
+		if pit_open[i] <= 0.0 and pit_open[j] <= 0.0:
+			continue
+		_add_quad(st, _edge(i, side * half_width(i), 0.018), _edge(j, side * half_width(j), 0.018),
+			_edge(j, side * wall_offset(j, side), 0.018), _edge(i, side * wall_offset(i, side), 0.018),
+			Vector3.UP, PIT_COLOR)
+		var s := start_offsets[i]
+		if s >= boxes_from and s <= boxes_to:
+			var at := pit_lane_start(i) + work
+			_add_quad(st, _edge(i, side * at, 0.022), _edge(j, side * at, 0.022),
+				_edge(j, side * (at + 0.2), 0.022), _edge(i, side * (at + 0.2), 0.022), Vector3.UP, LINE_COLOR)
+		for limit in limits:
+			if s <= limit and start_offsets[j] > limit:
+				var along := _flat_tangent(i) * 0.5
+				var a := _edge(i, side * pit_lane_start(i), 0.022)
+				var b := _edge(i, side * pit_lane_end(i), 0.022)
+				_add_quad(st, a, b, b + along, a + along, Vector3.UP, LINE_COLOR)
+	for b in teams.size():
+		var team: Dictionary = teams[b]
+		var box_s := first_box + spacing * b
+		var half := pit_value("box_length", 6.0) * 0.5
+		var color := DataLoader.team_primary(team)
+		var i := _index_at_offset(box_s - half)
+		while start_offsets[i] < box_s + half:
+			var j := (i + 1) % n
+			var from := pit_lane_start(i) + work + 0.4
+			var to := pit_lane_end(i) - 0.4
+			_add_quad(st, _edge(i, side * from, 0.024), _edge(j, side * from, 0.024),
+				_edge(j, side * to, 0.024), _edge(i, side * to, 0.024), Vector3.UP, color)
+			i = j
+		_build_garage(holder, team, _index_at_offset(box_s), spacing)
+	var floor_visual := MeshInstance3D.new()
+	floor_visual.name = "Floor"
+	floor_visual.mesh = st.commit()
+	floor_visual.material_override = _make_material(Color.WHITE, true)
+	holder.add_child(floor_visual)
+
+	# Muro de boxes, entre la pista (a `verge` del borde) y la calle, con tapas en las puntas.
+	var wall_from := pit_value("entry", -470.0) + pit_value("entry_ramp", 45.0)
+	var wall_to := pit_value("exit", 120.0) - pit_value("exit_ramp", 45.0)
+	var up := Vector3(0, pit_value("wall_height", 1.0), 0)
+	var walls := SurfaceTool.new()
+	walls.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var first := -1
+	var last := -1
+	for i in n:
+		var j := (i + 1) % n
+		if start_offsets[i] < wall_from or start_offsets[j] > wall_to or start_offsets[j] < start_offsets[i]:
+			continue
+		if first < 0:
+			first = i
+		last = j
+		var outward: Vector3 = _rights[i] * side
+		var in_a := _edge(i, side * (half_width(i) + verge), 0.0)
+		var in_b := _edge(j, side * (half_width(j) + verge), 0.0)
+		var out_a := _edge(i, side * pit_lane_start(i), 0.0)
+		var out_b := _edge(j, side * pit_lane_start(j), 0.0)
+		_add_quad(walls, in_a, in_b, in_b + up, in_a + up, -outward, PIT_WALL_COLOR)
+		_add_quad(walls, out_a, out_b, out_b + up, out_a + up, outward, PIT_WALL_COLOR)
+		_add_quad(walls, in_a + up, in_b + up, out_b + up, out_a + up, Vector3.UP, PIT_WALL_TOP)
+	for i in [first, last]:
+		if i < 0:
+			continue
+		var a := _edge(i, side * (half_width(i) + verge), 0.0)
+		var b := _edge(i, side * pit_lane_start(i), 0.0)
+		_add_quad(walls, a, b, b + up, a + up, _flat_tangent(i), PIT_WALL_TOP)
+	var mesh := walls.commit()
+	var body := StaticBody3D.new()
+	body.name = "PitWall"
+	holder.add_child(body)
+	var visual := MeshInstance3D.new()
+	visual.mesh = mesh
+	visual.material_override = _make_material(Color.WHITE, true)
+	body.add_child(visual)
+	var shape := mesh.create_trimesh_shape()
+	shape.backface_collision = true
+	var collision := CollisionShape3D.new()
+	collision.shape = shape
+	body.add_child(collision)
+
+	# Carteles sobre el muro de boxes, de cara a los que llegan.
+	var kmh := int(pit_value("speed_limit_kmh", 80.0))
+	var signs := [[pit_value("entry", -470.0) + 5.0, "PIT"], [limits[0], "PIT %d" % kmh], [limits[1], "FIN %d" % kmh]]
+	for sign in signs:
+		var i := _index_at_offset(float(sign[0]))
+		var label := Label3D.new()
+		label.text = str(sign[1])
+		label.font_size = 96
+		label.pixel_size = 0.012
+		label.outline_size = 18
+		label.modulate = Color(1.0, 0.95, 0.3)
+		label.transform = Transform3D(Basis.looking_at(_flat_tangent(i), Vector3.UP),
+			_edge(i, side * (half_width(i) + verge + 0.3), pit_value("wall_height", 1.0) + 1.0))
+		holder.add_child(label)
+
+
+## Garaje de un equipo detrás del muro de afuera, frente a su caja, con una franja de su color
+## y el nombre de cara a la calle.
+func _build_garage(holder: Node3D, team: Dictionary, i: int, length: float) -> void:
+	var side := pit_side()
+	var depth := pit_value("garage_depth", 5.0)
+	var height := pit_value("garage_height", 4.5)
+	var heading := Basis.looking_at(_flat_tangent(i), Vector3.UP)
+	var back := wall_offset(i, side) + wall_thickness
+	_add_box(holder, _edge(i, side * (back + depth * 0.5), height * 0.5),
+		Vector3(depth, height, length - 1.0), heading, Color(0.78, 0.78, 0.8))
+	_add_box(holder, _edge(i, side * (back + 0.06), height - 1.0),
+		Vector3(0.14, 1.1, length - 1.6), heading, DataLoader.team_primary(team))
+	var label := Label3D.new()
+	label.text = str(team.get("name", "")).to_upper()
+	label.font_size = 72
+	label.pixel_size = 0.012
+	label.outline_size = 14
+	label.transform = Transform3D(Basis.looking_at(_rights[i] * side, Vector3.UP),
+		_edge(i, side * (back - 0.05), height - 1.0))
+	holder.add_child(label)
+
+
+## Índice cuyo tramo contiene `s` metros desde la línea de largada.
+func _index_at_offset(s: float) -> int:
+	var start := _nearest_index(start_point)
+	return index_at_distance(start, s) if s < 0.0 else _index_after_distance(start, s)
 
 
 ## Inicio de cada tramo de curva de al menos board_min_corner_length metros.

@@ -13,7 +13,11 @@ extends Node
 ##   siguen en pista cierran su vuelta con su velocidad media (estimado).
 ## - Costo: los autos de la IA a más de `far_distance` m del jugador usan `substeps_far`
 ##   sub-pasos de neumáticos y los cercanos `substeps_near`.
-## Bloque "race" de data/modes.json (grilla y torre) y de data/ai.json (ritmo y costo).
+## - Boxes (Paso 48): en carreras de `pit_min_laps` vueltas o más cada auto de la IA tiene una
+##   parada planeada en una vuelta al azar dentro de `pit_window` (fracción de la carrera; semilla
+##   de la sesión); con el alerón roto o un pinchazo entra en la próxima pasada (salvo en la
+##   última vuelta). En la torre, los que están en la calle dicen "BOX".
+## Bloque "race" de data/modes.json (grilla y torre) y de data/ai.json (ritmo, costo y boxes).
 
 signal checkered_flag(leader: CarController)
 signal car_finished(car: CarController, position: int)
@@ -33,6 +37,10 @@ var think_far: int = 2
 var detail_size: float = 0.8
 var detail_range: float = 60.0
 var draw_range: float = 0.0
+var pit_min_laps: int = 8
+var pit_window := Vector2(0.35, 0.65)
+## Paso 48: calle de boxes (null = sin boxes).
+var pit_lane: PitLane
 
 var laps: int = 3
 var running: bool = false
@@ -70,6 +78,10 @@ func configure(race_data: Dictionary, ai_race_data: Dictionary, start_data: Dict
 	detail_size = maxf(float(ai_race_data.get("detail_size", detail_size)), 0.0)
 	detail_range = maxf(float(ai_race_data.get("detail_range", detail_range)), 0.0)
 	draw_range = maxf(float(ai_race_data.get("draw_range", draw_range)), 0.0)
+	pit_min_laps = maxi(int(ai_race_data.get("pit_min_laps", pit_min_laps)), 2)
+	var window = ai_race_data.get("pit_window", [])
+	if window is Array and window.size() >= 2:
+		pit_window = Vector2(clampf(float(window[0]), 0.0, 1.0), clampf(float(window[1]), 0.0, 1.0))
 
 
 func setup(traffic: RaceTraffic, stewards: RaceStewards, lap_count: int) -> void:
@@ -90,6 +102,7 @@ func add_entry(car: CarController, driver: Dictionary, team: Dictionary, ai: AiD
 		"progress": 0.0, "last": 0.0, "start_progress": 0.0, "lap": 0, "lap_start": 0.0,
 		"last_lap": -1.0, "best_lap": -1.0, "finished": false, "finish_time": -1.0,
 		"reaction": 0.0, "extra_penalty": 0.0, "code": code_of(str(driver.get("name", "?"))),
+		"pit_lap": -1,
 	}
 	entries.append(entry)
 	if ai != null:
@@ -126,6 +139,39 @@ func start(seed_value: int) -> void:
 		_marks[b] = 0.0
 	clock = 0.0
 	running = true
+	_plan_pits(seed_value)
+
+
+## Vuelta de la parada planeada de cada auto de la IA (−1 = sin parada planeada).
+func _plan_pits(seed_value: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([seed_value, "pits"])
+	for entry in entries:
+		entry["pit_lap"] = -1
+		if entry["ai"] == null or laps < pit_min_laps:
+			continue
+		var first := clampi(floori(laps * pit_window.x), 1, laps - 1)
+		var last := clampi(ceili(laps * pit_window.y), first, laps - 1)
+		entry["pit_lap"] = rng.randi_range(first, last)
+
+
+## Pide boxes a los de la IA que llegaron a su vuelta de parada o tienen el alerón roto o un
+## pinchazo (no en la última vuelta).
+func _check_pits() -> void:
+	if pit_lane == null or not pit_lane.enabled():
+		return
+	for entry in entries:
+		var ai: AiDriver = entry["ai"]
+		var car: CarController = entry["car"]
+		if ai == null or not is_instance_valid(car) or entry["finished"] or ai.pit_requested or ai.pitting:
+			continue
+		if int(entry["lap"]) >= laps - 1:
+			continue
+		var planned := int(entry["pit_lap"]) >= 0 and int(entry["lap"]) >= int(entry["pit_lap"]) \
+			and pit_lane.stops_of(car) == 0
+		var damaged := car.damage.is_wing_broken() or car.damage.punctures.has(true)
+		if planned or damaged:
+			ai.pit_requested = true
 
 
 func _physics_process(delta: float) -> void:
@@ -154,6 +200,7 @@ func _physics_process(delta: float) -> void:
 	if _lod_timer <= 0.0:
 		_lod_timer = lod_refresh
 		_update_lod()
+		_check_pits()
 
 
 func _mark(progress: float) -> void:
@@ -299,6 +346,8 @@ func tower_rows() -> Array[Dictionary]:
 			text = "Vuelta %d/%d" % [mini(int(entry["lap"]) + (0 if entry["finished"] else 1), laps), laps] if running else "Pole"
 		elif not running:
 			text = ""
+		elif pit_lane != null and pit_lane.in_lane(entry["car"]) and not entry["finished"]:
+			text = "BOX"
 		else:
 			var down := laps_behind(entry, leader)
 			if down >= 1 and not (entry["finished"] and leader["finished"] and entry["lap"] == leader["lap"]):
