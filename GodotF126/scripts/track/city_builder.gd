@@ -1,6 +1,6 @@
 class_name CityBuilder
 extends Node3D
-## Ciudad alrededor del trazado (Paso 22), generada desde el centerline de BakuTrack:
+## Ciudad alrededor del trazado (Paso 22), generada desde el centerline de TrackGenerator:
 ## - Edificios en filas detrás de los muros, con tamaño, alto y color al azar (semilla fija).
 ##   Se descartan los que caen cerca de otra parte de la pista, sobre el mar, sobre una
 ##   tribuna o sobre otro edificio.
@@ -45,7 +45,7 @@ var ad_length: float = 10.0
 var ad_gap: float = 2.0
 var ad_bottom: float = 0.15
 var ad_height: float = 0.9
-var ad_texts: PackedStringArray = PackedStringArray(["BAKU CITY CIRCUIT", "F126"])
+var ad_texts: PackedStringArray = PackedStringArray(["F126 SIMULATOR", "GODOT 4.7", "MATERIA 350"])
 var ad_colors: Array[Color] = [Color(0.1, 0.2, 0.5), Color(0.75, 0.1, 0.1)]
 var ad_label_distance: float = 220.0
 
@@ -55,7 +55,7 @@ var stand_ranges: Array[Dictionary] = [] ## {"name", "from", "to", "side"} en í
 var ad_count: int = 0
 var chunk_count: int = 0
 
-var _track: BakuTrack
+var _track: TrackGenerator
 var _grid: Dictionary = {}
 var _obstacles: Array[Vector3] = []   ## (x, z, radio)
 var _stand_mask_left: PackedByteArray = PackedByteArray()
@@ -110,7 +110,7 @@ func configure(data: Dictionary) -> void:
 
 
 ## obstacles: (x, z, radio) de lo que ya ocupa lugar (ciudad vieja, Flame Towers).
-func build(track: BakuTrack, obstacles: Array[Vector3]) -> void:
+func build(track: TrackGenerator, obstacles: Array[Vector3]) -> void:
 	_track = track
 	_obstacles = obstacles.duplicate()
 	_index_centerline()

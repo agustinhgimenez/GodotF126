@@ -159,7 +159,7 @@ var defences: int = 0
 var held_time: float = 0.0
 
 var car: CarController
-var _track: BakuTrack
+var _track: TrackGenerator
 var _line: RacingLine
 ## Velocidad objetivo por índice y máxima con el setup y el compuesto de su auto.
 var _speeds: PackedFloat32Array = PackedFloat32Array()
@@ -231,7 +231,7 @@ static func level_name(id: String, levels: Dictionary) -> String:
 	return str(data.get("name", id)) if data is Dictionary else id
 
 
-func setup(driven: CarController, track: BakuTrack, line: RacingLine, cars: RaceTraffic = null) -> void:
+func setup(driven: CarController, track: TrackGenerator, line: RacingLine, cars: RaceTraffic = null) -> void:
 	car = driven
 	_track = track
 	_line = line

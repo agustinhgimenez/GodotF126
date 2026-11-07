@@ -22,7 +22,7 @@ var on_kerb: bool = false
 ## Paso 48: en la calle de boxes no hay límites de pista (null = sin calle).
 var pit_lane: PitLane
 
-var _track: BakuTrack
+var _track: TrackGenerator
 var _car: CarController
 var _timer: LapTimer
 
@@ -34,7 +34,7 @@ func configure(data: Dictionary) -> void:
 	kerb_min_speed = float(data.get("kerb_min_speed", kerb_min_speed))
 
 
-func setup(track: BakuTrack, car: CarController, timer: LapTimer) -> void:
+func setup(track: TrackGenerator, car: CarController, timer: LapTimer) -> void:
 	_track = track
 	_car = car
 	_timer = timer

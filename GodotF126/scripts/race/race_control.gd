@@ -84,7 +84,7 @@ var update_us: float = 0.0
 
 var _race: RaceSession
 var _traffic: RaceTraffic
-var _track: BakuTrack
+var _track: TrackGenerator
 var _line: RacingLine
 var _pit: PitLane
 var _stewards: RaceStewards
@@ -127,7 +127,7 @@ func configure(data: Dictionary) -> void:
 	texts = text_data if text_data is Dictionary else {}
 
 
-func setup(race: RaceSession, traffic: RaceTraffic, track: BakuTrack, line: RacingLine, pit: PitLane,
+func setup(race: RaceSession, traffic: RaceTraffic, track: TrackGenerator, line: RacingLine, pit: PitLane,
 		stewards: RaceStewards, player: CarController, radio: EngineerRadio = null) -> void:
 	_race = race
 	_traffic = traffic

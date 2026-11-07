@@ -7,13 +7,24 @@
       "display_name": "Azerbaiyán — Bakú (placeholder)",
       "country": "Azerbaiyán",
       "city": "Bakú",
-      "scene": "res://scenes/tracks/baku.tscn",
+      "scene": "res://scenes/tracks/track.tscn",
       "type": "callejero",
       "real_length_km": 6.003,
       "placeholder": true,
       "notes": "Trazado aproximado inspirado en Bakú, a escala reducida (~2,6 km): recta larga junto al mar, ángulos rectos de la ciudad, subida al sector estrecho del castillo (7,6 m) y bajada. NO es el layout oficial FIA.",
       "status": "jugable",
       "records_key": "baku_v2",
+      "sea": {
+        "description": "Mar Caspio (Paso 53: antes estaba en el código): empieza a 'coast' m del origen en la dirección 'direction' ([x, z] en planta) y llega al horizonte.",
+        "coast": 40,
+        "direction": [0, 1]
+      },
+      "landmarks": [
+        {"name": "Ciudad vieja (murallas)", "type": "box", "position": [-180, 10, -455], "size": [140, 20, 50], "color": [0.72, 0.62, 0.46], "clearance": 75},
+        {"name": "Flame Tower", "type": "tower", "position": [-620, 0, -450], "top_radius": 4, "bottom_radius": 16, "height": 150, "color": [0.25, 0.4, 0.65], "clearance": 20},
+        {"name": "Flame Tower", "type": "tower", "position": [-570, 0, -480], "top_radius": 4, "bottom_radius": 16, "height": 150, "color": [0.25, 0.4, 0.65], "clearance": 20},
+        {"name": "Flame Tower", "type": "tower", "position": [-520, 0, -450], "top_radius": 4, "bottom_radius": 16, "height": 150, "color": [0.25, 0.4, 0.65], "clearance": 20}
+      ],
       "centerline": {
         "width": 12.0,
         "sample_step": 1.4,
@@ -191,6 +202,33 @@
         "look_ahead": 0.8,
         "look_smoothing": 7.0
       }
+    },
+    {
+      "id": "prueba",
+      "name": "Pista de prueba",
+      "display_name": "Pista de prueba (generada)",
+      "notes": "Paso 53: demuestra el generador. Sólo trae los puntos del trazado: pianos, muros, carteles, zonas de modo recta, calle de boxes, cámaras de TV y línea de trazada se arman solos. No aparece en el menú.",
+      "scene": "res://scenes/tracks/track.tscn",
+      "status": "prueba",
+      "records_key": "prueba",
+      "centerline": {
+        "default_corner_radius": 25.0,
+        "start": [300, 0],
+        "spawn": [285, 0],
+        "point_format": "[x, z] o [x, z, ancho, altura, escapatoria 0-1, radio de la esquina]",
+        "points": [
+          [-150, 0],
+          [600, 0],
+          [600, -250],
+          [300, -250, 12, 1, 1, 20],
+          [300, -450, 12, 3, 1, 25],
+          [-150, -450, 12, 2, 1, 30]
+        ]
+      },
+      "pit_lane": {"auto": true},
+      "landmarks": [
+        {"name": "Torre", "type": "tower", "position": [150, 0, -225], "top_radius": 3, "bottom_radius": 10, "height": 60, "color": [0.8, 0.45, 0.2], "clearance": 15}
+      ]
     },
     {
       "id": "segunda_pista",

@@ -104,8 +104,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 53 | Generador de pistas por puntos de control, reutilizable para otros circuitos | ⏳ Siguiente |
-| 54 | Segunda pista | |
+| 53 | Generador de pistas por puntos de control, reutilizable para otros circuitos | ✅ |
+| 54 | Segunda pista | ⏳ Siguiente |
 | 55 | Modo campeonato con varias carreras | |
 | 56 | Lluvia y pista mojada | |
 
@@ -1111,3 +1111,29 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   **Las pruebas anteriores siguen bien**: Pasos 47, 50 y 51 con 0 fallas y código de salida 0 (la carrera del Paso 47 sigue dando Norris 2:41,667). Capturas: `informes/capturas/paso52-pilotos.png`, `paso52-equipos.png` y `paso52-sanciones.png`.
 - **Fase F cerrada: hito H3 alcanzado** (rivales con IA, carrera con largada, fantasma, repeticiones y resultado con puntos).
 - **Cómo probar**: F5, Carrera de 2 vueltas. Al terminar, mirar el podio y los puntos; apretar ←/→ (o "Ver equipos") para ver los equipos y las sanciones.
+
+### Paso 53 — Generador de pistas por puntos de control, reutilizable para otros circuitos
+- **Un solo generador para todas las pistas**: `baku_track.gd` pasó a ser `scripts/track/track_generator.gd` (`TrackGenerator`) y la escena `scenes/tracks/track.tscn`; el nodo de `main.tscn` se llama `Track`. Arma la pista que pide `GameState.selected_track` (vacío = `default_track_id` de `data/tracks.json`, Bakú). Bakú se genera **idéntica** a antes: misma huella de centerline, muros, anchos, pianos, malla de colisión (10 992 caras), ciudad (378 edificios), carteles, línea ideal, cámaras de TV, boxes y zonas de modo recta.
+- **Todo lo propio de Bakú salió del código a `tracks.json`**: el mar (`"sea"`: costa y dirección) y los monumentos (`"landmarks"`: ciudad vieja como caja y las tres Flame Towers como cilindros, cada uno con su radio libre para la ciudad). Una pista sin `"sea"` no tiene mar; sin `"city"` lleva la ciudad genérica de `CityBuilder` (con publicidad genérica en vez de "BAKU CITY CIRCUIT").
+- **Lo que una pista nueva puede dejar en automático**:
+  - **Calle de boxes** (`"pit_lane": {"auto": true}`): en la recta principal, del lado de adentro (a la izquierda si la vuelta es antihoraria), con entrada y salida 20 m después y antes de los pianos, rampas de 45 m, limitador y una caja por equipo cada 18 m (menos si no entra, mínimo 10 m). Si la recta es corta, no hay calle y queda un aviso. Cualquier clave que traiga el JSON se respeta.
+  - **Zonas de modo recta** (sin `"aero_zones"`): las rectas de más de 300 m, desde 60 m después de la curva hasta 120 m antes de la siguiente.
+  - Carteles de frenado, pianos, escapatorias, sectores, línea ideal, cámaras de TV y grilla ya salían del trazado.
+- **Validación** al generar (`errors` / `warnings`, también en la consola como "Pista prueba: …"): menos de 3 puntos de control (usa el trazado de respaldo), tramos del polígono que se cruzan, radios que no entran entre los tramos (se achican), radios menores que media pista + banquina (el muro de adentro se dobla), partes del trazado que se tocan sin cruzarse (rectas paralelas muy cerca), vuelta de menos de 1 km, largada lejos del trazado o en una curva, y la calle de boxes automática que no entra. Bakú y la pista de prueba dan **0 errores y 0 avisos**.
+- **Pista de prueba** (`"prueba"` en `tracks.json`): 6 puntos de control, 2336 m, todo automático (boxes, zonas, ciudad) y una torre como monumento. Sirve para probar el generador; la segunda pista de verdad es el Paso 54.
+- **Vista previa en planta** (`scenes/track_preview.tscn`, `scripts/tools/track_preview.gd`): dibuja asfalto, muros, curvas (rojo), zonas de modo recta (verde), calle de boxes con las cajas de colores de los equipos (naranja), puntos de control numerados y el polígono que forman (amarillo), sectores (celeste), largada con el sentido de marcha, curvas numeradas y monumentos, más un panel con largo, anchos, sentido, boxes, zonas y los errores / avisos. ←/→ cambia de pista. No construye mallas (`preview_only`), así que tarda menos de un segundo. Desde la consola guarda una imagen: `Godot --path . res://scenes/track_preview.tscn -- --track prueba --save C:/tmp/prueba.png`.
+- **Elegir pista sin menú**: `Godot --path . -- --track prueba` (el selector en el menú llega con el Paso 54). La pantalla de carga, el HUD, los récords (`records_key`) y el resultado usan el nombre y la clave de la pista elegida.
+- `TrackGenerator.layout_override` acepta una pista con el formato de `tracks.json` sin tocar el archivo (lo usan las pruebas; sirve para un editor futuro).
+- **Verificación** (`paso53_tracks.gd`; huella de Bakú con `paso53_fingerprint.gd`):
+
+| Prueba | Resultado |
+|---|---|
+| Bakú igual que antes | huella idéntica en 32 valores (centerline, muros, malla de colisión, ciudad, carteles, línea ideal, TV, boxes, zonas, monumentos, mar, 13 nodos hijos) |
+| Validación | ocho → "los tramos 1-2 y 3-0 se cruzan"; rectas a 14 m → "se toca consigo mismo"; radio de 3 m → error; radio de 400 m en tramos de 300 m → aviso; 2 puntos → error y trazado de respaldo; largada lejos → error; largada en una esquina → aviso y sin boxes; recta de 250 m → sin boxes y aviso; 900 m → aviso de vuelta corta |
+| Automáticos | rectángulo de 700×300 m: boxes a la izquierda si es antihorario y a la derecha si es horario (siempre adentro); 2 zonas de modo recta |
+| Pista de prueba en el juego | 11 cajas en orden dentro del limitador (−271 a −91 m), 3 zonas de modo recta, 10 cámaras de TV, 17 carteles, línea ideal, ciudad genérica, sin mar |
+| Manejo | el jugador manejado por la IA da 2 vueltas (58,4 s y 56,8 s) sin golpes a muros, salidas ni rescates |
+| Carrera | 22 autos, 2 vueltas, sin golpes a muros ni rescates de la IA, resultado con puntos |
+
+  **Las pruebas anteriores siguen bien**: la vuelta del Paso 36 da exactamente 1:42,417 / 1:40,950 / 1:40,967 y los Pasos 47, 48, 51 y 52 dan 0 fallas (la carrera del Paso 47 sigue dando Norris 2:41,667). Las pruebas viejas sólo cambiaron el tipo (`TrackGenerator`) y el nombre del nodo (`Track`). Capturas: `informes/capturas/paso53-plano-baku.png`, `paso53-plano-prueba.png`, `paso53-prueba-curva.png`, `paso53-prueba-carrera.png` y `paso53-prueba-resultado.png`.
+- **Cómo probar**: abrir `scenes/track_preview.tscn` y apretar F6 (←/→ cambia de pista). Para correr en la pista de prueba: `Godot --path GodotF126 -- --track prueba` y elegir cualquier modo.

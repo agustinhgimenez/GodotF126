@@ -115,7 +115,7 @@ func _measure() -> Dictionary:
 
 
 func _set_view(race: Node, view: String) -> void:
-	var track: BakuTrack = race.track
+	var track: TrackGenerator = race.track
 	var car: CarController = race.car
 	match view:
 		"recta":
@@ -134,7 +134,7 @@ func _set_view(race: Node, view: String) -> void:
 			camera.make_current()
 
 
-func _place_car(track: BakuTrack, car: CarController, index: int) -> void:
+func _place_car(track: TrackGenerator, car: CarController, index: int) -> void:
 	car.global_transform = Transform3D(Basis.looking_at(track.flat_tangent(index), Vector3.UP),
 		track.centerline[index] + Vector3(0, 0.6, 0))
 	car.linear_velocity = Vector3.ZERO

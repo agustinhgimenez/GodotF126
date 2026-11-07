@@ -6,6 +6,8 @@ const MODE_TIME_TRIAL := "time_trial"
 const MODE_QUALIFYING := "qualifying"
 const MODE_RACE := "race"
 
+## Paso 53: pista (id de data/tracks.json); vacío = el default_track_id del archivo.
+var selected_track: String = ""
 ## Piloto elegido en el menú; vacío = el default_driver_id de la grilla.
 var selected_driver_id: String = ""
 ## Modo de juego (data/modes.json); vacío = el default_mode del archivo.
@@ -18,6 +20,14 @@ var tyre_compound: String = ""
 ## vuelta válida del jugador en la última clasificación (−1 = no corrió; la carrera usa su récord).
 var session_seed: int = 0
 var qualifying_time: float = -1.0
+
+
+## Paso 53: "Godot --path . -- --track prueba" elige la pista hasta que haya selector en el menú.
+func _ready() -> void:
+	var args := OS.get_cmdline_user_args()
+	for k in args.size() - 1:
+		if args[k] == "--track":
+			selected_track = args[k + 1]
 
 
 func is_time_trial() -> bool:

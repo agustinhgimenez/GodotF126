@@ -45,7 +45,7 @@ var top_speed: float = 0.0
 ## ms que tardó el último cálculo de la trayectoria.
 var build_ms: float = 0.0
 
-var _track: BakuTrack
+var _track: TrackGenerator
 var _car: CarController
 var _limits: TrackLimits
 var _material: ShaderMaterial
@@ -64,7 +64,7 @@ func configure(data: Dictionary) -> void:
 			spans.append(maxi(int(s), 1))
 
 
-func setup(track: BakuTrack, car: CarController, limits: TrackLimits) -> void:
+func setup(track: TrackGenerator, car: CarController, limits: TrackLimits) -> void:
 	_track = track
 	_car = car
 	_limits = limits

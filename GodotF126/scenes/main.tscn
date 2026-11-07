@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://bb5gulv443c00"]
 
 [ext_resource type="Script" uid="uid://bq4sodtmwgfms" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="PackedScene" path="res://scenes/tracks/baku.tscn" id="2_baku"]
+[ext_resource type="PackedScene" path="res://scenes/tracks/track.tscn" id="2_track"]
 [ext_resource type="PackedScene" path="res://scenes/car.tscn" id="3_car"]
 [ext_resource type="Script" uid="uid://dvdp7irld2kho" path="res://scripts/hud.gd" id="4_hud"]
 [ext_resource type="Script" uid="uid://bdgwd4glcun3n" path="res://scripts/lap_timer.gd" id="5_timer"]
@@ -36,7 +36,7 @@ environment = SubResource("Environment_main")
 transform = Transform3D(1, 0, 0, 0, 0.643, 0.766, 0, -0.766, 0.643, 0, 50, 0)
 shadow_enabled = true
 
-[node name="BakuTrack" parent="." unique_id=1790096593 instance=ExtResource("2_baku")]
+[node name="Track" parent="." unique_id=1790096593 instance=ExtResource("2_track")]
 
 [node name="Car" parent="." unique_id=640771451 instance=ExtResource("3_car")]
 

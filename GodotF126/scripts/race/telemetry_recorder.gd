@@ -30,7 +30,7 @@ var track_id: String = ""
 ## Exportación a CSV (Paso 42), configurada con el bloque "csv" de data/telemetry.json.
 var csv := TelemetryCsv.new()
 
-var _track: BakuTrack
+var _track: TrackGenerator
 var _car: CarController
 var _timer: LapTimer
 var _limits: TrackLimits
@@ -52,7 +52,7 @@ func configure(data: Dictionary) -> void:
 		csv.configure(csv_data)
 
 
-func setup(track: BakuTrack, car: CarController, timer: LapTimer, limits: TrackLimits, id: String) -> void:
+func setup(track: TrackGenerator, car: CarController, timer: LapTimer, limits: TrackLimits, id: String) -> void:
 	_track = track
 	_car = car
 	_timer = timer

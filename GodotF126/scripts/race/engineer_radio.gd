@@ -27,7 +27,7 @@ var extra_texts: Dictionary = {}
 var _strategy: RaceStrategy
 var _race: RaceSession
 var _pit: PitLane
-var _track: BakuTrack
+var _track: TrackGenerator
 var _car: CarController
 var _queue: Array[Dictionary] = []
 var _clock: float = 0.0
@@ -42,7 +42,7 @@ var _last_offset: float = 0.0
 var _served_in_lane: bool = false
 
 
-func setup(strategy: RaceStrategy, race: RaceSession, pit: PitLane, track: BakuTrack, car: CarController) -> void:
+func setup(strategy: RaceStrategy, race: RaceSession, pit: PitLane, track: TrackGenerator, car: CarController) -> void:
 	_strategy = strategy
 	_race = race
 	_pit = pit

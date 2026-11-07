@@ -1,8 +1,15 @@
-class_name BakuTrack
+class_name TrackGenerator
 extends Node3D
-## Circuito inspirado en Bakú, generado por código.
-## NO es el layout oficial FIA: es una aproximación a escala reducida (recta larga junto al
-## mar, ángulos rectos de la ciudad, subida al sector estrecho del castillo y bajada).
+## Generador de pistas por puntos de control (Paso 53; era BakuTrack hasta el Paso 52).
+## Todo sale de la pista `track_id` de data/tracks.json (vacío = GameState.selected_track o,
+## si tampoco hay, "default_track_id"): con sólo los puntos [x, z] del trazado arma asfalto,
+## pianos, escapatorias, muros, carteles de frenado, largada, sectores y, con
+## "pit_lane": {"auto": true}, la calle de boxes en la recta principal. El mar ("sea") y los
+## monumentos ("landmarks") también son datos de cada pista.
+## Bakú: NO es el layout oficial FIA, es una aproximación a escala reducida (recta larga junto
+## al mar, ángulos rectos de la ciudad, subida al sector estrecho del castillo y bajada).
+## validate() revisa el trazado al cargar (cerrado, sin cruces ni tramos que se toquen, radios,
+## largo) y deja los problemas en `errors` / `warnings` (también en la consola).
 ## Coordenadas en metros: X / Z en el plano, Y hacia arriba.
 ## Paso 19: en las curvas (radio menor a corner_radius) hay pianos a los dos lados y
 ## escapatoria del lado de afuera, con el muro más lejos. La línea blanca es el límite.
@@ -58,7 +65,7 @@ const SEA_SHADER := "res://shaders/sea.gdshader"
 ## Lado del suelo (y ancho del mar): con la neblina, el borde no se ve desde la pista.
 const GROUND_SIZE := 8000.0
 
-@export var track_name: String = "Azerbaiyán — Bakú (placeholder)"
+@export var track_name: String = ""
 @export var track_width: float = 12.0          ## ancho por defecto de los puntos sin ancho propio
 @export var edge_line_width: float = 0.35
 @export var wall_height: float = 1.2
@@ -67,10 +74,14 @@ const GROUND_SIZE := 8000.0
 @export var default_corner_radius: float = 16.0  ## radio de las esquinas sin radio propio
 @export var attribute_smoothing: float = 20.0    ## m para suavizar altura y ancho
 @export var barrier_segment_length: float = 6.0
-@export var track_id: String = "baku"
+@export var track_id: String = ""                 ## vacío = GameState.selected_track / default_track_id
 @export var start_point: Vector3 = Vector3(-150, 0, 0)
 @export var spawn_point: Vector3 = Vector3(-165, 0, 0)
 @export var city_enabled: bool = true            ## Paso 22: edificios, tribunas y publicidad
+@export var preview_only: bool = false           ## Paso 53: sólo trazado y validación, sin mallas
+
+## Paso 53: pista con el formato de tracks.json que reemplaza a la del id (pruebas, editores).
+var layout_override: Dictionary = {}
 
 @export_group("Pianos y escapatorias")
 @export var corner_radius: float = 120.0       ## por debajo de este radio es curva
@@ -122,6 +133,20 @@ var start_offsets: PackedFloat32Array = PackedFloat32Array()
 ## Por índice: 0–1 cuánto está abierta la calle de boxes (rampas en la entrada y la salida).
 var pit_open: PackedFloat32Array = PackedFloat32Array()
 
+## Paso 53: bloque de la pista en tracks.json, mar ({coast, direction}; vacío = sin mar),
+## monumentos y problemas del trazado que encontró validate().
+var track_info: Dictionary = {}
+var sea_data: Dictionary = {}
+var landmarks: Array = []
+var errors: PackedStringArray = PackedStringArray()
+var warnings: PackedStringArray = PackedStringArray()
+## Con "pit_lane": {"auto": true}: lo que se pidió (lo demás lo calcula _auto_pit()).
+var _pit_auto: Dictionary = {}
+var _pit_warning: String = ""
+## Avisos de _round_corners() (radios achicados o que no alcanzan para el muro de adentro).
+var _corner_notes: PackedStringArray = PackedStringArray()
+var _corner_errors: PackedStringArray = PackedStringArray()
+
 ## Puntos de control: [x, z, ancho, altura, escapatoria, radio de la esquina].
 var _control: Array[PackedFloat32Array] = []
 ## Hasta dónde llega el piso de la pista a cada lado (los muros sin la calle de boxes).
@@ -134,6 +159,11 @@ func _ready() -> void:
 	_load_layout()
 	_ensure_centerline()
 	_compute_layout()
+	validate()
+	if preview_only:
+		_find_corner_starts()
+		_compute_checkpoints()
+		return
 	_build_ground_and_sea()
 	_build_runoff()
 	_build_road_collision()
@@ -254,43 +284,96 @@ func is_grandstand(i: int, side: float) -> bool:
 
 # --- Trazado -----------------------------------------------------------------
 
-func _load_layout() -> void:
-	_control.clear()
+## Id de pista a usar: `requested` si existe en tracks.json, si no "default_track_id".
+static func resolve_track_id(requested: String) -> String:
+	var tracks := DataLoader.load_json(DataLoader.TRACKS_PATH)
+	if not requested.is_empty() and not find_track_info(requested).is_empty():
+		return requested
+	return str(tracks.get("default_track_id", "baku"))
+
+
+static func find_track_info(id: String) -> Dictionary:
 	for info in DataLoader.load_json(DataLoader.TRACKS_PATH).get("tracks", []):
-		if str(info.get("id", "")) != track_id:
+		if info is Dictionary and str(info.get("id", "")) == id:
+			return info
+	return {}
+
+
+## Pistas que se pueden generar (tienen "centerline" con puntos).
+static func generated_track_ids() -> PackedStringArray:
+	var ids := PackedStringArray()
+	for info in DataLoader.load_json(DataLoader.TRACKS_PATH).get("tracks", []):
+		if not info is Dictionary:
 			continue
 		var line = info.get("centerline", {})
-		if line is Dictionary:
-			_load_centerline(line)
-		var city_info = info.get("city", {})
-		if city_info is Dictionary:
-			city_data = city_info
-			city_enabled = city_enabled and bool(city_info.get("enabled", true))
-		var pit = info.get("pit_lane", {})
-		pit_data = pit if pit is Dictionary else {}
-		var boards = info.get("brake_boards", {})
-		if boards is Dictionary:
-			var distances = boards.get("distances", [])
-			if distances is Array and not distances.is_empty():
-				board_distances = PackedFloat32Array(distances)
-			board_min_gap = float(boards.get("min_gap", board_min_gap))
-			board_min_corner_length = float(boards.get("min_corner_length", board_min_corner_length))
-			board_wall_clearance = float(boards.get("wall_clearance", board_wall_clearance))
-			board_height = float(boards.get("height", board_height))
-			board_width = float(boards.get("width", board_width))
-			board_panel_height = float(boards.get("panel_height", board_panel_height))
-		var data = info.get("layout", {})
-		if not data is Dictionary:
-			return
-		corner_radius = float(data.get("corner_radius", corner_radius))
-		curvature_window = float(data.get("curvature_window", curvature_window))
-		kerb_width = float(data.get("kerb_width", kerb_width))
-		kerb_height = float(data.get("kerb_height", kerb_height))
-		kerb_stripe = float(data.get("kerb_stripe", kerb_stripe))
-		kerb_extend = float(data.get("kerb_extend", kerb_extend))
-		verge = float(data.get("verge", verge))
-		runoff_width = float(data.get("runoff_width", runoff_width))
-		runoff_ramp = float(data.get("runoff_ramp", runoff_ramp))
+		if line is Dictionary and line.get("points", []) is Array and not (line.get("points", []) as Array).is_empty():
+			ids.append(str(info.get("id", "")))
+	return ids
+
+
+func _resolve_id() -> void:
+	var requested := track_id
+	if requested.is_empty() and Engine.get_main_loop() is SceneTree:
+		var state: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("GameState")
+		if state != null and "selected_track" in state:
+			requested = str(state.get("selected_track"))
+	track_id = resolve_track_id(requested)
+
+
+func _load_layout() -> void:
+	_control.clear()
+	if layout_override.is_empty():
+		_resolve_id()
+	else:
+		track_id = str(layout_override.get("id", "prueba"))
+	var info: Dictionary = layout_override if not layout_override.is_empty() else find_track_info(track_id)
+	if info.is_empty():
+		return
+	track_info = info
+	if track_name.is_empty():
+		track_name = str(info.get("display_name", info.get("name", track_id)))
+	var line = info.get("centerline", {})
+	if line is Dictionary:
+		_load_centerline(line)
+	var city_info = info.get("city", {})
+	if city_info is Dictionary:
+		city_data = city_info
+		city_enabled = city_enabled and bool(city_info.get("enabled", true))
+	else:
+		city_enabled = false
+	var sea = info.get("sea", {})
+	sea_data = sea if sea is Dictionary else {}
+	var marks = info.get("landmarks", [])
+	landmarks = marks if marks is Array else []
+	var pit = info.get("pit_lane", {})
+	pit_data = pit if pit is Dictionary else {}
+	_pit_auto = {}
+	if bool(pit_data.get("auto", false)):
+		_pit_auto = pit_data.duplicate()
+		pit_data = {}
+	var boards = info.get("brake_boards", {})
+	if boards is Dictionary:
+		var distances = boards.get("distances", [])
+		if distances is Array and not distances.is_empty():
+			board_distances = PackedFloat32Array(distances)
+		board_min_gap = float(boards.get("min_gap", board_min_gap))
+		board_min_corner_length = float(boards.get("min_corner_length", board_min_corner_length))
+		board_wall_clearance = float(boards.get("wall_clearance", board_wall_clearance))
+		board_height = float(boards.get("height", board_height))
+		board_width = float(boards.get("width", board_width))
+		board_panel_height = float(boards.get("panel_height", board_panel_height))
+	var data = info.get("layout", {})
+	if not data is Dictionary:
+		return
+	corner_radius = float(data.get("corner_radius", corner_radius))
+	curvature_window = float(data.get("curvature_window", curvature_window))
+	kerb_width = float(data.get("kerb_width", kerb_width))
+	kerb_height = float(data.get("kerb_height", kerb_height))
+	kerb_stripe = float(data.get("kerb_stripe", kerb_stripe))
+	kerb_extend = float(data.get("kerb_extend", kerb_extend))
+	verge = float(data.get("verge", verge))
+	runoff_width = float(data.get("runoff_width", runoff_width))
+	runoff_ramp = float(data.get("runoff_ramp", runoff_ramp))
 
 
 ## Puntos [x, z] o [x, z, ancho, altura, escapatoria, radio]; lo que falte toma el valor
@@ -388,6 +471,8 @@ func _compute_pit_layout() -> void:
 		var i := (start + k) % n
 		start_offsets[i] = travelled if travelled <= track_length * 0.5 else travelled - track_length
 		travelled += centerline[i].distance_to(centerline[(i + 1) % n])
+	if not _pit_auto.is_empty():
+		pit_data = _auto_pit(_pit_auto)
 	var side := pit_side()
 	for i in n:
 		pit_open[i] = _pit_open_at(start_offsets[i]) if has_pit_lane() else 0.0
@@ -416,6 +501,195 @@ func _pit_open_at(s: float) -> float:
 
 func has_pit_lane() -> bool:
 	return not pit_data.is_empty()
+
+
+## "aero_zones" de la pista o, si no trae, las automáticas (formato de AeroZones.configure).
+func aero_zone_data() -> Dictionary:
+	var data = track_info.get("aero_zones", {})
+	if data is Dictionary and data.has("zones"):
+		return data
+	return {"zones": auto_aero_zones()}
+
+
+## Puntos de control del trazado: [x, z, ancho, radio, ...] como en tracks.json.
+func control_points() -> Array[PackedFloat32Array]:
+	return _control
+
+
+## Zonas de modo recta para pistas sin "aero_zones": las rectas de más de `min_length` m,
+## desde `after` m después de la curva hasta `before` m antes de la siguiente (en metros desde
+## la línea, como en tracks.json).
+func auto_aero_zones(min_length: float = 300.0, after: float = 60.0, before: float = 120.0) -> Array:
+	var zones: Array = []
+	var n := centerline.size()
+	if corner_mask.is_empty():
+		return zones
+	var first := -1
+	for i in n:
+		if corner_mask[i] > 0.0 and corner_mask[(i + 1) % n] <= 0.0:
+			first = (i + 1) % n
+			break
+	if first < 0:
+		return zones
+	var k := 0
+	while k < n:
+		var i := (first + k) % n
+		if corner_mask[i] > 0.0:
+			k += 1
+			continue
+		var length := 0.0
+		var j := i
+		while corner_mask[j] <= 0.0 and k < n:
+			length += centerline[j].distance_to(centerline[(j + 1) % n])
+			j = (j + 1) % n
+			k += 1
+		if length >= min_length:
+			zones.append({"name": "Recta %d" % (zones.size() + 1),
+				"from": start_offsets[i] + after, "to": start_offsets[i] + length - before})
+	return zones
+
+
+## Revisa el trazado: puntos de control, cruces del polígono, radios, tramos que se tocan,
+## largo y largada. Deja los textos en `errors` / `warnings` y los muestra en la consola.
+func validate() -> void:
+	errors = PackedStringArray()
+	warnings = PackedStringArray()
+	if _control.size() < 3:
+		errors.append("hacen falta al menos 3 puntos de control (hay %d): se usa el trazado de respaldo" % _control.size())
+	var m := _control.size()
+	for a in m:
+		for b in range(a + 2, m):
+			if a == 0 and b == m - 1:
+				continue
+			var p1 := Vector2(_control[a][0], _control[a][1])
+			var p2 := Vector2(_control[(a + 1) % m][0], _control[(a + 1) % m][1])
+			var q1 := Vector2(_control[b][0], _control[b][1])
+			var q2 := Vector2(_control[(b + 1) % m][0], _control[(b + 1) % m][1])
+			if Geometry2D.segment_intersects_segment(p1, p2, q1, q2) != null:
+				errors.append("los tramos %d-%d y %d-%d se cruzan" % [a, (a + 1) % m, b, (b + 1) % m])
+	errors.append_array(_corner_errors)
+	warnings.append_array(_corner_notes)
+	_check_overlaps()
+	if track_length < 1000.0:
+		warnings.append("la vuelta mide %.0f m (menos de 1 km)" % track_length)
+	var start := _nearest_index(start_point)
+	var off := Vector2(start_point.x - centerline[start].x, start_point.z - centerline[start].z).length()
+	if off > 20.0:
+		errors.append("la largada (%.0f, %.0f) está a %.0f m del trazado" % [start_point.x, start_point.z, off])
+	if not corner_mask.is_empty() and corner_mask[start] > 0.0:
+		warnings.append("la largada está en una curva")
+	if not _pit_warning.is_empty():
+		warnings.append(_pit_warning)
+	for text in errors:
+		push_warning("Pista %s: ERROR: %s" % [track_id, text])
+	for text in warnings:
+		push_warning("Pista %s: %s" % [track_id, text])
+
+
+## Tramos que se tocan: puntos del trazado (cada ~3 m) a menos de la suma de las medias
+## pistas + banquinas de otro punto que esté lejos por el trazado. Grilla de 40 m.
+func _check_overlaps() -> void:
+	var n := centerline.size()
+	var spacing := track_length / maxf(n, 1)
+	var stride := maxi(int(3.0 / spacing), 1)
+	var cell := 40.0
+	var grid: Dictionary = {}
+	for i in range(0, n, stride):
+		var key := Vector2i(floori(centerline[i].x / cell), floori(centerline[i].z / cell))
+		if not grid.has(key):
+			grid[key] = []
+		(grid[key] as Array).append(i)
+	var reported: Dictionary = {}
+	var min_along := 4.0 * (max_width + verge * 2.0) + 40.0
+	for i in range(0, n, stride):
+		var key := Vector2i(floori(centerline[i].x / cell), floori(centerline[i].z / cell))
+		for dx in range(-1, 2):
+			for dz in range(-1, 2):
+				for j in grid.get(key + Vector2i(dx, dz), []):
+					if j <= i:
+						continue
+					var along := absf(float(j - i)) * spacing
+					along = minf(along, track_length - along)
+					if along < min_along:
+						continue
+					var need := half_width(i) + half_width(j) + verge * 2.0
+					var d := sqrt(_flat_distance_squared(centerline[i], centerline[j]))
+					if d < need:
+						var region := Vector2i(floori(centerline[i].x / 100.0), floori(centerline[i].z / 100.0))
+						if reported.has(region):
+							continue
+						reported[region] = true
+						errors.append("el trazado se toca consigo mismo cerca de (%.0f, %.0f): %.1f m entre centros, hacen falta %.1f" % [
+							centerline[i].x, centerline[i].z, d, need])
+
+
+## Recta que contiene la línea de largada: Vector2(desde, hasta) en metros desde la línea
+## (sin curva, sin las extensiones de los pianos).
+func main_straight() -> Vector2:
+	var n := centerline.size()
+	var start := _nearest_index(start_point)
+	if corner_mask.is_empty() or corner_mask[start] > 0.0:
+		return Vector2.ZERO
+	var a := start
+	var b := start
+	for k in n:
+		var prev := (a - 1 + n) % n
+		if corner_mask[prev] > 0.0:
+			break
+		a = prev
+	for k in n:
+		var next := (b + 1) % n
+		if corner_mask[next] > 0.0:
+			break
+		b = next
+	return Vector2(start_offsets[a], start_offsets[b])
+
+
+## Sentido de giro del trazado: +1 si da la vuelta hacia la izquierda (el interior queda a la
+## izquierda), −1 hacia la derecha.
+func turning_sense() -> float:
+	var n := centerline.size()
+	var total := 0.0
+	for i in n:
+		total += _flat_tangent(i).signed_angle_to(_flat_tangent((i + 1) % n), Vector3.UP)
+	return 1.0 if total >= 0.0 else -1.0
+
+
+## Calle de boxes armada sola en la recta principal, del lado de adentro: entrada y salida a
+## `margin` m de las curvas, limitador desde 25 m después de la rampa de entrada hasta 15 m
+## antes de la de salida, una caja por equipo desde 60 m después del comienzo del limitador
+## (separación hasta 18 m, mínimo `min_box_spacing`). Lo que traiga `request` (salvo "auto")
+## se respeta. Si la recta no alcanza, no hay calle (queda en `warnings`).
+func _auto_pit(request: Dictionary) -> Dictionary:
+	var straight := main_straight()
+	var margin := float(request.get("margin", kerb_extend + 10.0))
+	var entry_ramp := float(request.get("entry_ramp", 45.0))
+	var exit_ramp := float(request.get("exit_ramp", 45.0))
+	var entry := float(request.get("entry", straight.x + margin))
+	var exit := float(request.get("exit", straight.y - margin))
+	var limit_from := float(request.get("limit_from", entry + entry_ramp + 25.0))
+	var limit_to := float(request.get("limit_to", exit - exit_ramp - 15.0))
+	var first_box := float(request.get("first_box", limit_from + 60.0))
+	var teams := maxi((DataLoader.load_json(DataLoader.GRID_PATH).get("teams", []) as Array).size(), 1)
+	var room := limit_to - 40.0 - first_box
+	var spacing := float(request.get("box_spacing", minf(18.0, room / maxf(teams - 1, 1))))
+	var min_spacing := float(request.get("min_box_spacing", 10.0))
+	if exit - entry < entry_ramp + exit_ramp + 100.0 or spacing < min_spacing:
+		_pit_warning = "la recta principal (%.0f m) es corta para la calle de boxes: harían falta ~%.0f m" % [
+			straight.y - straight.x, (teams - 1) * min_spacing + entry_ramp + exit_ramp + 140.0 + 2.0 * margin]
+		return {}
+	var data := request.duplicate()
+	data.erase("auto")
+	data["side"] = float(request.get("side", -turning_sense()))
+	data["entry"] = entry
+	data["entry_ramp"] = entry_ramp
+	data["exit"] = exit
+	data["exit_ramp"] = exit_ramp
+	data["limit_from"] = limit_from
+	data["limit_to"] = limit_to
+	data["first_box"] = first_box
+	data["box_spacing"] = spacing
+	return data
 
 
 func pit_value(key: String, fallback: float) -> float:
@@ -474,7 +748,10 @@ func _ensure_centerline() -> void:
 	if _control.is_empty():
 		_load_layout()
 	var points: Array[PackedFloat32Array] = _control.duplicate()
-	if points.is_empty():
+	_corner_notes.clear()
+	_corner_errors.clear()
+	if points.size() < 3:
+		points.clear()
 		for p in FALLBACK_POINTS:
 			points.append(PackedFloat32Array([p.x, p.y, track_width, 0.0, 1.0, default_corner_radius]))
 	points = _resample_closed(_round_corners(points), sample_step)
@@ -549,6 +826,11 @@ func _round_corners(points: Array[PackedFloat32Array]) -> Array[PackedFloat32Arr
 		if t > t_max:
 			t = t_max
 			radius = t / tan(absf(turn) * 0.5)
+			if absf(turn) > 0.2:
+				_corner_notes.append("punto %d: el radio de %.0f m no entra entre los tramos, queda en %.0f m" % [k, p[5], radius])
+		var inner := p[2] * 0.5 + verge
+		if absf(turn) > 0.2 and radius < inner:
+			_corner_errors.append("punto %d: radio de %.1f m, menor que media pista + banquina (%.1f m): el muro de adentro se dobla" % [k, radius, inner])
 		var from := _lerp_point(prev, p, 1.0 - t / len_in)
 		var to := _lerp_point(p, next, t / len_out)
 		var arc_start := corner - d0 * t
@@ -642,14 +924,23 @@ func _build_ground_and_sea() -> void:
 	ground_visual.material_override = _make_material(Color(0.62, 0.58, 0.5))
 	ground.add_child(ground_visual)
 
-	# Mar Caspio al sur de la recta principal: shader de agua (colores según la luz, Paso 23).
+	# Mar ("sea" de la pista; en Bakú el Caspio al sur de la recta principal): shader de agua
+	# (colores según la luz, Paso 23). Arranca a `coast` m del origen en la dirección
+	# `direction` (en planta, [x, z]) y llega hasta el horizonte.
+	if sea_data.is_empty():
+		return
+	var direction := Vector2(0, 1)
+	var dir_data = sea_data.get("direction", [0, 1])
+	if dir_data is Array and dir_data.size() >= 2 and Vector2(float(dir_data[0]), float(dir_data[1])).length() > 0.0:
+		direction = Vector2(float(dir_data[0]), float(dir_data[1])).normalized()
+	var coast := float(sea_data.get("coast", 40.0))
 	var sea_mesh := PlaneMesh.new()
-	# Arranca en Z = 40 (la costa) y llega hasta el horizonte.
 	sea_mesh.size = Vector2(GROUND_SIZE, GROUND_SIZE * 0.5)
 	var sea := MeshInstance3D.new()
-	sea.name = "CaspianSea"
+	sea.name = "Sea"
 	sea.mesh = sea_mesh
-	sea.position = Vector3(0, 0.0, 40.0 + GROUND_SIZE * 0.25)
+	sea.position = Vector3(direction.x, 0.0, direction.y) * (coast + GROUND_SIZE * 0.25)
+	sea.rotation.y = atan2(direction.x, direction.y)
 	var water := ShaderMaterial.new()
 	water.shader = load(SEA_SHADER)
 	sea.material_override = water
@@ -657,7 +948,7 @@ func _build_ground_and_sea() -> void:
 
 
 func get_sea() -> MeshInstance3D:
-	return get_node_or_null("CaspianSea") as MeshInstance3D
+	return get_node_or_null("Sea") as MeshInstance3D
 
 
 func get_ground_visual() -> MeshInstance3D:
@@ -1082,12 +1373,15 @@ func _build_start_line() -> void:
 		Vector3(gantry_offset * 2.0 + 0.6, 1.0, 0.8), start.basis, gantry_color)
 
 
-func _build_checkpoints() -> void:
+func _compute_checkpoints() -> void:
 	var start_i := _nearest_index(start_point)
 	checkpoint_indices = PackedInt32Array([start_i])
 	for s in range(1, SECTOR_COUNT):
 		checkpoint_indices.append(_index_after_distance(start_i, track_length * s / SECTOR_COUNT))
 
+
+func _build_checkpoints() -> void:
+	_compute_checkpoints()
 	var holder := Node3D.new()
 	holder.name = "Checkpoints"
 	add_child(holder)
@@ -1138,25 +1432,28 @@ func _build_scenery() -> void:
 	# Lo que ocupa lugar para la ciudad generada: (x, z, radio).
 	var obstacles: Array[Vector3] = []
 
-	# Ciudad vieja (Icherisheher): murallas dentro de la vuelta del castillo.
-	_add_box(scenery, Vector3(-180, 10, -455), Vector3(140, 20, 50),
-		Basis.IDENTITY, STONE_COLOR)
-	obstacles.append(Vector3(-180, -455, 75))
-
-	# Placeholder de las Flame Towers, en la colina al oeste.
-	var tower_color := Color(0.25, 0.4, 0.65)
-	var tower_positions := [Vector3(-620, 0, -450), Vector3(-570, 0, -480), Vector3(-520, 0, -450)]
-	for p in tower_positions:
-		obstacles.append(Vector3(p.x, p.z, 20))
-		var tower := MeshInstance3D.new()
-		var mesh := CylinderMesh.new()
-		mesh.top_radius = 4.0
-		mesh.bottom_radius = 16.0
-		mesh.height = 150.0
-		tower.mesh = mesh
-		tower.position = p + Vector3(0, 75, 0)
-		tower.material_override = _make_material(tower_color)
-		scenery.add_child(tower)
+	# Monumentos ("landmarks" de la pista; en Bakú la ciudad vieja y las Flame Towers):
+	# {"type": "box", "position": [x, y, z] (centro), "size": [x, y, z]} o
+	# {"type": "tower", "position": [x, y, z] (base), "top_radius", "bottom_radius", "height"},
+	# con "color" [r, g, b] y "clearance" (m libres para la ciudad alrededor).
+	for mark in landmarks:
+		if not mark is Dictionary:
+			continue
+		var p := _vec3(mark.get("position", []), Vector3.ZERO)
+		var color := _color3(mark.get("color", []), STONE_COLOR)
+		obstacles.append(Vector3(p.x, p.z, float(mark.get("clearance", 20.0))))
+		if str(mark.get("type", "box")) == "tower":
+			var tower := MeshInstance3D.new()
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = float(mark.get("top_radius", 4.0))
+			mesh.bottom_radius = float(mark.get("bottom_radius", 16.0))
+			mesh.height = float(mark.get("height", 150.0))
+			tower.mesh = mesh
+			tower.position = p + Vector3(0, mesh.height * 0.5, 0)
+			tower.material_override = _make_material(color)
+			scenery.add_child(tower)
+		else:
+			_add_box(scenery, p, _vec3(mark.get("size", []), Vector3(10, 10, 10)), Basis.IDENTITY, color)
 
 	if city_enabled:
 		city = CityBuilder.new()
@@ -1174,6 +1471,20 @@ func _add_quad(st: SurfaceTool, v0: Vector3, v1: Vector3, v2: Vector3, v3: Vecto
 		st.set_color(color)
 		st.set_normal(normal)
 		st.add_vertex(v)
+
+
+static func _vec3(value, fallback: Vector3) -> Vector3:
+	if value is Array and value.size() >= 3:
+		return Vector3(float(value[0]), float(value[1]), float(value[2]))
+	return fallback
+
+
+static func _color3(value, fallback: Color) -> Color:
+	if value is Array and value.size() >= 3:
+		return Color(float(value[0]), float(value[1]), float(value[2]))
+	if value is String:
+		return Color.html(value)
+	return fallback
 
 
 func _add_box(parent: Node3D, pos: Vector3, size: Vector3, orientation: Basis, color: Color) -> void:

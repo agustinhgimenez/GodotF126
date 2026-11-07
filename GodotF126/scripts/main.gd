@@ -1,10 +1,10 @@
 extends Node3D
-## Escena principal: carga datos (grilla, pistas, auto, setup), spawnea el auto en Bakú y arma el HUD.
+## Escena principal: carga datos (grilla, pistas, auto, setup), spawnea el auto en la pista
+## generada (Paso 53: GameState.selected_track; Bakú por defecto) y arma el HUD.
 ## Esc abre el menú de pausa (PauseMenu). En contrarreloj, al cerrar la última vuelta se
 ## sueltan los controles y se muestra el resultado (ResultsScreen).
 
 const MENU_SCENE := "res://scenes/menu.tscn"
-const TRACK_ID := "baku"
 
 ## Respaldo por si el input map de project.godot se pierde o se edita mal.
 const DEFAULT_KEYS := {
@@ -90,7 +90,7 @@ var _physics_guard: Node
 var _replay_from_results: bool = false
 var _hud_was_visible: bool = true
 
-@onready var track: BakuTrack = $BakuTrack
+@onready var track: TrackGenerator = $Track
 @onready var car: CarController = $Car
 @onready var hud: RaceHUD = $HUD
 @onready var lap_timer: LapTimer = $LapTimer
@@ -106,12 +106,11 @@ func _ready() -> void:
 	_ensure_input_actions()
 
 	var grid := DataLoader.load_json(DataLoader.GRID_PATH)
-	var tracks := DataLoader.load_json(DataLoader.TRACKS_PATH)
 	var driver_id := GameState.selected_driver_id
 	if driver_id.is_empty():
 		driver_id = str(grid.get("default_driver_id", "colapinto"))
 	_select_driver(grid, driver_id)
-	var track_info := _find_track(tracks, TRACK_ID)
+	var track_info := track.track_info
 
 	var tv_data = track_info.get("tv_cameras", {})
 	if tv_data is Dictionary:
@@ -149,11 +148,9 @@ func _ready() -> void:
 	track_name = str(track_info.get("display_name", track.track_name))
 	hud.set_track_name(track_name)
 
-	lap_timer.setup(str(track_info.get("records_key", TRACK_ID)))
+	lap_timer.setup(str(track_info.get("records_key", track.track_id)))
 	_setup_mode()
-	var zones_data = track_info.get("aero_zones", {})
-	if zones_data is Dictionary:
-		aero_zones.configure(zones_data)
+	aero_zones.configure(track.aero_zone_data())
 	aero_zones.setup(track, car, track_limits, lap_timer)
 	racing_line = RacingLine.new()
 	racing_line.name = "RacingLine"
@@ -192,7 +189,7 @@ func _ready() -> void:
 	telemetry.name = "Telemetry"
 	telemetry.configure(DataLoader.load_json(TelemetryRecorder.DATA_PATH))
 	add_child(telemetry)
-	telemetry.setup(track, car, lap_timer, track_limits, str(track_info.get("records_key", TRACK_ID)))
+	telemetry.setup(track, car, lap_timer, track_limits, str(track_info.get("records_key", track.track_id)))
 	live_delta = LiveDelta.new()
 	live_delta.name = "LiveDelta"
 	var delta_data = DataLoader.load_json(TelemetryRecorder.DATA_PATH).get("delta", {})
@@ -288,7 +285,7 @@ func _setup_start_lights() -> void:
 	start_lights.lights_out.connect(_on_lights_out)
 	start_lights.reaction_measured.connect(func(seconds: float) -> void: lap_timer.reaction_time = seconds)
 	hud.bind_start_lights(start_lights)
-	start_lights.begin(car, track.get_start_line_transform(), BakuTrack.GANTRY_HEIGHT)
+	start_lights.begin(car, track.get_start_line_transform(), TrackGenerator.GANTRY_HEIGHT)
 
 
 func _on_lights_out() -> void:
@@ -680,7 +677,7 @@ func _on_session_finished() -> void:
 func _open_race_results() -> void:
 	results = RaceResults.load_default()
 	results.build(race, stewards, pit_lane, car)
-	results_saved = results.save({"track_id": TRACK_ID, "track": track_name, "laps": race.laps,
+	results_saved = results.save({"track_id": track.track_id, "track": track_name, "laps": race.laps,
 		"seed": GameState.session_seed, "player_driver_id": str(selected_driver.get("id", ""))})
 	var views: Array[Dictionary] = [_driver_view(), _team_view(), _penalty_view()]
 	var podium: Array = []
@@ -856,13 +853,6 @@ func _select_driver(grid: Dictionary, driver_id: String) -> void:
 	push_warning("Piloto '%s' no encontrado en la grilla; uso el de respaldo." % driver_id)
 	selected_driver = FALLBACK_DRIVER.duplicate()
 	selected_team = FALLBACK_TEAM.duplicate()
-
-
-func _find_track(tracks: Dictionary, track_id: String) -> Dictionary:
-	for info in tracks.get("tracks", []):
-		if str(info.get("id", "")) == track_id:
-			return info
-	return {}
 
 
 func _ensure_input_actions() -> void:

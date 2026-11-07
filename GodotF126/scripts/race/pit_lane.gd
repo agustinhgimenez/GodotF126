@@ -1,6 +1,6 @@
 class_name PitLane
 extends Node
-## Calle de boxes (Paso 48), con la geometría que arma BakuTrack desde "pit_lane" en
+## Calle de boxes (Paso 48), con la geometría que arma TrackGenerator desde "pit_lane" en
 ## data/tracks.json. Cada cuadro de física mira a todos los autos de RaceTraffic:
 ## - En la calle: entre la entrada y la salida y más allá de la línea blanca de ese lado.
 ## - Limitador: entre `limit_from` y `limit_to`; pasar de `speed_limit_kmh` +
@@ -50,7 +50,7 @@ var boxes: Dictionary = {}
 ## Paradas completas en la sesión.
 var stops: int = 0
 
-var _track: BakuTrack
+var _track: TrackGenerator
 var _traffic: RaceTraffic
 ## Por auto: {in_lane, in_limit, served, penalized, service (s que faltan, −1 sin parada),
 ## wing, max_kmh, stops}.
@@ -81,7 +81,7 @@ func configure(data: Dictionary, grid: Dictionary) -> void:
 			boxes[str(teams[b].get("id", ""))] = b
 
 
-func setup(track: BakuTrack, traffic: RaceTraffic) -> void:
+func setup(track: TrackGenerator, traffic: RaceTraffic) -> void:
 	_track = track
 	_traffic = traffic
 

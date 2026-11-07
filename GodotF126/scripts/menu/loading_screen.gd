@@ -6,7 +6,6 @@ extends Control
 ## para que se lean los controles; después pasa sola cuando terminó de cargar.
 
 const RACE_SCENE := "res://scenes/main.tscn"
-const TRACK_ID := "baku"
 const TIME_NAMES := {"sunset": "Atardecer", "day": "Día"}
 ## Parte de la barra que ocupa la carga del recurso; el resto es armar la pista.
 const RESOURCE_SHARE := 0.85
@@ -118,12 +117,8 @@ func _read_session() -> void:
 		_driver_text = "#%s %s · %s" % [UiKit.number_text(driver.get("number", "")),
 			str(driver.get("name", "")), str(team.get("name", ""))]
 
-	var tracks := DataLoader.load_json(DataLoader.TRACKS_PATH)
-	for info in tracks.get("tracks", []):
-		if info is Dictionary and str(info.get("id", "")) == TRACK_ID:
-			_track_text = str(info.get("display_name", "Bakú"))
-	if _track_text.is_empty():
-		_track_text = "Bakú"
+	var track_info := TrackGenerator.find_track_info(TrackGenerator.resolve_track_id(GameState.selected_track))
+	_track_text = str(track_info.get("display_name", track_info.get("name", "Bakú")))
 
 	var modes := DataLoader.load_json(DataLoader.MODES_PATH)
 	var mode_id := GameState.selected_mode

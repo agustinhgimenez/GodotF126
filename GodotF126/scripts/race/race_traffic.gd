@@ -37,7 +37,7 @@ var update_us: float = 0.0
 ## Paso 48: calle de boxes (null = sin calle).
 var pit_lane: PitLane
 
-var _track: BakuTrack
+var _track: TrackGenerator
 var _line: RacingLine
 var _start: int = 0
 var _total: float = 0.0
@@ -61,7 +61,7 @@ func _ready() -> void:
 	process_physics_priority = -10
 
 
-func setup(track: BakuTrack, line: RacingLine) -> void:
+func setup(track: TrackGenerator, line: RacingLine) -> void:
 	_track = track
 	_line = line
 	_start = track.checkpoint_indices[0] if not track.checkpoint_indices.is_empty() else track.start_index()

@@ -24,7 +24,7 @@ func configure(data: Dictionary) -> void:
 	_raw_zones = list if list is Array else []
 
 
-func setup(track: BakuTrack, car: CarController, limits: TrackLimits, timer: LapTimer) -> void:
+func setup(track: TrackGenerator, car: CarController, limits: TrackLimits, timer: LapTimer) -> void:
 	_car = car
 	_limits = limits
 	timer.lap_started.connect(func(_lap: int) -> void:
