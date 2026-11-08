@@ -89,4 +89,6 @@ Desarrollo iterativo e incremental. Cada paso deja una versión jugable:
 | Datos no incluidos en el export | Filtro `*.json` en el preset de export (Paso 8) |
 
 ## 9. Estado actual
-Los Pasos 0 a 3 están implementados (base, manejo, cronómetro y cámaras, motor con RPM) y se prueban abriendo `GodotF126/project.godot` en Godot 4.7 y apretando F5. Todavía no existe un ejecutable `.exe`; se generará en el Paso 59.
+**Al formalizar (septiembre de 2026):** los Pasos 0 a 3 estaban implementados (base, manejo, cronómetro y cámaras, motor con RPM) y se probaban desde el editor de Godot.
+
+**A la entrega final (noviembre de 2026):** los 60 pasos del ROADMAP y los cuatro hitos (H1 demo, H2 simulador, H3 juego completo, H4 entrega) están completos. La física pasó de arcade a un modelo por cuatro ruedas, y entraron cosas que la sección 3.2 dejaba fuera de alcance: la IA para los 22 autos, una segunda pista (Buenos Aires), el clima y el desgaste con estrategia de boxes. Siguen afuera el multijugador y los modelos 3D detallados. El juego se entrega como `GodotF126.exe` (Paso 59) y se puede jugar en [ingsoftwareavanzado.agustingimenez.ar](https://ingsoftwareavanzado.agustingimenez.ar/). El detalle está en `informes/informe-final.md` y el uso en `informes/manual-de-usuario.md`.

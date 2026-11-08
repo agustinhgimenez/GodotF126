@@ -35,5 +35,6 @@ GodotF126 es un simulador de Fórmula 1 en tercera persona, pensado para entrena
 
 ## Estado al momento de la entrega
 
-- Completos y jugables en el editor de Godot: Paso 0 (esqueleto), Paso 1 (auto con WASD, pista Bakú, HUD) y Paso 2 (cronómetro por sectores, mejor vuelta, récord guardado, tres cámaras).
-- Próximo: motor con RPM y caja de cambios manual.
+- Al presentar esta formalización (septiembre de 2026) estaban completos los Pasos 0 a 2: esqueleto; auto con WASD, pista de Bakú y HUD; cronómetro por sectores, mejor vuelta, récord guardado y tres cámaras.
+- A la entrega final (noviembre de 2026) están completos los 60 pasos del ROADMAP. La física pasó a un modelo por cuatro ruedas con neumáticos de Pacejka, aerodinámica activa y ERS. Se agregaron los 22 autos de la grilla con IA, boxes y estrategia, banderas y Safety Car, telemetría, repeticiones, una segunda pista, clima y campeonato, y 67 tests automáticos.
+- Se juega con `GodotF126.exe` o en el navegador: [ingsoftwareavanzado.agustingimenez.ar](https://ingsoftwareavanzado.agustingimenez.ar/). El informe final y el manual de usuario están en `informes/`.

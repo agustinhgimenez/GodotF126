@@ -11,7 +11,7 @@ Los pasos están agrupados en **fases**. El orden prioriza primero lo que más c
 | **H1 — Demo de cursada** ✅ | Paso 24 | Elegir escudería/piloto, caja manual, cockpit con volante y manos, sonido, vuelta cronometrada, resultado |
 | **H2 — Simulador** ✅ | Paso 38 | Física de neumáticos, aero activa 2026, ERS, setup, telemetría para entrenar |
 | **H3 — Juego completo** ✅ | Paso 52 | Rivales con IA, carrera con largada, fantasma, replays |
-| **H4 — Entrega final** | Paso 60 | Tests, optimización, `.exe`, documentación y defensa |
+| **H4 — Entrega final** ✅ | Paso 60 | Tests, optimización, `.exe`, documentación y defensa |
 
 Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo menú → pista → resultado). El resto suma nivel.
 
@@ -100,7 +100,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 51 | **Replays** con cámaras de TV | ✅ |
 | 52 | Pantalla de resultados de carrera con puntos | ✅ |
 
-## Fase G — Contenido extra
+## Fase G — Contenido extra ✅
 
 | Paso | Contenido | Estado |
 |---|---|---|
@@ -109,14 +109,14 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 55 | Modo campeonato con varias carreras | ✅ |
 | 56 | Lluvia y pista mojada | ✅ |
 
-## Fase H — Ingeniería y entrega (H4)
+## Fase H — Ingeniería y entrega (cierra H4) ✅
 
 | Paso | Contenido | Estado |
 |---|---|---|
 | 57 | **Tests automáticos** con GUT: caja de cambios, cronómetro, carga de JSON, física básica | ✅ |
-| 58 | Optimización y perfilado: 60 FPS en PC del laboratorio | ✅ (medido en esta PC; falta el laboratorio) |
+| 58 | Optimización y perfilado: 60 FPS en PC del laboratorio | ✅ (medido en la notebook de la demo; en las PC de la facultad, correr el benchmark del Paso 24) |
 | 59 | **Export Windows `.exe`** (agregar `*.json` a los filtros de export; dejar afuera `addons/gut/`, `test/` y `.gutconfig.json`) | ✅ |
-| 60 | Manual de usuario, informe final, video demo y defensa | ⏳ Siguiente |
+| 60 | Manual de usuario, informe final, video demo y defensa | ✅ (el video lo graba el autor con el guion) |
 
 ---
 
@@ -1294,3 +1294,23 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --export-release "Web" export/web/index.html`
   `scp GodotF126\export\web\* VPS-DonWeb:/var/www/ingsoftwareavanzado.agustingimenez.ar/`
   Cloudflare guarda en caché `index.js` (no el `.wasm` ni el `.pck`): mientras no cambie la versión de Godot no importa; si se cambia de versión, purgar la caché de Cloudflare.
+
+### Paso 60 — Manual de usuario, informe final, video demo y defensa (cierra el hito H4)
+- **Manual de usuario** (`informes/manual-de-usuario.md`): cómo jugar (`.exe`, navegador o editor), menú y modos, lo que se ve en pista y las reglas (límites, salto en falso, daños, boxes, dos compuestos, banderas y comisarios), pausa y resultado, controles de teclado y mando, asignación, consejos para manejar rápido, todas las opciones, el setup, telemetría y CSV, repeticiones, dónde quedan los datos, el benchmark y problemas comunes. Con 8 capturas.
+- **Informe final** (`informes/informe-final.md`): del alcance inicial a lo entregado (hitos y fases), arquitectura (escenas, autoloads, el auto por componentes, la sesión, los datos en JSON, el generador de pistas), modelo físico, IA, pruebas (GUT y regresiones deterministas), rendimiento (Pasos 24 y 58), entrega (`.exe` y web), metodología con métricas (62 commits del 25/09 al 08/11/2026 contando el de este paso, 84 scripts y ~17.300 líneas, 7 escenas, 20 JSON, 7 archivos de tests) y riesgos, encuadre en las unidades I–V, limitaciones y conclusión.
+- **Guion del video** (`informes/guion-video-demo.md`): 7 escenas en 5–6 minutos (presentación, elegir sesión, práctica con línea ideal y F3, pausa con análisis y setup, carrera de 22, resultado y repetición, versión web), con lo que se muestra y lo que se dice, los ajustes para grabar y cómo exportarlo. **El video lo graba el autor**: no está en el repositorio.
+- **Guía de la defensa** (`informes/guia-defensa.md`): qué llevar, orden de una presentación de ~15 minutos (con los tests en vivo desde el panel GUT), plan B (pendrive, PC de la facultad con benchmark, versión web, video) y respuestas a las preguntas probables (motor, física, sub-pasos, IA, 22 autos, determinismo, tests, cambios de alcance, dificultades, pistas, unidades, web, trabajo futuro).
+- **Documentos de la formalización al día**: la sección 9 de `informes/GodotF126-Agustin-Gimenez-formalizacion.md` y "Estado al momento de la entrega" de `PARA-EL-PROFESOR-GodotF126-abstract.md` conservan el estado de septiembre y agregan el de la entrega final. El PDF y el HTML del abstract no se regeneraron (hay que volver a exportarlos desde el `.md` o Word).
+
+| Verificación | Resultado |
+|---|---|
+| Teclas del manual y del guion contra `project.godot`, `data/controls.json`, `data/input.json` y los scripts de repetición, pausa y resultado | coinciden (Q / E cambian de auto en la repetición; la torre se ve siempre; Análisis se abre desde Telemetría) |
+| Opciones del manual contra `data/settings.json` y el panel de opciones | coinciden |
+| Textos que cita el manual ("VUELTA INVALIDADA", "Neumáticos ‹ … ›", botones de la pausa) | iguales a los del juego |
+| Cifras del informe y de la guía contra las secciones de cada paso de este ROADMAP | coinciden (0–100 en 2,78 s, 1,82 g, 67 tests y 580 comprobaciones, 47 FPS, 11,2 ms, `.exe` de 105 MB, benchmark en 14 s, web de ~10 MB por la red) |
+| Imágenes enlazadas desde los documentos | las 8 existen en `informes/capturas/` |
+| Código del juego | sin cambios en este paso |
+
+- **Cómo probar**: abrir los cuatro documentos de `informes/` en Cursor o en GitHub (las imágenes se ven en la vista previa). Antes de la entrega: grabar el video siguiendo el guion, jugar con el `.exe` una práctica, una carrera y una fecha de campeonato, y regenerar el PDF del abstract.
+
+**Hito H4 alcanzado: los 60 pasos del ROADMAP están completos.** Juego entregado como `.exe` de Windows y en el navegador, con tests automáticos, documentación de usuario, informe final y material para la defensa.
