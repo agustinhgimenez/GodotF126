@@ -115,8 +115,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 |---|---|---|
 | 57 | **Tests automáticos** con GUT: caja de cambios, cronómetro, carga de JSON, física básica | ✅ |
 | 58 | Optimización y perfilado: 60 FPS en PC del laboratorio | ✅ (medido en esta PC; falta el laboratorio) |
-| 59 | **Export Windows `.exe`** (agregar `*.json` a los filtros de export; dejar afuera `addons/gut/`, `test/` y `.gutconfig.json`) | ⏳ Siguiente |
-| 60 | Manual de usuario, informe final, video demo y defensa | |
+| 59 | **Export Windows `.exe`** (agregar `*.json` a los filtros de export; dejar afuera `addons/gut/`, `test/` y `.gutconfig.json`) | ✅ |
+| 60 | Manual de usuario, informe final, video demo y defensa | ⏳ Siguiente |
 
 ---
 
@@ -393,7 +393,7 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Castillo | 3,8 / 6,1 ms | 6,5 / 11,6 ms | 10,2 / 16,8 ms |
 | Cenital | 7,1 / 12,5 ms | 5,7 / 9,8 ms | 10,5 / 14,9 ms |
 
-  (promedio / percentil 95 por cuadro). **Recomendada: Media**, que ya es la calidad por defecto; "Alta" pasa los 16,7 ms en los cuadros más pesados de la recta. **Pendiente**: correr el mismo comando en una PC del laboratorio y anotar el resultado; si recomienda "Baja", cambiar `"quality"` en `data/settings.json`.
+  (promedio / percentil 95 por cuadro). **Recomendada: Media**, que ya es la calidad por defecto; "Alta" pasa los 16,7 ms en los cuadros más pesados de la recta. Corrida del usuario en la misma notebook (23/10/2026): recomendó **Alta** (Alta: 10,9 / 15,7 ms en la recta); con el `.exe` del Paso 59 (8/11/2026), también **Alta** (7,9 / 13,5 ms). "PC del laboratorio" se refiere a las computadoras de la facultad: si la demo y la defensa se hacen en esta notebook, la prueba ya está hecha; si se usan las de la facultad, correr allá `GodotF126.exe -- --benchmark` (Paso 59) y, si recomienda "Baja", cambiar `"quality"` en `data/settings.json`.
 - **Verificación**: prueba que lee las teclas del InputMap (W/↑, A/←, D/→, E, Q, C; una acción inexistente da lista vacía), abre Controles en el menú y en la pausa (entran en 1280×720), recorre menú → carga → carrera: la primera vez la carga queda esperando Enter (sigue ahí 2,5 s después), con Enter entra a la carrera y guarda `tutorial_seen`; la segunda vez pasa sola y el auto aparece en la largada. Se volvió a correr la vuelta con piloto automático del Paso 21 (mismos tiempos). Capturas: `informes/capturas/paso24-menu.png`, `paso24-menu-controles.png`, `paso24-carga.png`, `paso24-pausa-controles.png`.
 - **Cómo probar**: F5 → Controles (en el menú) → Jugar → modo → piloto → la pantalla de carga espera Enter la primera vez; en carrera, Esc → Controles. Para ver el tutorial de nuevo, borrar `tutorial_seen` de `user://settings.json`.
 
@@ -1251,3 +1251,23 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **60 FPS en la carrera de 22 todavía no en esta PC** (Intel UHD de notebook): haría falta un tick de ~10 ms o menos. Quedan opciones que **cambian el comportamiento** y no se tocaron para no mover los resultados de la IA: menos sub-pasos o decisiones más espaciadas para los autos lejos del jugador (`substeps_far` = 1 hace patinar un auto parado), o un LOD de la IA por niveles. **El benchmark del laboratorio (Paso 24) sigue pendiente**: hay que correrlo en una PC de allá antes de decir que llega a 60.
 - **Verificación**: la carrera de 22 de `paso47_race.gd` da **idéntica** con el código de antes y el de ahora (clasificación estimada, los 22 tiempos de llegada, Norris 2:41.667, 0 fallas); `paso36_lap.gd` 1:42.417 / 1:40.950 / 1:40.967 (igual); suite GUT 67/67; Pasos 55 (`P55_UNIT=1`) y 56 (`P56_NORACE=1`) con 0 fallas; récords y ajustes del jugador sin cambios.
 - **Cómo probar**: F5, Jugar → Carrera con 22 autos, y mirar los FPS con el Monitor del Debugger (o `Performance.get_monitor(TIME_FPS)`). El juego tiene que verse y manejarse igual que antes, más fluido.
+
+### Paso 59 — Export Windows `.exe`
+- **Preset "Windows Desktop"** en `export_presets.cfg` (se commitea; no tiene claves): x86_64, salida `export/GodotF126.exe` (dentro de `GodotF126/`, ignorada por git), **un solo archivo** con los datos adentro (`embed_pck`), nombre y descripción del producto en las propiedades del `.exe`.
+  - **Filtros**: incluye `*.json` (los 20 de `data/`: el juego los lee con `FileAccess`, no son recursos importados y sin el filtro no entran) y deja afuera `addons/gut/*`, `test/*` y `.gutconfig.json`. Los `.md` tampoco entran.
+- **Plantillas de export** 4.7.2: bajadas del release oficial de Godot (`Godot_v4.7.2-stable_export_templates.tpz`, 1,28 GB) e instaladas sólo las de Windows x86_64 en `%APPDATA%\Godot\export_templates\4.7.2.stable\`. En otra PC: en el editor, Editor → Administrar plantillas de export → Descargar e instalar.
+- **Benchmark desde el `.exe`**: las plantillas oficiales no aceptan una escena ni un script en la línea de comandos ("compiled without support for path overrides"), así que `GameState` lee un argumento nuevo: `GodotF126.exe -- --benchmark` abre la prueba de rendimiento del Paso 24 en lugar del menú (con `-- --benchmark --quit` se cierra sola). Así se puede medir una PC del laboratorio sin instalar Godot.
+- **Exportar de nuevo** (~30 s): en el editor, Proyecto → Exportar → Windows Desktop → Exportar proyecto; o desde la consola, en la carpeta del repositorio:
+  `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --export-release "Windows Desktop" export/GodotF126.exe`
+
+| Prueba | Resultado |
+|---|---|
+| Export | código 0 en 29 s; `GodotF126.exe` de 105 MB (Godot + datos) |
+| Contenido | 210 archivos; los 20 `data/*.json`; 0 de GUT, `test/` o `.gutconfig.json` |
+| `.exe` copiado a una carpeta fuera del proyecto | abre el menú (captura), 600 cuadros sin errores, sale con código 0 |
+| `GodotF126.exe -- --benchmark --quit` | carga la pista con las 3 calidades, 9 mediciones en 14 s, recomienda **Alta**; el `benchmark.txt` del usuario se respaldó y se restauró |
+| Récords y ajustes del jugador | sin cambios (el `.exe` usa la misma carpeta `%APPDATA%\Godot\app_userdata\GodotF126\` que el editor) |
+| Suite GUT | 67/67 |
+
+  Captura: `informes/capturas/paso59-exe-menu.png`. **No se pudo automatizar una carrera dentro del `.exe`** (por lo mismo: no corre scripts de prueba); conviene jugar una vez a mano práctica, carrera y campeonato antes de la entrega.
+- **Cómo probar**: doble clic en `GodotF126\export\GodotF126.exe` (o copiarlo a un pendrive / otra PC con Windows 10/11 de 64 bits y OpenGL 3.3: no necesita Godot ni nada instalado).

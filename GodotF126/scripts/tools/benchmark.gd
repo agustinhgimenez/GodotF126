@@ -4,7 +4,8 @@ extends Node
 ## sin vsync y recomienda la calidad más alta que se sostiene a 60 FPS. El informe (con
 ## CPU, placa de video y driver) se guarda en user://benchmark.txt.
 ##   Godot_v4.7.2-stable_win64.exe --path GodotF126 res://scenes/benchmark.tscn
-## Con "-- --quit" al final se cierra solo al terminar.
+##   GodotF126.exe -- --benchmark   (el exportado, Paso 59)
+## Con "--quit" entre los argumentos de después de "--" se cierra solo al terminar.
 
 const RACE_SCENE := "res://scenes/main.tscn"
 const REPORT_PATH := "user://benchmark.txt"

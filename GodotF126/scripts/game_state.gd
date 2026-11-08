@@ -28,12 +28,19 @@ var weather: String = ""
 var championship: bool = false
 
 
+## Paso 59: el .exe exportado no acepta una escena en la línea de comandos; "-- --benchmark"
+## abre la prueba de rendimiento del Paso 24 en lugar del menú.
+const BENCHMARK_SCENE := "res://scenes/benchmark.tscn"
+
+
 ## Paso 53: "Godot --path . -- --track prueba" elige la pista hasta que haya selector en el menú.
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	for k in args.size() - 1:
 		if args[k] == "--track":
 			selected_track = args[k + 1]
+	if "--benchmark" in args:
+		get_tree().change_scene_to_file.call_deferred(BENCHMARK_SCENE)
 
 
 func is_time_trial() -> bool:

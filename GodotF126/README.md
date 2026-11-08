@@ -58,4 +58,4 @@ GodotF126/
 - La pista de Bakú es un **placeholder geométrico**, no el trazado oficial FIA.
 
 ## Estado
-Pasos 0 a 7 completos. Ver [ROADMAP.md](ROADMAP.md). Todavía **no hay ejecutable .exe** (eso es el Paso 59).
+Pasos 0 a 59 completos. Ver [ROADMAP.md](ROADMAP.md). El ejecutable se genera en `export/GodotF126.exe` con el preset "Windows Desktop" de `export_presets.cfg` (Paso 59).
