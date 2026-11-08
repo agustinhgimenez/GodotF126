@@ -193,7 +193,7 @@ func _compute_speeds() -> void:
 func speeds_for(car: CarController, with_wear: bool = false) -> PackedFloat32Array:
 	var n := points.size()
 	var compound: Dictionary = car.tyres.compound()
-	var mu := car.tyre_mu * float(compound.get("grip", 1.0)) * (car.tyre_wear_grip() if with_wear else 1.0)
+	var mu := car.tyre_mu * car.tyres.compound_grip(compound) * (car.tyre_wear_grip() if with_wear else 1.0)
 	var aero := 0.5 * car.air_density * car.cla / car.mass
 	var drag := 0.5 * car.air_density * car.cda / car.mass
 	var top := car.get_top_speed()
@@ -221,14 +221,14 @@ func speeds_for(car: CarController, with_wear: bool = false) -> PackedFloat32Arr
 ## Con el mismo modelo que speeds_for, para caminos fuera de la línea (Paso 46): velocidad de
 ## curva de `car` con curvatura `k` (1/m) y desaceleración de frenada (m/s²) a `v` m/s.
 func corner_speed(car: CarController, k: float) -> float:
-	var mu := car.tyre_mu * float(car.tyres.compound().get("grip", 1.0))
+	var mu := car.tyre_mu * car.tyres.compound_grip(car.tyres.compound())
 	var lateral := grip_fraction * mu
 	var room := absf(k) - lateral * 0.5 * car.air_density * car.cla / car.mass
 	return sqrt(lateral * G / room) if room > 0.0 else INF
 
 
 func brake_decel(car: CarController, v: float) -> float:
-	var mu := car.tyre_mu * float(car.tyres.compound().get("grip", 1.0))
+	var mu := car.tyre_mu * car.tyres.compound_grip(car.tyres.compound())
 	return brake_fraction * mu * (G + 0.5 * car.air_density * car.cla / car.mass * v * v) + 0.5 * car.air_density * car.cda / car.mass * v * v
 
 

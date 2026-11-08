@@ -959,6 +959,19 @@ func get_ground_visual() -> MeshInstance3D:
 	return get_node_or_null("Ground/GroundVisual") as MeshInstance3D
 
 
+## Paso 56: asfalto mojado, más oscuro ("darken") y brillante ("roughness") según `wetness`.
+func set_wetness(wetness: float, road: Dictionary = {}) -> void:
+	var asphalt := get_node_or_null("Asphalt") as MeshInstance3D
+	if asphalt == null or not asphalt.material_override is StandardMaterial3D:
+		return
+	var material := asphalt.material_override as StandardMaterial3D
+	var w := clampf(wetness, 0.0, 1.0)
+	material.albedo_color = Color.WHITE.lerp(Color.WHITE * (1.0 - float(road.get("darken", 0.45))), w)
+	material.albedo_color.a = 1.0
+	material.roughness = lerpf(0.9, float(road.get("roughness", 0.25)), w)
+	material.metallic_specular = lerpf(0.5, 0.8, w)
+
+
 func _build_asphalt() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)

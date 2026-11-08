@@ -85,6 +85,10 @@ var results_saved: bool = false
 ## carrera ya se sumó.
 var championship: Championship
 var championship_added: bool = false
+## Paso 56: clima de la sesión, lluvia que sigue a la cámara y rocío detrás de cada auto.
+var weather: Weather
+var rain_fx: RainFx
+var sprays: Array[CarSpray] = []
 ## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
 var qualifying: Array[Dictionary] = []
 var _car_data: Dictionary = {}
@@ -135,6 +139,8 @@ func _ready() -> void:
 	car_setup = CarSetup.load_saved()
 	car.apply_setup(car_setup)
 	car.fit_tyres(GameState.tyre_compound)
+	weather = Weather.load_default(GameState.weather)
+	weather.apply_to_car(car)
 	Settings.apply_to_car(car)
 	_apply_lighting()
 	car.spawn_transform = track.get_spawn_transform()
@@ -185,6 +191,7 @@ func _ready() -> void:
 	track_limits.pit_lane = pit_lane
 	pit_lane.speeding.connect(_on_pit_speeding)
 	strategy = RaceStrategy.load_default()
+	weather.apply_to_strategy(strategy)
 	stewards = RaceStewards.new()
 	stewards.name = "RaceStewards"
 	stewards.configure(DataLoader.load_json(RaceStewards.DATA_PATH))
@@ -226,6 +233,7 @@ func _ready() -> void:
 		_setup_race()
 	if _standing_start:
 		_setup_start_lights()
+	_setup_weather_fx()
 
 	pause_menu.set_accent(team_color)
 	if not GameState.is_competitive():
@@ -275,6 +283,8 @@ func _setup_mode() -> void:
 		# Clasificación: más la vuelta de salida hasta la meta.
 		car.fill_fuel(car.fuel.race_load(laps + (1 if mode_id == GameState.MODE_QUALIFYING else 0)))
 	mode_name += " · neumático %s" % str(car.tyres.compound()["name"]).to_lower()
+	if not weather.is_dry():
+		mode_name += " · %s" % weather.label()
 	if championship != null:
 		mode_name = "Fecha %d/%d · %s" % [championship.round_index() + 1, championship.round_count(), mode_name]
 	hud.set_track_name("%s\n%s" % [track_name, mode_name])
@@ -312,9 +322,9 @@ func _setup_qualifying() -> void:
 	if GameState.session_seed == 0:
 		GameState.session_seed = randi() % 1000000 + 1
 	var player_time := GameState.qualifying_time
-	if GameState.is_race() and player_time < 0.0:
-		player_time = lap_timer.record_lap
-	var ai_data := RaceSession.track_ai_data(DataLoader.load_json(AI_PATH), track.track_info)
+	if GameState.is_race() and player_time < 0.0 and lap_timer.record_lap > 0.0:
+		player_time = lap_timer.record_lap * weather.lap_factor()
+	var ai_data := weather.ai_data(RaceSession.track_ai_data(DataLoader.load_json(AI_PATH), track.track_info))
 	qualifying = RaceSession.qualifying(DataLoader.load_json(DataLoader.GRID_PATH),
 		str(selected_driver.get("id", "")), player_time, str(Settings.get_value("ai_level")), ai_data,
 		GameState.session_seed)
@@ -558,7 +568,8 @@ func _add_ai_car(driver: Dictionary, team: Dictionary, ai_data: Dictionary, seed
 		for id in setup_values:
 			default_setup.set_value(str(id), float(setup_values[id]))
 	ai_car.apply_setup(default_setup)
-	ai_car.fit_tyres(str(car_info.get("compound", "medium")))
+	ai_car.fit_tyres(weather.compound(str(car_info.get("compound", "medium"))))
+	weather.apply_to_car(ai_car)
 	ai_car.fill_fuel(car.fuel.kg)
 	ai_car.gearbox.manual = false
 	ai_car.active_aero.automatic = true
@@ -637,7 +648,7 @@ func cycle_pit_compound() -> void:
 		var entry := race.entry_of(car)
 		var advice := strategy.next_compound(race.remaining_laps(entry) - 1, entry["compounds"], true)
 		note = " (recomendado)" if next == advice else ""
-		if not RaceStrategy.rule_met(entry["compounds"]) and (entry["compounds"] as Array).has(next):
+		if strategy.two_compound_rule and not RaceStrategy.rule_met(entry["compounds"]) and (entry["compounds"] as Array).has(next):
 			note = " (ya lo usaste: hacen falta dos compuestos)"
 	hud.show_message("Para la parada: %s%s" % [strategy.compound_name(next).to_lower(), note], 2.0,
 		strategy.compound_color(next))
@@ -691,7 +702,8 @@ func _on_session_finished() -> void:
 		GameState.qualifying_time = lap_timer.best_lap
 		qualifying = RaceSession.qualifying(DataLoader.load_json(DataLoader.GRID_PATH),
 			str(selected_driver.get("id", "")), lap_timer.best_lap, str(Settings.get_value("ai_level")),
-			RaceSession.track_ai_data(DataLoader.load_json(AI_PATH), track.track_info), GameState.session_seed)
+			weather.ai_data(RaceSession.track_ai_data(DataLoader.load_json(AI_PATH), track.track_info)),
+			GameState.session_seed)
 	await get_tree().create_timer(results_delay, false).timeout
 	car.engine_audio.set_muted(true)
 	car.audio_fx.set_muted(true)
@@ -968,8 +980,29 @@ func _apply_lighting() -> void:
 	if track.track_info.has("ground"):
 		preset = preset.duplicate()
 		preset.erase("ground_color")
-	LightingRig.apply($WorldEnvironment.environment, $Sun, preset, Settings.quality(),
+	LightingRig.apply($WorldEnvironment.environment, $Sun, weather.light_preset(preset), Settings.quality(),
 		track.get_sea(), track.get_ground_visual())
+	track.set_wetness(weather.wetness, weather.road)
+
+
+## Paso 56: lluvia alrededor de la cámara y rocío detrás de cada auto (cantidad según la calidad).
+## Sin pantalla (pruebas con --headless) no hay partículas: nadie las ve.
+func _setup_weather_fx() -> void:
+	if weather.is_dry() or DisplayServer.get_name() == "headless":
+		return
+	var amount := float(Settings.quality().get("rain_particles", 1.0))
+	if weather.rain > 0.0:
+		rain_fx = RainFx.new()
+		rain_fx.name = "RainFx"
+		add_child(rain_fx)
+		rain_fx.configure(weather.rain_fx, weather.rain * amount)
+	for who: CarController in [car] + ai_cars:
+		var spray := CarSpray.new()
+		spray.name = "Spray"
+		who.add_child(spray)
+		spray.configure(weather.spray, weather.wetness, amount)
+		spray.bind_car(who)
+		sprays.append(spray)
 
 
 func _pause_subtitle() -> String:

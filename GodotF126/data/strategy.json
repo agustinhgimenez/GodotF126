@@ -20,6 +20,8 @@
       "plan": "Plan: una parada en la vuelta {lap}, a {compound}.",
       "short_race": "Carrera corta: no hace falta parar. Sólo si rompés el alerón.",
       "rule": "Recordá: hay que usar dos compuestos.",
+      "plan_no_stop": "Plan: sin parar, el {compound} aguanta hasta el final.",
+      "rule_rain": "Pista mojada: no hace falta usar dos compuestos.",
       "box": "Box, box. Entrá esta vuelta: {compound}.",
       "box_damage": "Box, box. Alerón roto: entrá esta vuelta.",
       "box_puncture": "Box, box. Pinchazo: entrá despacio.",

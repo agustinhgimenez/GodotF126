@@ -29,8 +29,8 @@
     "direct": { "steer_response": 14.0, "steer_limit": 1.6 }
   },
   "quality_profiles": {
-    "low": { "shadows": false, "msaa": 0, "mirror_scale": 0.5, "shadow_distance": 0, "shadow_splits": 1 },
-    "medium": { "shadows": true, "msaa": 0, "mirror_scale": 1.0, "shadow_distance": 250, "shadow_splits": 2 },
-    "high": { "shadows": true, "msaa": 4, "mirror_scale": 1.5, "shadow_distance": 400, "shadow_splits": 4 }
+    "low": { "shadows": false, "msaa": 0, "mirror_scale": 0.5, "shadow_distance": 0, "shadow_splits": 1, "rain_particles": 0.4 },
+    "medium": { "shadows": true, "msaa": 0, "mirror_scale": 1.0, "shadow_distance": 250, "shadow_splits": 2, "rain_particles": 0.7 },
+    "high": { "shadows": true, "msaa": 4, "mirror_scale": 1.5, "shadow_distance": 400, "shadow_splits": 4, "rain_particles": 1.0 }
   }
 }

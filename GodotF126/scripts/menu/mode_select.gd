@@ -37,6 +37,13 @@ var _track_index: int = 0
 var _track_button: Button
 var _track_title: Label
 var _track_description: Label
+## Paso 56: condiciones de data/weather.json.
+var _weathers: Array = []
+var _weather_index: int = 0
+var _weather_button: Button
+var _weather_title: Label
+var _weather_description: Label
+var _default_compound: String = ""
 
 
 func _ready() -> void:
@@ -46,8 +53,10 @@ func _ready() -> void:
 
 ## compounds: bloque "tyre_compounds" de car.json; current_compound vacío = su "default".
 ## tracks: data/tracks.json; current_track vacío = su "default_track_id".
+## weathers: "conditions" de data/weather.json; current_weather vacío = la primera.
 func setup(data: Dictionary, current_mode: String, current_laps: int, compounds: Dictionary = {},
-		current_compound: String = "", tracks: Dictionary = {}, current_track: String = "") -> void:
+		current_compound: String = "", tracks: Dictionary = {}, current_track: String = "",
+		weathers: Array = [], current_weather: String = "") -> void:
 	for info in tracks.get("tracks", []):
 		if info is Dictionary and str(info.get("status", "")) == "jugable":
 			_tracks.append(info)
@@ -57,6 +66,14 @@ func setup(data: Dictionary, current_mode: String, current_laps: int, compounds:
 			if str(_tracks[i].get("id", "")) == wanted:
 				_track_index = i
 		add_child(_make_track_card())
+	for condition in weathers:
+		if condition is Dictionary:
+			_weathers.append(condition)
+	if not _weathers.is_empty():
+		for i in _weathers.size():
+			if str(_weathers[i].get("id", "")) == current_weather:
+				_weather_index = i
+		add_child(_make_weather_card())
 	_modes = data.get("modes", [])
 	_current_mode = current_mode if not current_mode.is_empty() else str(data.get("default_mode", ""))
 	for mode in _modes:
@@ -71,7 +88,8 @@ func setup(data: Dictionary, current_mode: String, current_laps: int, compounds:
 	var list = compounds.get("compounds", [])
 	if list is Array and not list.is_empty():
 		_compounds = list
-		var wanted := current_compound if not current_compound.is_empty() else str(compounds.get("default", ""))
+		_default_compound = str(compounds.get("default", ""))
+		var wanted := current_compound if not current_compound.is_empty() else _default_compound
 		for i in _compounds.size():
 			if str(_compounds[i].get("id", "")) == wanted:
 				_compound_index = i
@@ -83,7 +101,7 @@ func setup(data: Dictionary, current_mode: String, current_laps: int, compounds:
 	_setup_description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_setup_button.pressed.connect(func() -> void: setup_requested.emit())
 	add_child(_setup_button)
-	var hint := UiKit.make_label("← → pista, vueltas y neumáticos · Enter para confirmar · Esc para volver", 16)
+	var hint := UiKit.make_label("← → pista, clima, vueltas y neumáticos · Enter para confirmar · Esc para volver", 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
 	add_child(hint)
 
@@ -136,6 +154,8 @@ func set_accent(color: Color) -> void:
 		UiKit.apply_button_style(_setup_button, color)
 	if _track_button != null:
 		UiKit.apply_button_style(_track_button, color)
+	if _weather_button != null:
+		UiKit.apply_button_style(_weather_button, color)
 
 
 ## Id de la pista elegida (vacío si tracks.json no trae pistas jugables).
@@ -143,6 +163,13 @@ func track_id() -> String:
 	if _tracks.is_empty():
 		return ""
 	return str(_tracks[_track_index].get("id", ""))
+
+
+## Id del clima elegido (vacío si no hay condiciones).
+func weather_id() -> String:
+	if _weathers.is_empty():
+		return ""
+	return str(_weathers[_weather_index].get("id", ""))
 
 
 ## Id del compuesto elegido (vacío si car.json no trae compuestos).
@@ -208,6 +235,44 @@ func _make_track_card() -> Button:
 			_cycle_track(-1)
 			_track_button.accept_event())
 	return _track_button
+
+
+func _make_weather_card() -> Button:
+	var parts := _card("")
+	_weather_button = parts[0]
+	_weather_title = parts[1]
+	_weather_description = parts[2]
+	_refresh_weather()
+	_weather_button.pressed.connect(_cycle_weather.bind(1))
+	_weather_button.gui_input.connect(func(event: InputEvent) -> void:
+		if event.is_action_pressed("ui_right"):
+			_cycle_weather(1)
+			_weather_button.accept_event()
+		elif event.is_action_pressed("ui_left"):
+			_cycle_weather(-1)
+			_weather_button.accept_event())
+	return _weather_button
+
+
+## Cambiar el clima sugiere su compuesto (y vuelve a los lisos si se seca).
+func _cycle_weather(direction: int) -> void:
+	_weather_index = posmod(_weather_index + direction, _weathers.size())
+	_refresh_weather()
+	if _compounds.is_empty():
+		return
+	var wanted := str(_weathers[_weather_index].get("compound", ""))
+	if wanted.is_empty() and bool(_compounds[_compound_index].get("rain", false)):
+		wanted = _default_compound
+	for i in _compounds.size():
+		if str(_compounds[i].get("id", "")) == wanted:
+			_compound_index = i
+			_refresh_tyre()
+
+
+func _refresh_weather() -> void:
+	var condition: Dictionary = _weathers[_weather_index]
+	_weather_title.text = "Clima   ‹ %s ›" % str(condition.get("name", condition.get("id", "")))
+	_weather_description.text = str(condition.get("description", ""))
 
 
 func _cycle_track(direction: int) -> void:

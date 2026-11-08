@@ -75,8 +75,11 @@ func begin() -> void:
 	var entry := _entry()
 	if _race.strategy_on and not entry.is_empty() and not (entry["plan"] as Dictionary).is_empty():
 		var plan: Dictionary = entry["plan"]
-		say("plan", {"lap": int(plan["stint"]), "compound": _compound_text(_pit.next_compound(_car))})
-		say("rule")
+		if int(plan["stint"]) >= _race.laps:
+			say("plan_no_stop", {"compound": _compound_text(_car.compound_id())})
+		else:
+			say("plan", {"lap": int(plan["stint"]), "compound": _compound_text(_pit.next_compound(_car))})
+		say("rule" if _strategy.two_compound_rule else "rule_rain")
 	else:
 		say("short_race")
 
@@ -173,7 +176,7 @@ func box_reason(entry: Dictionary) -> String:
 		return "box_sc"
 	if _strategy.worn_out(_car.max_tyre_wear(), _race.remaining_laps(entry)):
 		return "box"
-	if not RaceStrategy.rule_met(entry["compounds"]) and _race.remaining_laps(entry) <= 3:
+	if _strategy.two_compound_rule and not RaceStrategy.rule_met(entry["compounds"]) and _race.remaining_laps(entry) <= 3:
 		return "rule_late"
 	return ""
 

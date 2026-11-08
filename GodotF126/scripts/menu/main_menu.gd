@@ -160,6 +160,7 @@ func _show_season() -> void:
 ## una temporada nueva pasa antes por la elección de piloto.
 func _on_championship_confirmed(laps: int, compound_id: String) -> void:
 	GameState.tyre_compound = compound_id
+	GameState.weather = _modes.weather_id()
 	if laps == 0 and _season != null and not _season.is_finished():
 		_season.prepare_round()
 		get_tree().change_scene_to_file(LOADING_SCENE)
@@ -182,6 +183,10 @@ func _on_mode_confirmed(mode_id: String, laps: int, compound_id: String) -> void
 		GameState.qualifying_time = -1.0
 	if not track_id.is_empty():
 		GameState.selected_track = track_id
+	# Otro clima: tampoco.
+	if _modes.weather_id() != GameState.weather:
+		GameState.qualifying_time = -1.0
+	GameState.weather = _modes.weather_id()
 	# Clasificación nueva: otra semilla para la IA. La carrera usa la última clasificación.
 	if mode_id == GameState.MODE_QUALIFYING or (mode_id == GameState.MODE_RACE and GameState.qualifying_time < 0.0):
 		GameState.session_seed = 0
@@ -356,7 +361,8 @@ func _build_ui() -> void:
 		GameState.MODE_CHAMPIONSHIP if in_season else GameState.selected_mode,
 		_season.laps if in_season else GameState.lap_count,
 		compounds if compounds is Dictionary else {}, GameState.tyre_compound,
-		DataLoader.load_json(DataLoader.TRACKS_PATH), GameState.selected_track)
+		DataLoader.load_json(DataLoader.TRACKS_PATH), GameState.selected_track,
+		Weather.conditions(), GameState.weather)
 	_show_season()
 	_modes.confirmed.connect(_on_mode_confirmed)
 	_modes.cancelled.connect(_on_modes_cancelled)

@@ -137,6 +137,9 @@ func _read_session() -> void:
 		for compound in compounds.get("compounds", []):
 			if compound is Dictionary and str(compound.get("id", "")) == compound_id:
 				_mode_text += " · neumático %s" % str(compound.get("name", "")).to_lower()
+	var weather := Weather.load_default(GameState.weather)
+	if not weather.is_dry():
+		_mode_text += " · %s" % weather.label()
 	if GameState.championship:
 		var season := Championship.load_saved()
 		if season != null and not season.is_finished():

@@ -26,6 +26,11 @@ var radio: Dictionary = {}
 ## Bloque "compounds" de "tyre_compounds" (data/car.json) y su pérdida de agarre por desgaste.
 var compounds: Array = []
 var wear_grip_loss: float = 0.15
+## Paso 56: agua en la pista (Weather). Desde `rain_threshold` sólo se planea con los compuestos
+## de lluvia ("rain": true) y no hace falta usar dos; abajo, sólo con los lisos.
+var wetness: float = 0.0
+var rain_threshold: float = 0.5
+var two_compound_rule: bool = true
 
 
 func configure(data: Dictionary, tyre_data: Dictionary) -> void:
@@ -57,10 +62,22 @@ func applies(laps: int) -> bool:
 	return laps >= min_laps
 
 
+func set_weather(water: float, threshold: float) -> void:
+	wetness = clampf(water, 0.0, 1.0)
+	rain_threshold = threshold
+	two_compound_rule = not needs_rain_tyres()
+
+
+func needs_rain_tyres() -> bool:
+	return wetness >= rain_threshold
+
+
+## Compuestos para estas condiciones (lisos en seco, de lluvia en mojado).
 func ids() -> Array[String]:
 	var list: Array[String] = []
 	for c in compounds:
-		list.append(str(c.get("id", "")))
+		if bool(c.get("rain", false)) == needs_rain_tyres():
+			list.append(str(c.get("id", "")))
 	return list
 
 
@@ -98,7 +115,7 @@ func max_stint(id: String, wear_now: float = 0.0) -> int:
 ## s que pierde una vuelta con un juego de `id` que ya tiene `age` vueltas (contra agarre 1).
 func lap_cost(id: String, age: float) -> float:
 	var wear := minf((age + 0.5) * lap_wear(id), 1.0)
-	var grip := float(compound(id).get("grip", 1.0)) * (1.0 - wear_grip_loss * wear)
+	var grip := TyreCompounds.mix_grip(compound(id), wetness) * (1.0 - wear_grip_loss * wear)
 	return base_lap * grip_time * (1.0 - grip)
 
 
@@ -121,11 +138,16 @@ func plans(laps: int, first: String = "") -> Array[Dictionary]:
 
 func _plans(laps: int, first: String, limited: bool) -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
-	for a in ids():
-		if not first.is_empty() and a != first:
-			continue
+	# `first` puede no ser de estas condiciones (lisos en lluvia): entonces se para a cambiarlo.
+	var firsts := ids()
+	if not first.is_empty():
+		firsts = [first]
+	for a in firsts:
+		# Sin la regla de dos compuestos (lluvia): también sin parar (stint = vueltas).
+		if not two_compound_rule and (not limited or laps <= max_stint(a)):
+			list.append({"first": a, "second": a, "stint": laps, "cost": stint_cost(a, laps)})
 		for b in ids():
-			if b == a:
+			if b == a and two_compound_rule:
 				continue
 			for stint in range(1, laps):
 				if limited and (stint > max_stint(a) or laps - stint > max_stint(b)):
@@ -157,7 +179,7 @@ func next_compound(remaining: int, used: Array, rule: bool) -> String:
 	var best_cost := INF
 	var longest := ""
 	for id in ids():
-		if rule and _distinct(used) < 2 and used.has(id):
+		if rule and two_compound_rule and _distinct(used) < 2 and used.has(id):
 			continue
 		var cost := stint_cost(id, maxi(remaining, 1))
 		if remaining <= max_stint(id) and cost < best_cost:

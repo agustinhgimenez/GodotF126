@@ -13,6 +13,7 @@ extends RefCounted
 ##   temperatura; con el neumático gastado del todo pierde wear_grip_loss de agarre.
 ## - Presión (setup, Paso 35): cada psi por debajo de la de referencia suma pressure_grip de
 ##   agarre (más huella) y pressure_heat del calor de rodar (la carcasa se deforma más).
+## - Agua (Paso 56): `wetness` mezcla el agarre seco con el mojado del compuesto y lo enfría más.
 
 signal compound_changed(compound_name: String)
 
@@ -50,6 +51,10 @@ var pressure := Vector2(23.0, 23.0)
 var pressure_ref := Vector2(23.0, 23.0)
 var pressure_grip: float = 0.005
 var pressure_heat: float = 0.08
+## Paso 56: agua en la pista (0 seco, 1 mojado; Weather.apply_to_car()). Mezcla "grip" con
+## "wet_grip" de cada compuesto y enfría más (× 1 + wet_cooling × wetness).
+var wetness: float = 0.0
+var wet_cooling: float = 0.0
 
 
 func configure(data: Dictionary) -> void:
@@ -113,8 +118,18 @@ func _under_pressure(wheel: CarWheel) -> float:
 
 ## Multiplica el μ de la rueda.
 func grip_factor(wheel: CarWheel) -> float:
-	return float(compound().get("grip", 1.0)) * temperature_factor(wheel.temperature) * (1.0 - wear_grip_loss * wheel.wear) \
+	return compound_grip(compound()) * temperature_factor(wheel.temperature) * (1.0 - wear_grip_loss * wheel.wear) \
 		* (1.0 + pressure_grip * _under_pressure(wheel))
+
+
+## Paso 56: agarre del compuesto `c` con el agua de ahora (sin temperatura ni desgaste).
+func compound_grip(c: Dictionary) -> float:
+	return mix_grip(c, wetness)
+
+
+static func mix_grip(c: Dictionary, water: float) -> float:
+	var dry := float(c.get("grip", 1.0))
+	return lerpf(dry, float(c.get("wet_grip", dry)), clampf(water, 0.0, 1.0))
 
 
 func temperature_factor(temperature: float) -> float:
@@ -144,7 +159,7 @@ func update(wheel: CarWheel, speed: float, delta: float) -> void:
 	var heat := wheel.slip_energy / delta
 	if wheel.in_contact:
 		heat += rolling_heat * maxf(1.0 + pressure_heat * _under_pressure(wheel), 0.1) * wheel.static_load * absf(wheel.long_speed)
-	var loss := (cooling + cooling_speed * absf(speed)) * (wheel.temperature - track_temp)
+	var loss := (cooling + cooling_speed * absf(speed)) * (1.0 + wet_cooling * wetness) * (wheel.temperature - track_temp)
 	wheel.temperature += (heat - loss) * delta / heat_capacity
 	var overheat := maxf(wheel.temperature - float(compound().get("temp_max", 120.0)), 0.0)
 	wheel.wear = minf(wheel.wear + wheel.slip_energy / 1.0e6 * float(compound().get("wear_per_mj", 0.025))

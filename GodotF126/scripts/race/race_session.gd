@@ -199,7 +199,7 @@ func prepare(seed_value: int, race_strategy: RaceStrategy) -> void:
 			car.fit_tyres(str(plan["first"]))
 			ai.wear_aware = true
 			ai.refresh_speeds()
-			entry["pit_lap"] = int(plan["stint"]) - 1
+			entry["pit_lap"] = int(plan["stint"]) - 1 if int(plan["stint"]) < laps else -1
 		entry["compounds"] = [car.compound_id()]
 		if pit_lane != null:
 			pit_lane.set_next_compound(car, str(plan["second"]))
@@ -331,7 +331,7 @@ func finish(car: CarController) -> void:
 		return
 	entry["finished"] = true
 	entry["finish_time"] = clock
-	if strategy_on and not RaceStrategy.rule_met(entry["compounds"]):
+	if strategy_on and strategy.two_compound_rule and not RaceStrategy.rule_met(entry["compounds"]):
 		add_extra_penalty(car, strategy.rule_penalty, "Un solo compuesto")
 		rule_broken.emit(car, strategy.rule_penalty)
 	finish_order.append(car)

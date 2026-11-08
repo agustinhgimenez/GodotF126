@@ -22,6 +22,8 @@ var tyre_compound: String = ""
 ## vuelta válida del jugador en la última clasificación (−1 = no corrió; la carrera usa su récord).
 var session_seed: int = 0
 var qualifying_time: float = -1.0
+## Paso 56: clima (id de data/weather.json); vacío = su "default" (seco).
+var weather: String = ""
 ## Paso 55: la sesión es una fecha de la temporada guardada (Championship, user://championship.json).
 var championship: bool = false
 

@@ -102,12 +102,16 @@
     "wear_grip_loss": 0.15,
     "overheat_wear": 0.05,
     "compounds": [
-      { "id": "soft", "name": "Blando", "short": "S", "color": "#E8302A", "grip": 1.025, "temp_min": 60, "temp_max": 105, "wear_per_mj": 0.04,
+      { "id": "soft", "name": "Blando", "short": "S", "color": "#E8302A", "grip": 1.025, "wet_grip": 0.66, "temp_min": 60, "temp_max": 105, "wear_per_mj": 0.04,
         "description": "Más agarre y calienta rápido, pero se gasta antes" },
-      { "id": "medium", "name": "Medio", "short": "M", "color": "#F2C230", "grip": 1.0, "temp_min": 70, "temp_max": 120, "wear_per_mj": 0.025,
+      { "id": "medium", "name": "Medio", "short": "M", "color": "#F2C230", "grip": 1.0, "wet_grip": 0.65, "temp_min": 70, "temp_max": 120, "wear_per_mj": 0.025,
         "description": "Equilibrio entre agarre y duración" },
-      { "id": "hard", "name": "Duro", "short": "H", "color": "#EDEDED", "grip": 0.975, "temp_min": 85, "temp_max": 130, "wear_per_mj": 0.015,
-        "description": "Menos agarre y cuesta calentarlo, pero dura mucho" }
+      { "id": "hard", "name": "Duro", "short": "H", "color": "#EDEDED", "grip": 0.975, "wet_grip": 0.64, "temp_min": 85, "temp_max": 130, "wear_per_mj": 0.015,
+        "description": "Menos agarre y cuesta calentarlo, pero dura mucho" },
+      { "id": "intermediate", "name": "Intermedio", "short": "I", "color": "#43B047", "grip": 0.95, "wet_grip": 0.75, "rain": true, "temp_min": 45, "temp_max": 95, "wear_per_mj": 0.025,
+        "description": "Para pista húmeda; en seco se recalienta" },
+      { "id": "wet", "name": "Lluvia", "short": "W", "color": "#2F6FD6", "grip": 0.84, "wet_grip": 0.8, "rain": true, "temp_min": 35, "temp_max": 80, "wear_per_mj": 0.02,
+        "description": "Para lluvia fuerte; en seco se destruye" }
     ]
   },
   "engine": {

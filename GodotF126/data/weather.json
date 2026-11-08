@@ -1,0 +1,23 @@
+{
+  "description": "Paso 56. Clima de la sesión. 'wetness' (0 seco, 1 mojado) mezcla el 'grip' de cada compuesto (seco) con su 'wet_grip' (mojado); desde 'rain_threshold' hacen falta neumáticos de lluvia ('rain': true en car.json) y la estrategia no exige dos compuestos. Con agua los neumáticos se enfrían más ('wet_cooling': el enfriamiento × (1 + wet_cooling × wetness)) y la pista está a 'track_temp' °C. 'compound': el que usa la IA y el que se sugiere en el menú. 'lap_factor': la vuelta de la IA en esas condiciones contra la de seco (estimación de la clasificación; medido con el auto manejado por la IA). 'light': cambios sobre el preset de iluminación (sun_scale y ambient_scale multiplican; sky y fog reemplazan). 'rain' (0–1): intensidad de la lluvia que se ve; 'spray': rocío detrás de los autos.",
+  "default": "dry",
+  "rain_threshold": 0.5,
+  "wet_cooling": 1.5,
+  "conditions": [
+    {"id": "dry", "name": "Seco", "description": "Pista seca", "wetness": 0.0, "rain": 0.0, "lap_factor": 1.0},
+    {"id": "damp", "name": "Húmedo", "label": "pista húmeda", "description": "Pista húmeda, sin lluvia: intermedios", "wetness": 0.5, "rain": 0.0,
+      "track_temp": 24, "compound": "intermediate", "lap_factor": 1.08,
+      "light": {"sun_scale": 0.55, "ambient_scale": 0.9,
+        "sky": {"top_color": "#6E7B8C", "horizon_color": "#A7AFB8", "energy": 0.8},
+        "fog": {"density": 0.0015, "color": "#9AA3AD", "energy": 0.8, "sky_affect": 0.4}}},
+    {"id": "wet", "name": "Lluvia", "label": "pista mojada", "description": "Lluvia y pista mojada: neumáticos de lluvia", "wetness": 1.0, "rain": 1.0,
+      "track_temp": 18, "compound": "wet", "lap_factor": 1.11,
+      "light": {"sun_scale": 0.3, "ambient_scale": 0.8,
+        "sky": {"top_color": "#55606E", "horizon_color": "#8C949D", "energy": 0.6},
+        "fog": {"density": 0.004, "color": "#8A939C", "energy": 0.7, "sky_affect": 0.7}}}
+  ],
+  "rain_fx": {"max_drops": 3000, "box": [44, 24, 44], "height": 12, "speed": 24, "drop_length": 0.6, "drop_width": 0.02,
+    "color": "#C8D2DC", "alpha": 0.35},
+  "spray": {"amount": 64, "lifetime": 0.7, "offset": [0, 0.35, 2.3], "inherit": 0.6, "min_speed": 8, "full_speed": 45, "view_distance": 80, "size": 1.5, "color": "#D5DBE2", "alpha": 0.35},
+  "road": {"darken": 0.45, "roughness": 0.25}
+}

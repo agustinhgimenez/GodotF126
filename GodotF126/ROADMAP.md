@@ -107,13 +107,13 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | 53 | Generador de pistas por puntos de control, reutilizable para otros circuitos | ✅ |
 | 54 | Segunda pista | ✅ |
 | 55 | Modo campeonato con varias carreras | ✅ |
-| 56 | Lluvia y pista mojada | ⏳ Siguiente |
+| 56 | Lluvia y pista mojada | ✅ |
 
 ## Fase H — Ingeniería y entrega (H4)
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 57 | **Tests automáticos** con GUT: caja de cambios, cronómetro, carga de JSON, física básica | |
+| 57 | **Tests automáticos** con GUT: caja de cambios, cronómetro, carga de JSON, física básica | ⏳ Siguiente |
 | 58 | Optimización y perfilado: 60 FPS en PC del laboratorio | |
 | 59 | **Export Windows `.exe`** (agregar `*.json` a los filtros de export) | |
 | 60 | Manual de usuario, informe final, video demo y defensa | |
@@ -1182,3 +1182,27 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   Unos 14 minutos sin ventana. **Las pruebas anteriores siguen bien**: Pasos 47 (Norris 2:41,667), 52, 53 y 54 con 0 fallas. Capturas: `informes/capturas/paso55-menu.png`, `paso55-resultado-1.png`, `paso55-pilotos-1.png`, `paso55-equipos-1.png`, `paso55-menu-seguir.png`, `paso55-carga.png`, `paso55-pilotos-2.png` y `paso55-campeon.png`.
 - **Cómo probar**: F5, Jugar, bajar hasta "Campeonato", elegir las vueltas con ←/→, Enter y elegir el piloto. Después de cada carrera, "Siguiente" lleva a la próxima fecha; desde el menú principal se puede seguir la temporada más tarde.
+
+### Paso 56 — Lluvia y pista mojada
+- **Clima** (`data/weather.json`, clase `Weather` en `scripts/race/weather.gd`): tres condiciones, **Seco**, **Húmedo** (agua 0,5, sin lluvia, pista a 24 °C) y **Lluvia** (agua 1, pista a 18 °C). Se elige en el menú con la tarjeta nueva "Clima ‹ Seco ›" (debajo de la de pista); cambiarla sugiere el neumático de la condición (intermedio, lluvia; al volver a seco, el medio). Va en `GameState.weather` y vale para todos los modos (en el campeonato, para toda la temporada; una fecha de `data/championship.json` puede fijar su `"weather"`). Cambiar el clima invalida la clasificación anterior para la carrera, como cambiar de pista.
+- **Neumáticos** (`data/car.json`): cada compuesto tiene `wet_grip` (agarre con la pista mojada) y el agarre es la mezcla entre `grip` y `wet_grip` según el agua (`TyreCompounds.mix_grip`). Dos compuestos nuevos: **Intermedio** (verde, I) y **Lluvia** (azul, W). En seco gana el blando y los de lluvia son los más lentos; en húmedo el intermedio; con lluvia el de lluvia. Con agua los neumáticos se enfrían más (`wet_cooling`) y la pista está más fría. Como la trazada y la IA leen el agarre del compuesto con el agua, frenan antes y doblan más despacio solas.
+- **IA y estrategia**: la IA larga con el compuesto de la condición y su vuelta estimada para la clasificación se multiplica por `lap_factor` (1,08 húmedo, 1,11 lluvia, medido con el auto manejado por la IA). Desde agua 0,5 la estrategia (Paso 49) sólo planea con los de lluvia y **no exige dos compuestos** (ni penalización, ni aviso de la radio, ni nota de la tecla O): puede no parar ("Plan: sin parar, el lluvia aguanta hasta el final", "Pista mojada: no hace falta usar dos compuestos"). Si el jugador larga con lisos en lluvia, su plan es parar enseguida a lluvia.
+- **Cómo se ve**: luz más gris sobre la hora elegida (sol más débil, cielo gris, neblina), asfalto más oscuro y brillante, lluvia alrededor de la cámara (gotas que se inclinan con la velocidad) y rocío detrás de cada auto según su velocidad (no emite a más de 80 m de la cámara). La cantidad de partículas depende de la calidad gráfica (`rain_particles` en `data/settings.json`: 0,4 / 0,7 / 1). En el HUD, la pausa y la pantalla de carga: "· pista húmeda" / "· pista mojada".
+- **Seco no cambia**: sin agua todo da igual que antes (misma huella de Bakú que en los Pasos 53 y 54, trazada incluida; `paso36_lap.gd` 1:42.417 / 1:40.950 / 1:40.967; la IA en Buenos Aires 94,30 s).
+- **Arreglo**: el plan de estrategia con el primer compuesto fijo (el del jugador) armaba la lista con un `as Array[String]` que fallaba al correr; ahora se arma sin el cast.
+- **Verificación** (`paso56_weather.gd` y `paso56_ailaps.gd`):
+
+| Prueba | Resultado |
+|---|---|
+| Vuelta lanzada de la IA en Bakú (Medio) | seco 78,97 s con medios; húmedo: intermedios 85,17, medios 86,35, lluvia 86,62; lluvia: lluvia 87,60, intermedios 90,48, medios 98,03; sin golpes ni rescates |
+| Lógica | agarre por condición en el orden esperado; la luz de la hora no se modifica; estrategia en seco con lisos y regla, con lluvia con intermedio/lluvia, sin regla y con plan sin parar; húmedo larga con intermedios |
+| Práctica con lluvia | agua 1, pista 18 °C, asfalto oscuro (0,55) y brillante (rugosidad 0,25), neblina, "pista mojada" en el subtítulo, lluvia y rocío; la IA 87,60 s |
+| Seco después | todo vuelve: pista a 35 °C, asfalto blanco y rugosidad 0,9, sol 1,90 (0,57 con lluvia), sin partículas |
+| Clasificación | pole estimada de la IA 1:18.399 en seco, 1:27.026 con lluvia (la misma semilla) |
+| Carrera de 10 vueltas con lluvia (sin correrla) | estrategia sin la regla; los 21 de la IA con lluvia y sin parada planeada; la radio dice que no hace falta usar dos compuestos |
+| Carrera de 3 vueltas con lluvia | 22 autos con lluvia; termina; 0–2 rescates |
+| Menú y carga | la tarjeta Clima debajo de Pista; → Húmedo sugiere intermedio, → Lluvia lluvia, → Seco medio; al confirmar se guarda el clima; la carga dice "neumático lluvia · pista mojada" |
+| FPS (esta PC, Intel UHD, carrera de 22 sin `--fixed-fps`) | promedio 16,9 y 16,0 con lluvia contra 16,8 en seco (limita la CPU: la física de 22 autos); con `--fixed-fps` 41 de promedio y la práctica a 60 |
+
+  **Las pruebas anteriores siguen bien**: Pasos 47 (Norris 2:41,667), 52, 53, 54 y 55 con 0 fallas. Sin ventana (`--headless`) no se crean partículas; en esas corridas aparece a veces un cierre de Godot al cambiar de escena (ya pasaba desde el Paso 49), que no aparece con ventana. Capturas: `informes/capturas/paso56-menu.png`, `paso56-carga.png`, `paso56-grilla.png`, `paso56-carrera.png`, `paso56-lluvia-recta.png`, `paso56-lluvia-curva.png`, `paso56-rocio.png`, `paso56-seco.png` y `paso56-resultado.png`.
+- **Cómo probar**: F5, Jugar, en la tarjeta "Clima" apretar → hasta "Lluvia" (el neumático cambia a lluvia), elegir Práctica libre o Carrera y un piloto.

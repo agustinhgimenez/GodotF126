@@ -53,7 +53,7 @@ func _set_calendar(list: Array) -> void:
 		var info := TrackGenerator.find_track_info(id)
 		calendar.append({"track_id": id, "name": str(item.get("name", info.get("name", id))),
 			"short": str(item.get("short", id.left(3).to_upper())),
-			"qualifying": bool(item.get("qualifying", true))})
+			"qualifying": bool(item.get("qualifying", true)), "weather": str(item.get("weather", ""))})
 
 
 ## Temporada nueva (no guarda: eso lo hace save()).
@@ -94,6 +94,9 @@ func prepare_round() -> void:
 	state.selected_driver_id = player_driver_id
 	state.session_seed = 0
 	state.qualifying_time = -1.0
+	# Paso 56: una fecha con "weather" fija el clima; si no, queda el elegido en el menú.
+	if not str(info.get("weather", "")).is_empty():
+		state.weather = str(info["weather"])
 	if bool(info["qualifying"]):
 		state.selected_mode = state.MODE_QUALIFYING
 		state.lap_count = qualifying_laps
