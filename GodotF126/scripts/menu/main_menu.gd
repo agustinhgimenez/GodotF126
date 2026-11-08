@@ -18,11 +18,14 @@ var _selected_id: String = ""
 var _ring_material: StandardMaterial3D
 var _main_panel: VBoxContainer
 var _modes: ModeSelect
+var _modes_scroll: ScrollContainer
 var _select: DriverSelect
 var _options: OptionsPanel
 var _controls: ControlsPanel
 var _setup_panel: SetupPanel
 var _car_setup: CarSetup
+## Paso 55: temporada guardada (null si no hay).
+var _season: Championship
 var _play_button: Button
 var _options_button: Button
 var _controls_button: Button
@@ -123,9 +126,56 @@ func _show_modes() -> void:
 	_select.visible = false
 	_modes.visible = true
 	_modes.open()
+	# El foco puede caer en una tarjeta de abajo (Campeonato) antes de que el panel recién
+	# mostrado tenga tamaño: follow_focus no la alcanza.
+	await get_tree().process_frame
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused != null and _modes_scroll.is_ancestor_of(focused):
+		_modes_scroll.ensure_control_visible(focused)
+
+
+## Paso 55: en la tarjeta de Campeonato, la temporada guardada (seguirla o, si terminó, el campeón).
+func _show_season() -> void:
+	if _season == null:
+		return
+	var standings := _season.driver_standings()
+	if _season.is_finished():
+		if not standings.is_empty():
+			_modes.set_mode_description(GameState.MODE_CHAMPIONSHIP, "Terminada: campeón %s (%d pts) · ← → vueltas para otra" % [
+				standings[0]["driver"], standings[0]["points"]])
+		return
+	var info := _season.current_round()
+	var mine := _season.player_standing()
+	var description := "%s · %d %s" % [str(info["name"]).trim_prefix("Gran Premio de "), _season.laps,
+		"vuelta" if _season.laps == 1 else "vueltas"]
+	var driver: Dictionary = DataLoader.find_driver(_grid, _season.player_driver_id).get("driver", {})
+	description += " · %s" % str(driver.get("name", _season.player_driver_id))
+	if not mine.is_empty():
+		description += " P%d, %d pts" % [mine["pos"], mine["points"]]
+	_modes.set_continue_option(GameState.MODE_CHAMPIONSHIP,
+		"Seguir: fecha %d/%d" % [_season.round_index() + 1, _season.round_count()], description)
+
+
+## Paso 55: "seguir" (vueltas 0) carga la fecha pendiente con el piloto de la temporada;
+## una temporada nueva pasa antes por la elección de piloto.
+func _on_championship_confirmed(laps: int, compound_id: String) -> void:
+	GameState.tyre_compound = compound_id
+	if laps == 0 and _season != null and not _season.is_finished():
+		_season.prepare_round()
+		get_tree().change_scene_to_file(LOADING_SCENE)
+		return
+	GameState.selected_mode = GameState.MODE_CHAMPIONSHIP
+	GameState.lap_count = laps
+	_modes.visible = false
+	_select.visible = true
+	_select.open()
 
 
 func _on_mode_confirmed(mode_id: String, laps: int, compound_id: String) -> void:
+	if mode_id == GameState.MODE_CHAMPIONSHIP:
+		_on_championship_confirmed(laps, compound_id)
+		return
+	GameState.championship = false
 	# Otra pista: la clasificación anterior no vale para la carrera.
 	var track_id := _modes.track_id()
 	if not track_id.is_empty() and track_id != TrackGenerator.resolve_track_id(GameState.selected_track):
@@ -167,6 +217,11 @@ func _on_select_cancelled() -> void:
 
 func _on_driver_confirmed(driver_id: String) -> void:
 	GameState.selected_driver_id = driver_id
+	if GameState.selected_mode == GameState.MODE_CHAMPIONSHIP:
+		_season = Championship.load_default()
+		_season.start(driver_id, GameState.lap_count)
+		_season.save()
+		_season.prepare_round()
 	get_tree().change_scene_to_file(LOADING_SCENE)
 
 
@@ -282,22 +337,27 @@ func _build_ui() -> void:
 
 	# Paso 54: pista + 4 modos + neumáticos + setup no entran en 720 px; el panel se desplaza
 	# siguiendo el foco (sin barra visible).
-	var modes_scroll := ScrollContainer.new()
-	modes_scroll.name = "ModeScroll"
-	modes_scroll.follow_focus = true
-	modes_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	modes_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	UiKit.place(modes_scroll, Vector4(0, 0, 0, 0), Vector4(80, 210, 660, 712))
-	root.add_child(modes_scroll)
+	_modes_scroll = ScrollContainer.new()
+	_modes_scroll.name = "ModeScroll"
+	_modes_scroll.follow_focus = true
+	_modes_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_modes_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	UiKit.place(_modes_scroll, Vector4(0, 0, 0, 0), Vector4(80, 210, 660, 712))
+	root.add_child(_modes_scroll)
 	_modes = ModeSelect.new()
 	_modes.name = "ModeSelect"
 	_modes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	modes_scroll.add_child(_modes)
+	_modes_scroll.add_child(_modes)
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	var compounds = car_data.get("tyre_compounds", {})
-	_modes.setup(DataLoader.load_json(DataLoader.MODES_PATH), GameState.selected_mode, GameState.lap_count,
+	_season = Championship.load_saved()
+	var in_season := GameState.championship and _season != null
+	_modes.setup(DataLoader.load_json(DataLoader.MODES_PATH),
+		GameState.MODE_CHAMPIONSHIP if in_season else GameState.selected_mode,
+		_season.laps if in_season else GameState.lap_count,
 		compounds if compounds is Dictionary else {}, GameState.tyre_compound,
 		DataLoader.load_json(DataLoader.TRACKS_PATH), GameState.selected_track)
+	_show_season()
 	_modes.confirmed.connect(_on_mode_confirmed)
 	_modes.cancelled.connect(_on_modes_cancelled)
 	_modes.setup_requested.connect(_open_setup)

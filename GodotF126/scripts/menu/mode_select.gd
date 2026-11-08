@@ -6,6 +6,7 @@ extends VBoxContainer
 ## cantidad de vueltas. Debajo, la tarjeta de neumáticos (Paso 33): ← → (o Enter) cambian
 ## el compuesto ("tyre_compounds" de data/car.json). La última tarjeta abre el setup del
 ## auto (Paso 35). Enter en un modo confirma y Esc vuelve al menú.
+## Paso 55: set_continue_option() agrega a un modo (Campeonato) la opción "seguir" (vueltas 0).
 
 signal confirmed(mode_id: String, laps: int, compound_id: String)
 signal cancelled
@@ -19,6 +20,10 @@ var _modes: Array = []
 var _laps: Dictionary = {}           ## id de modo → vueltas elegidas
 var _buttons: Dictionary = {}        ## id de modo → Button
 var _titles: Dictionary = {}         ## id de modo → Label del título
+var _descriptions: Dictionary = {}   ## id de modo → Label de la descripción
+var _mode_data: Dictionary = {}      ## id de modo → su diccionario de modes.json
+## Paso 55: id de modo → {label, description} de la opción "seguir" (vueltas = 0).
+var _continue: Dictionary = {}
 var _current_mode: String = ""
 var _compounds: Array = []
 var _compound_index: int = 0
@@ -106,6 +111,21 @@ func set_setup_summary(summary: String) -> void:
 	_setup_description.text = summary
 
 
+## Paso 55: en el modo `id`, ← → también pasan por "seguir" (confirma con vueltas = 0), que
+## queda elegida; las vueltas pasan a ser las de una temporada nueva.
+func set_continue_option(id: String, label: String, description: String) -> void:
+	if not _laps.has(id):
+		return
+	_continue[id] = {"label": label, "description": description}
+	_laps[id] = 0
+	_refresh_title(_mode_data[id])
+
+
+func set_mode_description(id: String, text: String) -> void:
+	if _descriptions.has(id):
+		_descriptions[id].text = text
+
+
 func set_accent(color: Color) -> void:
 	accent = color
 	for button in _buttons.values():
@@ -138,6 +158,8 @@ func _make_card(mode: Dictionary) -> Button:
 	var button: Button = parts[0]
 	_buttons[id] = button
 	_titles[id] = parts[1]
+	_descriptions[id] = parts[2]
+	_mode_data[id] = mode
 	_refresh_title(mode)
 
 	button.pressed.connect(func() -> void:
@@ -224,7 +246,7 @@ func _card(description_text: String) -> Array:
 
 func _cycle_laps(mode: Dictionary, direction: int) -> void:
 	var id := str(mode.get("id", ""))
-	var options: Array = mode.get("lap_options", [])
+	var options: Array = ([0] if _continue.has(id) else []) + mode.get("lap_options", [])
 	var index := 0
 	for i in options.size():
 		if int(options[i]) == int(_laps[id]):
@@ -243,8 +265,13 @@ func _refresh_title(mode: Dictionary) -> void:
 	var text := str(mode.get("name", id))
 	if _laps.has(id):
 		var laps := int(_laps[id])
-		text += "   ‹ %d %s ›" % [laps, "vuelta" if laps == 1 else "vueltas"]
+		if laps == 0 and _continue.has(id):
+			text += "   ‹ %s ›" % _continue[id]["label"]
+		else:
+			text += "   ‹ %s%d %s ›" % ["Nueva · " if _continue.has(id) else "", laps, "vuelta" if laps == 1 else "vueltas"]
 	_titles[id].text = text
+	if _continue.has(id):
+		_descriptions[id].text = _continue[id]["description"] if int(_laps[id]) == 0 else str(mode.get("description", ""))
 
 
 func _refresh_tyre() -> void:

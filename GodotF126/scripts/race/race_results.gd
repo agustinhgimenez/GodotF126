@@ -175,7 +175,7 @@ func to_dict(info: Dictionary = {}) -> Dictionary:
 	var rows: Array = []
 	for row in drivers:
 		rows.append({"pos": row["pos"], "grid": row["grid"], "driver_id": row["driver_id"],
-			"driver": row["driver"], "team_id": row["team_id"], "team": row["team"],
+			"driver": row["driver"], "code": row["code"], "team_id": row["team_id"], "team": row["team"],
 			"laps": row["laps"], "time": snappedf(float(row["time"]), 0.001),
 			"total": snappedf(float(row["total"]), 0.001), "estimated": row["estimated"],
 			"penalty": row["penalty"], "best_lap": snappedf(float(row["best_lap"]), 0.001),

@@ -51,6 +51,14 @@
       "standing_start": true,
       "lap_options": [2, 3, 5, 10, 20],
       "default_laps": 3
+    },
+    {
+      "id": "championship",
+      "name": "Campeonato",
+      "description": "Temporada nueva: clasificación y carrera en cada pista del calendario",
+      "standing_start": true,
+      "lap_options": [2, 3, 5, 10],
+      "default_laps": 3
     }
   ]
 }

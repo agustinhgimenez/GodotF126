@@ -5,6 +5,7 @@ extends Node3D
 ## sueltan los controles y se muestra el resultado (ResultsScreen).
 
 const MENU_SCENE := "res://scenes/menu.tscn"
+const LOADING_SCENE := "res://scenes/loading.tscn"
 
 ## Respaldo por si el input map de project.godot se pierde o se edita mal.
 const DEFAULT_KEYS := {
@@ -80,6 +81,10 @@ var replay: ReplayViewer
 ## Paso 52: resultado con puntos (se arma al terminar la carrera) y si se pudo guardar.
 var results: RaceResults
 var results_saved: bool = false
+## Paso 55: temporada en curso si la sesión es una fecha del campeonato (null si no) y si la
+## carrera ya se sumó.
+var championship: Championship
+var championship_added: bool = false
 ## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
 var qualifying: Array[Dictionary] = []
 var _car_data: Dictionary = {}
@@ -149,6 +154,7 @@ func _ready() -> void:
 	hud.set_track_name(track_name)
 
 	lap_timer.setup(str(track_info.get("records_key", track.track_id)))
+	_load_championship()
 	_setup_mode()
 	aero_zones.configure(track.aero_zone_data())
 	aero_zones.setup(track, car, track_limits, lap_timer)
@@ -232,7 +238,7 @@ func _ready() -> void:
 	results_screen.set_accent(team_color)
 	results_screen.repeat_requested.connect(get_tree().reload_current_scene)
 	results_screen.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
-	results_screen.next_requested.connect(_go_to_race)
+	results_screen.next_requested.connect(_on_next_requested)
 	lap_timer.session_finished.connect(_on_session_finished)
 	Settings.changed.connect(_on_setting_changed)
 	var rumble_data = InputBindings.data().get("rumble", {})
@@ -269,6 +275,8 @@ func _setup_mode() -> void:
 		# Clasificación: más la vuelta de salida hasta la meta.
 		car.fill_fuel(car.fuel.race_load(laps + (1 if mode_id == GameState.MODE_QUALIFYING else 0)))
 	mode_name += " · neumático %s" % str(car.tyres.compound()["name"]).to_lower()
+	if championship != null:
+		mode_name = "Fecha %d/%d · %s" % [championship.round_index() + 1, championship.round_count(), mode_name]
 	hud.set_track_name("%s\n%s" % [track_name, mode_name])
 	_standing_start = bool(mode.get("standing_start", false))
 	var start_data = modes.get("start_lights", {})
@@ -411,11 +419,35 @@ func _on_replay_closed() -> void:
 		pause_menu.show_after_replay()
 
 
+## Paso 55: la temporada guardada, si esta sesión es su fecha actual (si no, la sesión es suelta).
+func _load_championship() -> void:
+	if not GameState.championship:
+		return
+	championship = Championship.load_saved()
+	if championship == null or championship.is_finished() \
+			or TrackGenerator.resolve_track_id(str(championship.current_round()["track_id"])) != track.track_id:
+		championship = null
+		GameState.championship = false
+
+
+## Botón extra del resultado: "Correr la carrera" (clasificación) o, en el campeonato,
+## "Siguiente carrera" / "Final de temporada".
+func _on_next_requested() -> void:
+	if GameState.is_qualifying():
+		_go_to_race()
+	elif championship != null and championship.is_finished():
+		_open_season_final()
+	elif championship != null:
+		championship.prepare_round()
+		get_tree().change_scene_to_file(LOADING_SCENE)
+
+
 ## Botón "Correr la carrera" del resultado de la clasificación.
 func _go_to_race() -> void:
 	var modes := DataLoader.load_json(DataLoader.MODES_PATH)
 	GameState.selected_mode = GameState.MODE_RACE
-	GameState.lap_count = int(DataLoader.find_mode(modes, GameState.MODE_RACE).get("default_laps", 3))
+	GameState.lap_count = championship.laps if championship != null \
+		else int(DataLoader.find_mode(modes, GameState.MODE_RACE).get("default_laps", 3))
 	get_tree().reload_current_scene()
 
 
@@ -677,9 +709,15 @@ func _on_session_finished() -> void:
 func _open_race_results() -> void:
 	results = RaceResults.load_default()
 	results.build(race, stewards, pit_lane, car)
-	results_saved = results.save({"track_id": track.track_id, "track": track_name, "laps": race.laps,
-		"seed": GameState.session_seed, "player_driver_id": str(selected_driver.get("id", ""))})
+	var info := {"track_id": track.track_id, "track": track_name, "laps": race.laps,
+		"seed": GameState.session_seed, "player_driver_id": str(selected_driver.get("id", ""))}
+	results_saved = results.save(info)
+	if championship != null and not championship_added:
+		championship_added = championship.add_race(results.to_dict(info)) and championship.save()
 	var views: Array[Dictionary] = [_driver_view(), _team_view(), _penalty_view()]
+	if championship_added:
+		views.append(_championship_driver_view())
+		views.append(_championship_team_view())
 	var podium: Array = []
 	for row in results.drivers.slice(0, 3):
 		podium.append({"code": row["code"], "detail": "%d pts" % row["points"], "color": row["color"]})
@@ -697,10 +735,112 @@ func _open_race_results() -> void:
 			break
 	if lap_timer.penalty > 0.0:
 		summary.append(["Tus sanciones: +%.0f s" % lap_timer.penalty, Color(1.0, 0.35, 0.3)])
+	var next_text := ""
+	if championship_added:
+		var standing := championship.player_standing()
+		summary.append(["Campeonato: P%d con %d pts (fecha %d/%d)" % [int(standing.get("pos", 0)),
+			int(standing.get("points", 0)), championship.round_index(), championship.round_count()], Color(1.0, 0.85, 0.2)])
+		next_text = "Final de temporada" if championship.is_finished() \
+			else "Siguiente: %s" % str(championship.current_round()["name"]).trim_prefix("Gran Premio de ")
+	elif championship != null:
+		summary.append(["No se pudo guardar el campeonato", Color(1.0, 0.35, 0.3)])
 	summary.append(["≈ estimado (seguía en pista) · ←/→ tabla", ResultsScreen.COLOR_HEADER])
 	if replay != null and replay.can_open():
 		results_screen.enable_replay()
-	results_screen.open_race("Carrera — Resultado", _session_subtitle(), views, podium, summary)
+	results_screen.open_race("Carrera — Resultado", _session_subtitle(), views, podium, summary, next_text,
+		championship == null)
+
+
+## Paso 55: tabla de pilotos del campeonato (puesto en cada fecha; ± contra la fecha anterior).
+func _championship_driver_view() -> Dictionary:
+	var done := championship.round_index()
+	var before: Dictionary = {}
+	if done > 1:
+		for standing in championship.driver_standings(done - 1):
+			before[standing["driver_id"]] = int(standing["pos"])
+	var colors := _team_colors()
+	var headers: Array = ["P", "±", "Piloto", "Equipo"]
+	var widths: Array = [28, 30, 200, 130]
+	for info in championship.calendar:
+		headers.append(info["short"])
+		widths.append(44)
+	headers.append("Pts")
+	widths.append(44)
+	var rows: Array = []
+	for standing in championship.driver_standings():
+		var change := int(before.get(standing["driver_id"], standing["pos"])) - int(standing["pos"])
+		var cells: Array = [str(standing["pos"]), RaceResults.change_text(change) if done > 1 else "",
+			standing["driver"], standing["team"]]
+		var results_list: Array = standing["results"]
+		for r in championship.round_count():
+			var pos := int(results_list[r]) if r < results_list.size() else 0
+			cells.append(str(pos) if pos > 0 else ("—" if r < done else ""))
+		cells.append(str(standing["points"]))
+		rows.append({"cells": cells, "color": Color(1.0, 0.85, 0.2) if standing["player"] else Color.WHITE,
+			"highlight": standing["player"],
+			"cell_colors": {1: ResultsScreen.change_color(change), 3: colors.get(standing["team_id"], Color.WHITE)}})
+	return {"name": "Campeonato", "left": 4, "headers": headers, "widths": widths, "rows": rows}
+
+
+## Paso 55: tabla de equipos del campeonato (puntos de cada fecha).
+func _championship_team_view() -> Dictionary:
+	var colors := _team_colors()
+	var my_team := str(selected_team.get("id", ""))
+	var headers: Array = ["P", "Equipo"]
+	var widths: Array = [28, 220]
+	for info in championship.calendar:
+		headers.append(info["short"])
+		widths.append(60)
+	headers.append("Pts")
+	widths.append(60)
+	var rows: Array = []
+	for standing in championship.team_standings():
+		var cells: Array = [str(standing["pos"]), standing["team"]]
+		var results_list: Array = standing["results"]
+		for r in championship.round_count():
+			cells.append(str(results_list[r]) if r < results_list.size() else "")
+		cells.append(str(standing["points"]))
+		var mine: bool = standing["team_id"] == my_team
+		rows.append({"cells": cells, "color": Color(1.0, 0.85, 0.2) if mine else Color.WHITE, "highlight": mine,
+			"cell_colors": {1: (colors.get(standing["team_id"], Color.WHITE) as Color).lightened(0.2)}})
+	return {"name": "Constructores", "left": 2, "headers": headers, "widths": widths, "rows": rows}
+
+
+## Paso 55: final de la temporada (después de la última carrera): campeón, podio y tablas.
+func _open_season_final() -> void:
+	var drivers := championship.driver_standings()
+	var teams := championship.team_standings()
+	if drivers.is_empty():
+		return
+	var colors := _team_colors()
+	var podium: Array = []
+	for standing in drivers.slice(0, 3):
+		podium.append({"code": standing["code"], "detail": "%d pts" % standing["points"],
+			"color": colors.get(standing["team_id"], Color.WHITE)})
+	var champion: Dictionary = drivers[0]
+	var summary: Array = [
+		["Campeón: %s (%s), %d pts y %d %s" % [champion["driver"], champion["team"], champion["points"],
+			champion["wins"], "victoria" if int(champion["wins"]) == 1 else "victorias"], Color(1.0, 0.85, 0.2)],
+		["Campeón de equipos: %s, %d pts" % [teams[0]["team"], teams[0]["points"]], Color.WHITE],
+	]
+	var mine := championship.player_standing()
+	if not mine.is_empty():
+		summary.append(["Terminaste P%d con %d pts" % [mine["pos"], mine["points"]],
+			Color(1.0, 0.85, 0.2) if int(mine["pos"]) == 1 else Color.WHITE])
+	summary.append(["%d fechas a %d vueltas · ←/→ tabla" % [championship.round_count(), championship.laps],
+		ResultsScreen.COLOR_HEADER])
+	results_screen.enable_replay(false)
+	results_screen.open_race("%s — Campeón" % championship.season_name,
+		"#%s %s  ·  %s" % [UiKit.number_text(selected_driver.get("number", "")), str(selected_driver.get("name", "")),
+			" · ".join(championship.calendar.map(func(r: Dictionary) -> String: return str(r["name"]).trim_prefix("Gran Premio de ")))],
+		[_championship_driver_view(), _championship_team_view()], podium, summary, "", false)
+
+
+func _team_colors() -> Dictionary:
+	var colors: Dictionary = {}
+	for team in DataLoader.load_json(DataLoader.GRID_PATH).get("teams", []):
+		colors[str(team.get("id", ""))] = DataLoader.team_primary(team)
+	return colors
 
 
 func _driver_view() -> Dictionary:

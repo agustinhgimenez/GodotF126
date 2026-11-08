@@ -1,0 +1,10 @@
+{
+  "description": "Paso 55. Temporada: las fechas se corren en el orden de 'calendar' (track_id de data/tracks.json; 'short' es la columna de la tabla). Cada fecha es clasificación de 'qualifying_laps' vueltas (si 'qualifying' no es false) y carrera de las vueltas elegidas al empezar la temporada (las 'lap_options' del modo 'championship' de data/modes.json). Los puntos salen de data/points.json; desempate por mejores resultados (más victorias, después más segundos puestos, …). La temporada se guarda en 'save_path' después de cada carrera.",
+  "name": "Temporada 2026",
+  "save_path": "user://championship.json",
+  "qualifying_laps": 2,
+  "calendar": [
+    {"track_id": "baku", "name": "Gran Premio de Azerbaiyán", "short": "AZE"},
+    {"track_id": "buenos_aires", "name": "Gran Premio de Argentina", "short": "ARG"}
+  ]
+}

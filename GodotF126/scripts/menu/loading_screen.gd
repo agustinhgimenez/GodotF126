@@ -137,6 +137,11 @@ func _read_session() -> void:
 		for compound in compounds.get("compounds", []):
 			if compound is Dictionary and str(compound.get("id", "")) == compound_id:
 				_mode_text += " · neumático %s" % str(compound.get("name", "")).to_lower()
+	if GameState.championship:
+		var season := Championship.load_saved()
+		if season != null and not season.is_finished():
+			_mode_text = "%s · %s (fecha %d/%d) · %s" % [season.season_name, str(season.current_round()["name"]),
+				season.round_index() + 1, season.round_count(), _mode_text]
 
 
 func _fill_texts() -> void:

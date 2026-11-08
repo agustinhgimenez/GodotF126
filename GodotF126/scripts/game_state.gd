@@ -5,6 +5,8 @@ const MODE_PRACTICE := "practice"
 const MODE_TIME_TRIAL := "time_trial"
 const MODE_QUALIFYING := "qualifying"
 const MODE_RACE := "race"
+## Paso 55: el modo del menú; en juego cada fecha es clasificación o carrera con championship = true.
+const MODE_CHAMPIONSHIP := "championship"
 
 ## Paso 53: pista (id de data/tracks.json); vacío = el default_track_id del archivo.
 var selected_track: String = ""
@@ -20,6 +22,8 @@ var tyre_compound: String = ""
 ## vuelta válida del jugador en la última clasificación (−1 = no corrió; la carrera usa su récord).
 var session_seed: int = 0
 var qualifying_time: float = -1.0
+## Paso 55: la sesión es una fecha de la temporada guardada (Championship, user://championship.json).
+var championship: bool = false
 
 
 ## Paso 53: "Godot --path . -- --track prueba" elige la pista hasta que haya selector en el menú.

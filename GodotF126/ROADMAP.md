@@ -106,8 +106,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 |---|---|---|
 | 53 | Generador de pistas por puntos de control, reutilizable para otros circuitos | ✅ |
 | 54 | Segunda pista | ✅ |
-| 55 | Modo campeonato con varias carreras | ⏳ Siguiente |
-| 56 | Lluvia y pista mojada | |
+| 55 | Modo campeonato con varias carreras | ✅ |
+| 56 | Lluvia y pista mojada | ⏳ Siguiente |
 
 ## Fase H — Ingeniería y entrega (H4)
 
@@ -1158,3 +1158,27 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   En la carrera con ventana (capturas) la IA no es determinista: en una de tres corridas tuvo 9 golpes a muros y 2 rescates; en las otras, 0. **Las pruebas anteriores siguen bien**: Bakú idéntica a la huella del Paso 53, la vuelta del Paso 36 1:42,417 / 1:40,950 / 1:40,967, y los Pasos 47 (Norris 2:41,667), 52 y 53 con 0 fallas. Capturas: `informes/capturas/paso54-plano.png`, `paso54-menu-pista.png`, `paso54-menu-setup.png`, `paso54-carga.png`, `paso54-recta.png`, `paso54-curvon.png`, `paso54-grilla.png`, `paso54-carrera.png` y `paso54-resultado.png`.
 - **Cómo probar**: F5, Jugar, y en la tarjeta "Pista" apretar → hasta "Buenos Aires"; elegir un modo y un piloto.
+
+### Paso 55 — Modo campeonato con varias carreras
+- **Temporada** (`data/championship.json`, clase `Championship` en `scripts/race/championship.gd`): calendario de 2 fechas (Gran Premio de Azerbaiyán en Bakú y Gran Premio de Argentina en Buenos Aires), clasificación de 2 vueltas en cada una y la carrera con las vueltas elegidas al empezar (2, 3, 5 o 10). El mismo piloto toda la temporada. Se guarda en `user://championship.json` después de cada carrera; el calendario guardado manda (cambiar los datos no rompe una temporada empezada).
+- **Menú**: nueva tarjeta "Campeonato ‹ 3 vueltas ›" (en `data/modes.json`). Sin temporada guardada, Enter pasa a elegir el piloto y arranca la fecha 1. Con una temporada a medias la tarjeta muestra "Campeonato ‹ Seguir: fecha 2/2 ›" y debajo la próxima pista, las vueltas y tu puesto ("Argentina · 2 vueltas · Franco Colapinto P4, 12 pts"); Enter sigue sin volver a elegir piloto, y ←/→ pasan a "Nueva · N vueltas" para empezar otra. Con la temporada terminada, la tarjeta dice el campeón. En el campeonato la tarjeta de pista no cuenta (manda el calendario).
+- **Cada fecha**: clasificación (con "Fecha 1/2" en el HUD, la pausa y la pantalla de carga) → "Correr la carrera" → carrera con la grilla de esa clasificación (como en el Paso 47; la clasificación estimada de la IA usa los tiempos de cada pista, Paso 54). Cada fecha tiene una semilla nueva.
+- **Resultado de la carrera**: además de Pilotos, Equipos y Sanciones (Paso 52), dos vistas nuevas: **Campeonato** (puesto, cambio contra la fecha anterior, piloto, equipo con su color, puesto en cada fecha y puntos) y **Constructores** (puntos de cada equipo por fecha y total). El resumen agrega "Campeonato: P4 con 12 pts (fecha 1/2)". En lugar de "Repetir" (repetir una fecha ya sumada la contaría dos veces) va "Siguiente: Argentina" o, en la última, "Final de temporada".
+- **Final de temporada**: "Temporada 2026 — Campeón" con el podio de la temporada, las tablas de Campeonato y Constructores, el campeón de pilotos (puntos y victorias), el de equipos y tu puesto final.
+- **Puntos y desempate**: los de cada carrera (`data/points.json`, Paso 52). Empate en puntos: más victorias, después más segundos puestos, etc.; si siguen iguales, por nombre (para que el orden no cambie entre corridas). En equipos cuentan los puestos de sus dos pilotos.
+- **Arreglo**: en la pantalla de resultados, un botón con texto largo ("Ver campeonato equipos") se ensanchaba, asomaba a la derecha de los otros (hasta x = 1311 de 1280) y ← → movían el foco a ese botón en vez de cambiar la tabla. Los botones del resultado ahora tienen ancho fijo y recortan el texto, y las vistas tienen nombres cortos. Y en el menú, al volver con la temporada a medias el foco caía en la tarjeta Campeonato (la última) pero el panel no se desplazaba hasta ella, porque el foco llegaba antes de que el panel recién mostrado tuviera tamaño; ahora el menú la trae a la vista un cuadro después (`paso55_menu.gd`: la tarjeta queda en 634–712 px del panel 210–712).
+- **Verificación** (`paso55_championship.gd`: una temporada de 2 fechas a 2 vueltas con el jugador manejado por la IA en Medio; la clasificación se cierra con un tiempo fijo, 0,4 % más lento que la pole de la IA):
+
+| Prueba | Resultado |
+|---|---|
+| Datos sintéticos | sólo suma la carrera de la pista que toca y no suma después del final; empate 27–27 resuelto por la victoria, 18–18 por nombre; tabla después de la fecha 1; equipos = suma de sus pilotos por fecha; se guarda y se lee igual |
+| Menú (temporada nueva) | "Campeonato ‹ 3 vueltas ›", ← elige 2, Enter pasa a elegir piloto; al confirmar Colapinto se guarda la temporada y arranca Bakú con clasificación de 2 vueltas |
+| Fecha 1 (Bakú) | "Fecha 1/2 · Clasificación"; "Correr la carrera" larga la carrera de 2 vueltas; termina (170 s); sumada; 5 vistas; "Siguiente: Argentina" sin "Repetir"; botones dentro de la pantalla (terminan en 689 de 720 px); Colapinto P4 con 12 pts; → pasa a Constructores |
+| Volver al menú y seguir | "Seguir: fecha 2/2" con "Argentina · 2 vueltas · Franco Colapinto P4, 12 pts"; →/← entre "Nueva · 2 vueltas" y "Seguir"; Enter sigue con Colapinto aunque en el menú hubiera otro piloto |
+| Fecha 2 (Buenos Aires) | carrera que termina (197 s), sumada, "Final de temporada" |
+| Suma | los puntos de los 22 pilotos y los 11 equipos son la suma de los `last_race.json` de las 2 fechas; tabla ordenada; el archivo guardado da la misma tabla |
+| Desempate real | Verstappen 50 (1.º y 1.º); Colapinto, Piastri y Norris con 30: Colapinto (4.º y 2.º) y Piastri (2.º y 4.º) delante de Norris (3.º y 3.º) por el segundo puesto, y entre ellos por nombre |
+| Final | "Temporada 2026 — Campeón", podio VER–COL–PIA, sólo las tablas del campeonato y "Menú principal"; "Campeón: Max Verstappen (Red Bull), 50 pts y 2 victorias"; el menú dice "Terminada: campeón Max Verstappen (50 pts)" |
+
+  Unos 14 minutos sin ventana. **Las pruebas anteriores siguen bien**: Pasos 47 (Norris 2:41,667), 52, 53 y 54 con 0 fallas. Capturas: `informes/capturas/paso55-menu.png`, `paso55-resultado-1.png`, `paso55-pilotos-1.png`, `paso55-equipos-1.png`, `paso55-menu-seguir.png`, `paso55-carga.png`, `paso55-pilotos-2.png` y `paso55-campeon.png`.
+- **Cómo probar**: F5, Jugar, bajar hasta "Campeonato", elegir las vueltas con ←/→, Enter y elegir el piloto. Después de cada carrera, "Siguiente" lleva a la próxima fecha; desde el menú principal se puede seguir la temporada más tarde.

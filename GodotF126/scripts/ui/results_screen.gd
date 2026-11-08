@@ -31,6 +31,7 @@ var _table: GridContainer
 var _bottom: BoxContainer
 var _summary: VBoxContainer
 var _repeat_button: Button
+var _menu_button: Button
 var _next_button: Button
 var _replay_button: Button
 var _view_button: Button
@@ -101,6 +102,7 @@ func open(timer: LapTimer, subtitle: String) -> void:
 	views.clear()
 	_view_button.visible = false
 	_podium.visible = false
+	_repeat_button.visible = true
 	_table.columns = COLUMN_WIDTHS.size()
 	_fill_table(timer)
 	_fill_summary(timer)
@@ -118,6 +120,7 @@ func open_standings(title: String, subtitle: String, headers: Array, widths: Arr
 	views.clear()
 	_view_button.visible = false
 	_podium.visible = false
+	_repeat_button.visible = true
 	_show_table(headers, widths, rows)
 	_show_summary(summary, 18)
 	_next_button.visible = not next_text.is_empty()
@@ -130,8 +133,10 @@ func open_standings(title: String, subtitle: String, headers: Array, widths: Arr
 ## Paso 52: resultado de la carrera. views = [{name, headers, widths, rows, left (columnas
 ## alineadas a la izquierda)}], la primera se muestra; podium = [{code, detail, color}] del 1.º
 ## al 3.º. Las filas pueden traer "cell_colors" ({columna: Color}).
+## Paso 55 (campeonato): con next_text, el botón extra ("Siguiente carrera") emite next_requested;
+## allow_repeat = false esconde "Repetir".
 func open_race(title: String, subtitle: String, view_list: Array[Dictionary], podium: Array,
-		summary: Array) -> void:
+		summary: Array, next_text: String = "", allow_repeat: bool = true) -> void:
 	_title.text = title
 	_subtitle.text = subtitle
 	views = view_list
@@ -139,12 +144,17 @@ func open_race(title: String, subtitle: String, view_list: Array[Dictionary], po
 	_podium.visible = not podium.is_empty()
 	_podium.queue_redraw()
 	_show_summary(summary, 16)
-	_next_button.visible = false
+	_next_button.visible = not next_text.is_empty()
+	_next_button.text = next_text
+	_repeat_button.visible = allow_repeat
 	_view_button.visible = views.size() > 1
 	show_view(0)
 	get_tree().paused = true
 	_root.visible = true
-	_repeat_button.grab_focus()
+	if _next_button.visible:
+		_next_button.grab_focus()
+	else:
+		(_repeat_button if allow_repeat else _menu_button).grab_focus()
 
 
 func show_view(index: int) -> void:
@@ -213,9 +223,9 @@ func _leave(request: Signal) -> void:
 	request.emit()
 
 
-## Paso 51: muestra el botón de la repetición.
-func enable_replay() -> void:
-	_replay_button.visible = true
+## Paso 51: muestra el botón de la repetición (Paso 55: on = false lo esconde).
+func enable_replay(on: bool = true) -> void:
+	_replay_button.visible = on
 
 
 ## Paso 51: la repetición tapa el resultado (el árbol sigue en pausa); al cerrarla vuelve.
@@ -381,11 +391,15 @@ func _build_ui() -> void:
 	_replay_button = _add_button(actions, "Ver repetición", func() -> void: replay_requested.emit())
 	_replay_button.visible = false
 	_repeat_button = _add_button(actions, "Repetir", func() -> void: _leave(repeat_requested))
-	_add_button(actions, "Menú principal", func() -> void: _leave(menu_requested))
+	_menu_button = _add_button(actions, "Menú principal", func() -> void: _leave(menu_requested))
 
 
 func _add_button(parent: Control, text: String, action: Callable) -> Button:
 	var button := UiKit.make_button(text, accent)
+	# Ancho fijo: un botón más ancho asoma a la derecha de los otros y ← → mueven el foco en vez
+	# de cambiar la vista de la tabla.
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	button.pressed.connect(action)
 	parent.add_child(button)
 	_buttons.append(button)
