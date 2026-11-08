@@ -114,8 +114,8 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Paso | Contenido | Estado |
 |---|---|---|
 | 57 | **Tests automáticos** con GUT: caja de cambios, cronómetro, carga de JSON, física básica | ✅ |
-| 58 | Optimización y perfilado: 60 FPS en PC del laboratorio | ⏳ Siguiente |
-| 59 | **Export Windows `.exe`** (agregar `*.json` a los filtros de export; dejar afuera `addons/gut/`, `test/` y `.gutconfig.json`) | |
+| 58 | Optimización y perfilado: 60 FPS en PC del laboratorio | ✅ (medido en esta PC; falta el laboratorio) |
+| 59 | **Export Windows `.exe`** (agregar `*.json` a los filtros de export; dejar afuera `addons/gut/`, `test/` y `.gutconfig.json`) | ⏳ Siguiente |
 | 60 | Manual de usuario, informe final, video demo y defensa | |
 
 ---
@@ -1228,3 +1228,26 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 - **Cómo probar**: en el editor, panel **GUT** (abajo) → "Run All". Desde la consola:
   `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 -s addons/gut/gut_cmdln.gd -gexit`
   (la primera vez, o después de agregar un test nuevo, correr antes `--headless --path GodotF126 --import`).
+
+### Paso 58 — Optimización y perfilado
+- **Dónde se va el tiempo** (carrera de 22 autos en Bakú, esta PC con Intel UHD y renderer Compatibility): el render cuesta ~4,6 ms por cuadro (218 FPS con la carrera en pausa y sin vsync), así que **lo que limita es la CPU de la simulación**. La física corre a 60 ticks fijos por segundo: cuando los FPS bajan de 60, cada cuadro hace más de un tick y el cuadro se alarga todavía más. Por tick, sin ventana: ~15 ms en la largada (todos juntos, con 4 sub-pasos de neumáticos cerca del jugador) y ~12,4 ms a los 40 s. Se reparte entre los scripts de los autos (las 4 ruedas con sus sub-pasos de neumáticos), `AiDriver` (carriles, pasadas, velocidades del camino planeado), Jolt, `RaceTraffic` (0,75 ms) y el HUD (~0,7 ms por cuadro).
+- **Optimizaciones** (todas dan **exactamente los mismos números**: se precalcula, se escribe en línea o se saca del bucle, sin cambiar ninguna cuenta):
+  - `TrackGenerator`: largo de cada tramo (`_segments`), puntos en planta (`_flat_points`) y tangentes en planta (`_flat_tangents`) calculados una vez al armar la pista; los usan `locate()`, `flat_tangent()`, `index_at_distance()` y `_index_after_distance()`, que la IA y el tráfico llaman cientos de veces por cuadro. `edge_point()` sin llamadas intermedias.
+  - `TyreModel.forces()`: la fórmula mágica escrita en línea (~1.400 llamadas por cuadro con 22 autos).
+  - `CarWheel` / `CarController`: los ejes de cada rueda (`orient()`) y el brazo desde el centro de masa se calculan una vez por cuadro y no en cada sub-paso; en los sub-pasos sólo cambian las velocidades (`measure_speeds()`).
+  - `RacingLine`: `grip_mu(car)` (μ del compuesto con el agua) se calcula una vez y se pasa a `corner_speed_mu()` / `brake_decel_mu()`; `corner_speed()` y `brake_decel()` siguen igual por fuera.
+  - `AiDriver`: `_scan_neighbours()` busca una vez por decisión quién se tira por adentro y qué autos tiene al lado; antes `_desired_lateral()` lo recorría todo de nuevo para cada punto del camino planeado. `_lane_limit()` usa `grip_mu()` una sola vez.
+- **Resultado**:
+
+| Medición (esta PC) | Antes | Después |
+|---|---|---|
+| Carrera de 22 a 2 vueltas sin ventana (`paso47_race.gd`, promedio de 10.178 cuadros) | 12,40 ms | **11,18 ms** (−10 %) |
+| `RaceTraffic` por cuadro | 0,75 ms | 0,43 ms |
+| FPS con ventana, de los 6 a los 26 s de carrera (`paso58_profile.gd`, sin `--fixed-fps`) | 40,3 (peor cuadro 83 ms) | **47,6** (peor cuadro 43 ms) |
+| FPS con ventana, de los 8 a los 48 s (`paso56_fps.gd`, seco) | 44,4 (percentil 5: 28,7) | **47,3** (percentil 5: 28,8) |
+| Práctica / contrarreloj | ~60 | ~60 |
+
+  Las dos columnas se midieron una detrás de la otra en la misma sesión (con `git stash`). El 16,8 FPS del Paso 56 con ese mismo script fue el estado de la máquina en ese momento: hoy el código del Paso 57 da 44,4.
+- **60 FPS en la carrera de 22 todavía no en esta PC** (Intel UHD de notebook): haría falta un tick de ~10 ms o menos. Quedan opciones que **cambian el comportamiento** y no se tocaron para no mover los resultados de la IA: menos sub-pasos o decisiones más espaciadas para los autos lejos del jugador (`substeps_far` = 1 hace patinar un auto parado), o un LOD de la IA por niveles. **El benchmark del laboratorio (Paso 24) sigue pendiente**: hay que correrlo en una PC de allá antes de decir que llega a 60.
+- **Verificación**: la carrera de 22 de `paso47_race.gd` da **idéntica** con el código de antes y el de ahora (clasificación estimada, los 22 tiempos de llegada, Norris 2:41.667, 0 fallas); `paso36_lap.gd` 1:42.417 / 1:40.950 / 1:40.967 (igual); suite GUT 67/67; Pasos 55 (`P55_UNIT=1`) y 56 (`P56_NORACE=1`) con 0 fallas; récords y ajustes del jugador sin cambios.
+- **Cómo probar**: F5, Jugar → Carrera con 22 autos, y mirar los FPS con el Monitor del Debugger (o `Performance.get_monitor(TIME_FPS)`). El juego tiene que verse y manejarse igual que antes, más fluido.

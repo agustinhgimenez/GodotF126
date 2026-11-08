@@ -192,6 +192,12 @@ var _inside: PackedFloat32Array = PackedFloat32Array()
 var _apexes: PackedInt32Array = PackedInt32Array()
 var _frame: int = 0
 var _pending_delta: float = 0.0
+## Paso 58: por decisión (cuadro `_scan_frame`), quién se le tira por adentro (por slot) y los
+## autos que tiene al lado (lateral y lugar a dejarles) para _desired_lateral().
+var _scan_frame: int = -1
+var _divers: Array[bool] = []
+var _beside_lateral: PackedFloat64Array = PackedFloat64Array()
+var _beside_room: PackedFloat64Array = PackedFloat64Array()
 
 
 func configure(data: Dictionary) -> void:
@@ -323,6 +329,7 @@ func _physics_process(delta: float) -> void:
 	var v := car.forward_speed
 	_update_pit()
 	_traffic(delta)
+	_scan_neighbours()
 	car.ai_inputs = Vector3(0.0, 0.0, _steer(v))
 	var pedals := _pedals(v, delta)
 	car.ai_inputs.x = pedals.x
@@ -376,13 +383,11 @@ func _desired_lateral(j: int) -> float:
 	if traffic == null or _slot < 0 or pitting:
 		return wanted
 	var adjusted := wanted
-	for k in traffic.cars.size():
-		if k == _slot or (absf(traffic.gap(_slot, k)) > traffic.car_length and not _diver(k)):
-			continue
-		var other := traffic.lateral[k]
-		if absf(other - lateral) > lane_clear + 1.0 and not _diver(k):
-			continue
-		var room := lane_clear + (1.5 if _diver(k) else 0.0)
+	if _scan_frame != _frame:
+		_scan_neighbours()
+	for b in _beside_lateral.size():
+		var other := _beside_lateral[b]
+		var room := _beside_room[b]
 		if other >= lateral:
 			adjusted = minf(adjusted, other - room)
 		else:
@@ -446,6 +451,7 @@ func _lane_limit() -> float:
 		path.append(_track.edge_point(j, _planned_lateral(j), 0.0))
 		j = _track.index_at_distance(j, 5.0)
 	var best := INF
+	var mu := _line.grip_mu(car)
 	for s in range(1, count - 1):
 		var a := Vector2(path[s - 1].x, path[s - 1].z)
 		var b := Vector2(path[s].x, path[s].z)
@@ -454,11 +460,11 @@ func _lane_limit() -> float:
 		if sides < 0.001:
 			continue
 		var k := 2.0 * absf((b - a).cross(c - a)) / sides
-		var corner := _line.corner_speed(car, k) * pace
+		var corner := _line.corner_speed_mu(car, mu, k) * pace
 		if corner == INF:
 			continue
 		var d := (s - 1) * 5.0
-		best = minf(best, sqrt(corner * corner + 2.0 * _line.brake_decel(car, corner) * d))
+		best = minf(best, sqrt(corner * corner + 2.0 * _line.brake_decel_mu(car, mu, corner) * d))
 	return best
 
 
@@ -643,8 +649,35 @@ func _diving_on(j: int) -> bool:
 	return _pass_inside and not _dive_done and traffic.gap(_slot, j) < dive_gap
 
 
+## Una vez por decisión (después de _traffic(), con `_slot` y `lateral` de este cuadro).
+func _scan_neighbours() -> void:
+	_scan_frame = _frame
+	_divers.clear()
+	_beside_lateral.clear()
+	_beside_room.clear()
+	if traffic == null or _slot < 0:
+		return
+	for k in traffic.cars.size():
+		_divers.append(_find_diver(k))
+	for k in traffic.cars.size():
+		var diver := _divers[k]
+		if k == _slot or (absf(traffic.gap(_slot, k)) > traffic.car_length and not diver):
+			continue
+		var other := traffic.lateral[k]
+		if absf(other - lateral) > lane_clear + 1.0 and not diver:
+			continue
+		_beside_lateral.append(other)
+		_beside_room.append(lane_clear + (1.5 if diver else 0.0))
+
+
 ## El auto que se le tira por adentro a menos de `dive_gap` m (ya lo tiene que respetar).
 func _diver(k: int) -> bool:
+	if _scan_frame == _frame and k < _divers.size():
+		return _divers[k]
+	return _find_diver(k)
+
+
+func _find_diver(k: int) -> bool:
 	var other := traffic.cars[k]
 	if not other.has_meta("passing") or other.get_meta("passing") != car:
 		return false

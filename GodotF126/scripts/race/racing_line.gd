@@ -221,14 +221,25 @@ func speeds_for(car: CarController, with_wear: bool = false) -> PackedFloat32Arr
 ## Con el mismo modelo que speeds_for, para caminos fuera de la línea (Paso 46): velocidad de
 ## curva de `car` con curvatura `k` (1/m) y desaceleración de frenada (m/s²) a `v` m/s.
 func corner_speed(car: CarController, k: float) -> float:
-	var mu := car.tyre_mu * car.tyres.compound_grip(car.tyres.compound())
+	return corner_speed_mu(car, grip_mu(car), k)
+
+
+func brake_decel(car: CarController, v: float) -> float:
+	return brake_decel_mu(car, grip_mu(car), v)
+
+
+## Paso 58: μ del compuesto con el agua de ahora, para calcularlo una vez en los bucles.
+func grip_mu(car: CarController) -> float:
+	return car.tyre_mu * car.tyres.compound_grip(car.tyres.compound())
+
+
+func corner_speed_mu(car: CarController, mu: float, k: float) -> float:
 	var lateral := grip_fraction * mu
 	var room := absf(k) - lateral * 0.5 * car.air_density * car.cla / car.mass
 	return sqrt(lateral * G / room) if room > 0.0 else INF
 
 
-func brake_decel(car: CarController, v: float) -> float:
-	var mu := car.tyre_mu * car.tyres.compound_grip(car.tyres.compound())
+func brake_decel_mu(car: CarController, mu: float, v: float) -> float:
 	return brake_fraction * mu * (G + 0.5 * car.air_density * car.cla / car.mass * v * v) + 0.5 * car.air_density * car.cda / car.mass * v * v
 
 

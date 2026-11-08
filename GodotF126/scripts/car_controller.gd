@@ -784,6 +784,10 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, electri
 	var h := delta / substeps
 	var total_force := Vector3.ZERO
 	var total_torque := Vector3.ZERO
+	var arms: Array[Vector3] = []
+	for wheel in grounded:
+		wheel.orient(basis_now)
+		arms.append(wheel.contact_point - center)
 	for step in substeps:
 		var step_force := Vector3.ZERO
 		var step_torque := Vector3.ZERO
@@ -795,8 +799,8 @@ func _apply_wheel_forces(throttle: float, brake: float, handbrake: bool, electri
 			split = differential.transfer(wheels[2].spin, wheels[3].spin, input, on_power, tyre.wheel_inertia, h)
 		for i in grounded.size():
 			var wheel := grounded[i]
-			var arm := wheel.contact_point - center
-			wheel.measure(basis_now, velocity + spin.cross(arm), tyre.slip_floor)
+			var arm := arms[i]
+			wheel.measure_speeds(velocity + spin.cross(arm), tyre.slip_floor)
 			var t := torques[i]
 			var drive := t.y * factor
 			if i == rear_left:

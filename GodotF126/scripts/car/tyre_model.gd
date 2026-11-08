@@ -99,6 +99,9 @@ func forces(slip_ratio: float, slip_angle: float, grip: float) -> Vector2:
 	var s := sqrt(sx * sx + sy * sy)
 	if s < 1e-6:
 		return Vector2.ZERO
-	var fx := magic(s * slip_ratio_peak, long_b, long_c, long_e) * sx / s
-	var fy := -magic(s * slip_angle_peak, lat_b, lat_c, lat_e) * sy / s
+	# magic() escrita en línea dos veces: se llama ~1400 veces por cuadro con 22 autos.
+	var bx := long_b * (s * slip_ratio_peak)
+	var fx := sin(long_c * atan(bx - long_e * (bx - atan(bx)))) * sx / s
+	var by := lat_b * (s * slip_angle_peak)
+	var fy := -sin(lat_c * atan(by - lat_e * (by - atan(by)))) * sy / s
 	return Vector2(fx, fy) * grip

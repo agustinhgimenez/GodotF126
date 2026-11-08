@@ -119,9 +119,18 @@ func update_suspension(body: RigidBody3D, space: PhysicsDirectSpaceState3D, trav
 
 ## Ejes de la rueda y velocidades del punto de contacto. `velocity`: la del auto en ese punto.
 func measure(body_basis: Basis, velocity: Vector3, slip_floor: float) -> void:
+	orient(body_basis)
+	measure_speeds(velocity, slip_floor)
+
+
+## Paso 58: los ejes no cambian entre los sub-pasos de un cuadro (sólo las velocidades).
+func orient(body_basis: Basis) -> void:
 	var heading := (body_basis * Basis(Vector3.UP, steer_angle)) * Vector3.FORWARD
 	forward = (heading - contact_normal * heading.dot(contact_normal)).normalized()
 	right = forward.cross(contact_normal).normalized()
+
+
+func measure_speeds(velocity: Vector3, slip_floor: float) -> void:
 	long_speed = velocity.dot(forward)
 	lat_speed = velocity.dot(right)
 	slip_angle = atan2(lat_speed, maxf(absf(long_speed), slip_floor))

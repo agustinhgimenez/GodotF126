@@ -154,6 +154,11 @@ var _control: Array[PackedFloat32Array] = []
 var _road_left: PackedFloat32Array = PackedFloat32Array()
 var _road_right: PackedFloat32Array = PackedFloat32Array()
 var _rights: PackedVector3Array = PackedVector3Array()
+## Paso 58: m de cada punto al siguiente y los puntos en planta, precalculados porque la IA
+## los pide cientos de veces por cuadro (mismos valores que distance_to / Vector2(x, z)).
+var _segments: PackedFloat64Array = PackedFloat64Array()
+var _flat_points: PackedVector2Array = PackedVector2Array()
+var _flat_tangents: PackedVector3Array = PackedVector3Array()
 
 
 func _ready() -> void:
@@ -220,10 +225,11 @@ func locate(pos: Vector3, hint: int = -1) -> Vector2:
 	var n := centerline.size()
 	var best := 0
 	var best_dist := INF
+	var flat_pos := Vector2(pos.x, pos.z)
 	if hint >= 0:
 		for k in range(-40, 41):
 			var i := (hint + k + n) % n
-			var d := _flat_distance_squared(centerline[i], pos)
+			var d := _flat_points[i].distance_squared_to(flat_pos)
 			if d < best_dist:
 				best_dist = d
 				best = i
@@ -232,7 +238,7 @@ func locate(pos: Vector3, hint: int = -1) -> Vector2:
 	if best_dist > limit * limit:
 		best_dist = INF
 		for i in n:
-			var d := _flat_distance_squared(centerline[i], pos)
+			var d := _flat_points[i].distance_squared_to(flat_pos)
 			if d < best_dist:
 				best_dist = d
 				best = i
@@ -248,11 +254,11 @@ func elevation(i: int) -> float:
 
 ## Punto a `offset` m del centro (+ derecha) y `height` m sobre el asfalto en el índice i.
 func edge_point(i: int, offset: float, height: float) -> Vector3:
-	return _edge(i, offset, height)
+	return centerline[i] + _rights[i] * offset + Vector3(0, height, 0)
 
 
 func flat_tangent(i: int) -> Vector3:
-	return _flat_tangent(i)
+	return _flat_tangents[i] if i < _flat_tangents.size() else _flat_tangent(i)
 
 
 ## Derecha en planta (sentido de carrera) en el índice i.
@@ -273,7 +279,7 @@ func index_at_distance(from: int, distance: float) -> int:
 	var i := from
 	while travelled < -distance:
 		var prev := (i - 1 + n) % n
-		travelled += centerline[i].distance_to(centerline[prev])
+		travelled += _segments[prev]
 		i = prev
 	return i
 
@@ -778,10 +784,16 @@ func _ensure_centerline() -> void:
 		max_width = maxf(max_width, widths[i])
 
 	_rights = PackedVector3Array()
+	_segments = PackedFloat64Array()
+	_flat_points = PackedVector2Array()
+	_flat_tangents = PackedVector3Array()
 	track_length = 0.0
 	for i in n:
 		_rights.append(_tangent(i).cross(Vector3.UP).normalized())
-		track_length += centerline[i].distance_to(centerline[(i + 1) % n])
+		_segments.append(centerline[i].distance_to(centerline[(i + 1) % n]))
+		_flat_points.append(Vector2(centerline[i].x, centerline[i].z))
+		_flat_tangents.append(_flat_tangent(i))
+		track_length += _segments[i]
 
 
 ## Los puntos son [x, z, ...]: las distancias se miden en planta y el resto se interpola.
@@ -888,9 +900,8 @@ func _index_after_distance(start: int, distance: float) -> int:
 	var travelled := 0.0
 	var i := start
 	while travelled < distance:
-		var j := (i + 1) % n
-		travelled += centerline[i].distance_to(centerline[j])
-		i = j
+		travelled += _segments[i]
+		i = (i + 1) % n
 	return i
 
 
