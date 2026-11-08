@@ -113,9 +113,9 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
 | Paso | Contenido | Estado |
 |---|---|---|
-| 57 | **Tests automáticos** con GUT: caja de cambios, cronómetro, carga de JSON, física básica | ⏳ Siguiente |
-| 58 | Optimización y perfilado: 60 FPS en PC del laboratorio | |
-| 59 | **Export Windows `.exe`** (agregar `*.json` a los filtros de export) | |
+| 57 | **Tests automáticos** con GUT: caja de cambios, cronómetro, carga de JSON, física básica | ✅ |
+| 58 | Optimización y perfilado: 60 FPS en PC del laboratorio | ⏳ Siguiente |
+| 59 | **Export Windows `.exe`** (agregar `*.json` a los filtros de export; dejar afuera `addons/gut/`, `test/` y `.gutconfig.json`) | |
 | 60 | Manual de usuario, informe final, video demo y defensa | |
 
 ---
@@ -1206,3 +1206,25 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   **Las pruebas anteriores siguen bien**: Pasos 47 (Norris 2:41,667), 52, 53, 54 y 55 con 0 fallas. Sin ventana (`--headless`) no se crean partículas; en esas corridas aparece a veces un cierre de Godot al cambiar de escena (ya pasaba desde el Paso 49), que no aparece con ventana. Capturas: `informes/capturas/paso56-menu.png`, `paso56-carga.png`, `paso56-grilla.png`, `paso56-carrera.png`, `paso56-lluvia-recta.png`, `paso56-lluvia-curva.png`, `paso56-rocio.png`, `paso56-seco.png` y `paso56-resultado.png`.
 - **Cómo probar**: F5, Jugar, en la tarjeta "Clima" apretar → hasta "Lluvia" (el neumático cambia a lluvia), elegir Práctica libre o Carrera y un piloto.
+
+### Paso 57 — Tests automáticos con GUT
+- **GUT 9.7.1** (Godot Unit Test, licencia MIT, la versión para Godot 4.7) en `addons/gut/`, con el plugin activado en `project.godot` (panel "GUT" abajo en el editor). La configuración está en `.gutconfig.json`: corre todo lo que empieza con `test_` en `test/unit/` y `test/integration/` y termina solo.
+- **67 tests en 7 archivos** (580 comprobaciones, ~17 s):
+
+| Archivo | Qué prueba |
+|---|---|
+| `test/unit/test_gearbox.gd` (10) | 8 marchas y relaciones × relación final, subir hasta 8.ª y no más, bajar a N y R sólo parado, reversa y rebaje bloqueados (señal `shift_denied` con el motivo), tiempo de cambio, RPM proporcionales a la velocidad, caja automática que sube y baja respetando `min_shift_interval`, levas ignoradas en automático, cambio de modo |
+| `test/unit/test_lap_timer.gd` (8) | largada, 3 sectores y señales, puntos de control fuera de orden ignorados, mejor vuelta y mejores sectores, vuelta inválida que no cuenta, sesión de N vueltas con penalización en el total, vuelta abortada, `format_time` (redondeo a 1:00.000, sin tiempo "--:--.---") |
+| `test/unit/test_data_loader.gd` (10) | todos los `data/*.json` se leen; archivo que falta, JSON roto y JSON que no es objeto devuelven {} con su error; grilla de 11 equipos y 22 pilotos con id único; modos; compuestos con sus claves y ventana de temperatura; el clima sugiere compuestos que existen; pistas jugables y fechas del campeonato que se pueden generar; colores de equipo |
+| `test/unit/test_tyres_weather.gd` (11) | selección de compuesto (desconocido = por defecto), mezcla seco/mojado, orden de agarre en seco, húmedo y lluvia, pérdida por temperatura fuera de la ventana (con tope), el agua enfría más; seco no cambia nada, la lluvia en el auto, la IA × `lap_factor` y la luz gris sin modificar los originales |
+| `test/unit/test_strategy_results.gd` (13) | estrategia en seco (lisos, regla de dos compuestos, planes ordenados por costo, plan con el compuesto del jugador, siguiente compuesto, desgaste), con lluvia (plan sin parar, lisos que paran enseguida) y húmedo; puntos 25…1 (101 por carrera) y vuelta rápida configurable; desempate; temporada de 2 fechas que suma, ordena, se guarda y se lee |
+| `test/unit/test_track_validation.gd` (10) | Bakú, Buenos Aires y la de prueba sin errores ni avisos; trazados armados en el test: rectángulo válido con boxes automáticos del lado de adentro (en los dos sentidos), largada en una curva, ocho que se cruza, rectas que se tocan, radios imposibles, pocos puntos, vuelta de menos de 1 km |
+| `test/integration/test_car_physics.gd` (5) | el auto de verdad (`car.tscn`) sobre un piso plano, manejado por código: apoya las 4 ruedas, acelera a fondo (más de 100 km/h en 3 s) subiendo de marcha solo, frena hasta parar, con freno y el auto quieto pone reversa (tope de 12 m/s) y dobla; siempre derecho |
+
+- **No tocan lo del jugador**: el cronómetro de los tests no tiene pista (no guarda récords) y el campeonato se guarda en un archivo de prueba que se borra; `records.json` y `settings.json` quedaron iguales.
+- **Si un test falla** el proceso termina con código 1 (verificado con un test roto a propósito), así que sirve para scripts o integración continua.
+- **Verificación**: 67/67 en verde, código de salida 0. Las pruebas anteriores siguen bien: `paso36_lap.gd` 1:42.417 / 1:40.950 / 1:40.967 (igual), Pasos 55 y 56 con 0 fallas. No hay cambios en el código del juego.
+- **Para el Paso 59**: el export tiene que dejar afuera `addons/gut/`, `test/` y `.gutconfig.json`.
+- **Cómo probar**: en el editor, panel **GUT** (abajo) → "Run All". Desde la consola:
+  `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 -s addons/gut/gut_cmdln.gd -gexit`
+  (la primera vez, o después de agregar un test nuevo, correr antes `--headless --path GodotF126 --import`).

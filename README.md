@@ -46,6 +46,7 @@ También funcionan las flechas del teclado.
 |---|---|
 | `GodotF126/` | Proyecto Godot (abrir `project.godot`) |
 | `GodotF126/ROADMAP.md` | Plan iterativo de 60 pasos en 8 fases |
+| `GodotF126/test/` | Tests automáticos (GUT, Paso 57) |
 | `PARA-EL-PROFESOR-GodotF126-abstract.md` | Abstract + descripción breve para entregar |
 | `informes/GodotF126-Agustin-Gimenez-formalizacion.md` | Formalización completa del proyecto |
 | `informes/capturas/` | Capturas del juego para informes y presentaciones |
@@ -111,6 +112,7 @@ También funcionan las flechas del teclado.
 - ✅ Paso 54: Segunda pista - **Autódromo de Buenos Aires (placeholder)**: circuito permanente inventado (no el layout oficial) de 3,8 km en sentido horario, con recta de 820 m, "S", curvón, chicana y horquilla; césped, tribunas, sin edificios y el Obelisco. Son sólo 16 puntos de control en `data/tracks.json`: lo demás lo arma el generador del Paso 53. Se elige en el menú con la nueva tarjeta "Pista ‹ … ›" (el panel de modos ahora se desplaza para que entre todo en pantalla). La clasificación estimada de la IA usa la vuelta medida de cada nivel en cada pista (`"ai_lap_times"`; en Buenos Aires la pole de la IA anda en 1:33). Capturas: `informes/capturas/paso54-plano.png`, `paso54-menu-pista.png`, `paso54-recta.png`, `paso54-curvon.png`, `paso54-carrera.png`, `paso54-resultado.png`.
 - ✅ Paso 55: Modo campeonato con varias carreras - nueva tarjeta "Campeonato" en el menú: una temporada de 2 fechas (Bakú y Buenos Aires, `data/championship.json`) con el mismo piloto, clasificación y carrera en cada una. Después de cada carrera el resultado suma las vistas **Campeonato** (puesto en cada fecha y puntos) y **Constructores**, y el botón "Siguiente: Argentina" lleva a la próxima fecha; al final, el campeón y el podio de la temporada. Empates por mejores resultados. La temporada se guarda en `user://championship.json` y se sigue desde el menú ("Seguir: fecha 2/2"). Capturas: `informes/capturas/paso55-menu.png`, `paso55-pilotos-1.png`, `paso55-menu-seguir.png`, `paso55-campeon.png`.
 - ✅ Paso 56: Lluvia y pista mojada - nueva tarjeta "Clima" en el menú: Seco, Húmedo o Lluvia (`data/weather.json`). Con agua cada neumático mezcla su agarre seco con el mojado (`wet_grip`), y hay dos compuestos nuevos: intermedio y lluvia. La trazada, la IA y su clasificación estimada se adaptan; con la pista mojada no hace falta usar dos compuestos. Luz gris, asfalto oscuro y brillante, gotas alrededor de la cámara y rocío detrás de los autos. En seco todo queda igual que antes. Capturas: `informes/capturas/paso56-menu.png`, `paso56-grilla.png`, `paso56-lluvia-curva.png`, `paso56-rocio.png`.
-- ⏳ Paso 57: Tests automáticos con GUT.
+- ✅ Paso 57: Tests automáticos con GUT - 67 tests (GUT 9.7.1 en `GodotF126/addons/gut/`, tests en `GodotF126/test/`): caja de cambios, cronómetro, carga e integridad de los JSON, neumáticos y clima, estrategia, puntos y campeonato, validación de pistas y física del auto sobre un piso plano. Se corren en el editor (panel GUT → "Run All") o con `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 -s addons/gut/gut_cmdln.gd -gexit` (código de salida 1 si algo falla). No tocan los récords ni las opciones del jugador.
+- ⏳ Paso 58: Optimización y perfilado.
 - Plan completo de 60 pasos en 8 fases: ver `GodotF126/ROADMAP.md`.
 - ❌ Todavía no hay `.exe` (Paso 59).
