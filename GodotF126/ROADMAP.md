@@ -1271,3 +1271,26 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 
   Captura: `informes/capturas/paso59-exe-menu.png`. **No se pudo automatizar una carrera dentro del `.exe`** (por lo mismo: no corre scripts de prueba); conviene jugar una vez a mano práctica, carrera y campeonato antes de la entrega.
 - **Cómo probar**: doble clic en `GodotF126\export\GodotF126.exe` (o copiarlo a un pendrive / otra PC con Windows 10/11 de 64 bits y OpenGL 3.3: no necesita Godot ni nada instalado).
+
+### Versión web (agregada antes del Paso 60)
+- **Se juega en el navegador**: [ingsoftwareavanzado.agustingimenez.ar](https://ingsoftwareavanzado.agustingimenez.ar/). Es el export Web de Godot (WebAssembly + WebGL 2, renderer Compatibility) con el mismo código y los mismos datos que el `.exe`.
+- **Preset "Web"** en `export_presets.cfg`: salida `export/web/index.html`, **sin hilos** (`thread_support` = false: no hacen falta las cabeceras COOP/COEP, que con Cloudflare complican), mismos filtros que Windows. Plantillas `web_*.zip` de 4.7.2 instaladas junto a las de Windows. Pesa ~40 MB (casi todo `index.wasm`, el motor); por la red viajan **9,5 MB** porque Cloudflare lo comprime, más 1,1 MB de `index.pck` (los datos del juego).
+- **Cambios en el juego, sólo en el navegador** (`OS.has_feature("web")`; en Windows y en el editor todo queda igual):
+  - Los botones "Salir" del menú y de la pausa no se muestran y Esc en el menú principal no hace nada (en una pestaña `quit()` no cierra nada).
+  - **Fuente de respaldo** `fonts/DejaVuSans.ttf` (licencia libre en `fonts/DejaVuSans-LICENSE.txt`): en el navegador no hay fuentes del sistema y las flechas (↑ ↓ ← →), ▶ y ● salían como cuadraditos. `GameState` la agrega como respaldo de la fuente por defecto.
+- **`export/.gdignore`**: sin él Godot importaba los íconos de `export/web` como recursos del juego y terminaban dentro del paquete. `.gitignore` ahora ignora `export/*` salvo ese archivo.
+- **Publicación**: el subdominio lo sirve nginx en el VPS (DonWeb, host `VPS-DonWeb` del `~/.ssh/config`) como sitio estático en `/var/www/ingsoftwareavanzado.agustingimenez.ar/`, detrás de Cloudflare. Se copian los archivos de `export/web/` ahí; la página "Hola Mundo" anterior quedó en `/root/backups/ingsoftwareavanzado-index-hola-mundo-2026-11-08.html`. No hizo falta tocar nginx (ya conoce `application/wasm`).
+
+| Prueba (navegador de Cursor, esta PC con Intel UHD) | Resultado |
+|---|---|
+| Menú, elegir modo / escudería / piloto, pantalla de carga | igual que en Windows; flechas bien con la fuente nueva |
+| Práctica en Buenos Aires, acelerando | ~40 FPS, cronómetro y HUD bien |
+| Carrera de 22 autos en Bakú | **~18 FPS** (peor cuadro 83 ms): se puede correr, pero se siente trabado; en el `.exe` la misma PC da ~47 |
+| Sitio publicado | `index.html`, `.wasm` (`application/wasm`), `.pck` y `.js` con HTTP 200; carga el menú en unos segundos |
+| Suite GUT / `.exe` | 67/67; el `.exe` se volvió a exportar con la fuente |
+
+  En el navegador WebAssembly corre más lento que el `.exe` y sin hilos todo va en uno solo; para la carrera de 22 conviene el `.exe`. Las teclas funcionan después de hacer clic una vez en el juego (el navegador le da el foco). Los récords y ajustes del navegador se guardan en el propio navegador (IndexedDB), aparte de los del `.exe`. Capturas: `informes/capturas/web-menu.png` (sitio publicado), `web-carrera.png` (largada de la carrera en el navegador).
+- **Actualizar el sitio** después de cambiar el juego (desde la carpeta del repositorio, en PowerShell):
+  `Godot_v4.7.2-stable_win64.exe --headless --path GodotF126 --export-release "Web" export/web/index.html`
+  `scp GodotF126\export\web\* VPS-DonWeb:/var/www/ingsoftwareavanzado.agustingimenez.ar/`
+  Cloudflare guarda en caché `index.js` (no el `.wasm` ni el `.pck`): mientras no cambie la versión de Godot no importa; si se cambia de versión, purgar la caché de Cloudflare.

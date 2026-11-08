@@ -87,7 +87,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif _controls.visible:
 		_show_main()
 		_controls_button.grab_focus()
-	else:
+	elif not OS.has_feature("web"):
 		get_tree().quit()
 
 
@@ -336,7 +336,11 @@ func _build_ui() -> void:
 	_quit_button = UiKit.make_button("Salir", FALLBACK_TEAM_COLOR)
 	_quit_button.pressed.connect(_on_quit_pressed)
 	_main_panel.add_child(_quit_button)
-	var hint := UiKit.make_label("Flechas para elegir · Enter para confirmar · Esc para salir", 16)
+	# En el navegador quit() no cierra nada: se juega en una pestaña.
+	var web := OS.has_feature("web")
+	_quit_button.visible = not web
+	var hint_text := "Flechas para elegir · Enter para confirmar" if web else "Flechas para elegir · Enter para confirmar · Esc para salir"
+	var hint := UiKit.make_label(hint_text, 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
 	_main_panel.add_child(hint)
 

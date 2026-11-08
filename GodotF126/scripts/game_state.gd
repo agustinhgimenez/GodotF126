@@ -31,6 +31,9 @@ var championship: bool = false
 ## Paso 59: el .exe exportado no acepta una escena en la línea de comandos; "-- --benchmark"
 ## abre la prueba de rendimiento del Paso 24 en lugar del menú.
 const BENCHMARK_SCENE := "res://scenes/benchmark.tscn"
+## En el navegador no hay fuentes del sistema que completen las flechas, ▶ y ●: DejaVu Sans
+## (licencia en fonts/DejaVuSans-LICENSE.txt) va de respaldo de la fuente por defecto.
+const SYMBOL_FONT := "res://fonts/DejaVuSans.ttf"
 
 
 ## Paso 53: "Godot --path . -- --track prueba" elige la pista hasta que haya selector en el menú.
@@ -41,6 +44,18 @@ func _ready() -> void:
 			selected_track = args[k + 1]
 	if "--benchmark" in args:
 		get_tree().change_scene_to_file.call_deferred(BENCHMARK_SCENE)
+	if OS.has_feature("web"):
+		_add_symbol_fallback()
+
+
+func _add_symbol_fallback() -> void:
+	var symbols: Font = load(SYMBOL_FONT)
+	var fonts: Array[Font] = [ThemeDB.fallback_font, ThemeDB.get_default_theme().default_font]
+	for font in fonts:
+		if font != null and not font.fallbacks.has(symbols):
+			var chain := font.fallbacks
+			chain.append(symbols)
+			font.fallbacks = chain
 
 
 func is_time_trial() -> bool:
