@@ -59,3 +59,5 @@ GodotF126/
 
 ## Estado
 Los 60 pasos del [ROADMAP.md](ROADMAP.md) están completos (hito H4: entrega final). Manual de usuario e informe final en `../informes/`. El ejecutable se genera en `export/GodotF126.exe` con el preset "Windows Desktop" de `export_presets.cfg` (Paso 59).
+
+Después del Paso 60 se agregó el **multijugador online** de 2 jugadores con salas (menú "Multijugador online": nombre, crear sala o unirse). Código en `scripts/net/` (`online_client.gd`, autoload `Online`; `online_race.gd`) y `scripts/menu/online_lobby.gd`; parámetros en `data/online.json`; el servidor está en `../server/online/`. Detalle en la sección "Multijugador online y web más liviana" del ROADMAP.

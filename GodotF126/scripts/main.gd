@@ -91,10 +91,14 @@ var rain_fx: RainFx
 var sprays: Array[CarSpray] = []
 ## Clasificación de la sesión (Paso 47): {driver, team, time, pace, player} de la pole al último.
 var qualifying: Array[Dictionary] = []
+## Carrera online de 2 jugadores (null en los otros modos).
+var online: OnlineRace
 var _car_data: Dictionary = {}
 var _laps: int = 0
 var _standing_start: bool = false
 var _start_data: Dictionary = {}
+## Online: el auto queda bloqueado en la grilla hasta que se apaga el semáforo.
+var _grid_locked: bool = false
 var _physics_guard: Node
 var _replay_from_results: bool = false
 var _hud_was_visible: bool = true
@@ -136,7 +140,12 @@ func _ready() -> void:
 	var car_data := DataLoader.load_json(DataLoader.CAR_PATH)
 	_car_data = car_data
 	car.configure(car_data)
-	car_setup = CarSetup.load_saved()
+	if GameState.is_online():
+		# Mismas reglas para los dos jugadores: setup base (el del rival también).
+		car_setup = CarSetup.new()
+		car_setup.configure(DataLoader.load_json(CarSetup.DATA_PATH))
+	else:
+		car_setup = CarSetup.load_saved()
 	car.apply_setup(car_setup)
 	car.fit_tyres(GameState.tyre_compound)
 	weather = Weather.load_default(GameState.weather)
@@ -219,7 +228,7 @@ func _ready() -> void:
 	ghost.setup(car, lap_timer, live_delta, team_color)
 	ghost.enabled = bool(Settings.get_value("ghost"))
 	track.checkpoint_crossed.connect(_on_checkpoint_crossed)
-	if not GameState.is_race():
+	if not GameState.is_race() and not GameState.is_online():
 		car.was_reset.connect(lap_timer.abort_lap)
 	lap_timer.lap_started.connect(func(_lap: int) -> void: car.fuel.new_lap())
 	hud.bind_lap_timer(lap_timer)
@@ -233,6 +242,8 @@ func _ready() -> void:
 		_setup_race()
 	if _standing_start:
 		_setup_start_lights()
+	if GameState.is_online():
+		_setup_online()
 	_setup_weather_fx()
 
 	pause_menu.set_accent(team_color)
@@ -244,7 +255,12 @@ func _ready() -> void:
 	pause_menu.restart_requested.connect(get_tree().reload_current_scene)
 	pause_menu.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
 	results_screen.set_accent(team_color)
-	results_screen.repeat_requested.connect(get_tree().reload_current_scene)
+	if online != null:
+		results_screen.repeat_requested.connect(func() -> void:
+			GameState.open_online_lobby = true
+			get_tree().change_scene_to_file(MENU_SCENE))
+	else:
+		results_screen.repeat_requested.connect(get_tree().reload_current_scene)
 	results_screen.menu_requested.connect(get_tree().change_scene_to_file.bind(MENU_SCENE))
 	results_screen.next_requested.connect(_on_next_requested)
 	lap_timer.session_finished.connect(_on_session_finished)
@@ -303,10 +319,74 @@ func _setup_start_lights() -> void:
 	start_lights.lights_out.connect(_on_lights_out)
 	start_lights.reaction_measured.connect(func(seconds: float) -> void: lap_timer.reaction_time = seconds)
 	hud.bind_start_lights(start_lights)
+	if not GameState.is_online():
+		start_lights.begin(car, track.get_start_line_transform(), TrackGenerator.GANTRY_HEIGHT)
+
+
+## Online: el semáforo arranca cuando el servidor dice "go" (seed común de la espera).
+func begin_start_lights(seed_value: int) -> void:
+	start_lights.hold_seed = seed_value
 	start_lights.begin(car, track.get_start_line_transform(), TrackGenerator.GANTRY_HEIGHT)
 
 
+## Carrera online: el auto del rival, la grilla de 2 y la largada sincronizada (OnlineRace).
+func _setup_online() -> void:
+	ghost.enabled = false
+	pause_menu.set_online()
+	_grid_locked = true
+	car.controls_enabled = false
+	online = OnlineRace.new()
+	online.name = "OnlineRace"
+	add_child(online)
+	online.setup(self, car, DataLoader.load_json(Online.DATA_PATH))
+
+
+## Pone un auto en el puesto `slot` de la grilla (0 = adelante), como en la carrera.
+func place_on_grid(who: CarController, slot: int) -> void:
+	var race_data: Dictionary = DataLoader.load_json(DataLoader.MODES_PATH).get("race", {})
+	var gap := float(race_data.get("slot_gap", 8.0))
+	var side := float(race_data.get("slot_side", 2.0))
+	var back := float(_start_data.get("grid_distance", 6.0)) + slot * gap
+	var at := track.index_at_distance(track.start_index(), -back)
+	var heading := Basis.looking_at(track.flat_tangent(at), Vector3.UP)
+	who.spawn_transform = Transform3D(heading,
+		track.edge_point(at, side * (1.0 if slot % 2 == 0 else -1.0), 0.0) + Vector3(0, 0.6, 0))
+	who.reset_to_spawn()
+
+
+## Auto del otro jugador: misma física que el tuyo, sin cámara ni sonido; lo mueve OnlineRace.
+func add_remote_car(driver: Dictionary, team: Dictionary, display_name: String) -> CarController:
+	var remote := CAR_SCENE.instantiate() as CarController
+	remote.name = "RemoteCar"
+	remote.ai_controlled = true
+	add_child(remote)
+	remote.configure(_car_data)
+	var default_setup := CarSetup.new()
+	default_setup.configure(DataLoader.load_json(CarSetup.DATA_PATH))
+	remote.apply_setup(default_setup)
+	remote.fit_tyres(GameState.tyre_compound)
+	weather.apply_to_car(remote)
+	remote.fill_fuel(car.fuel.kg)
+	remote.gearbox.manual = false
+	remote.repair_on_reset = false
+	remote.set_meta("driver_name", display_name)
+	remote.set_livery(DataLoader.team_primary(team, Color.WHITE), DataLoader.team_secondary(team),
+		UiKit.number_text(driver.get("number", "")))
+	var tag := Label3D.new()
+	tag.text = display_name
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	tag.font_size = 40
+	tag.pixel_size = 0.01
+	tag.outline_size = 10
+	tag.position = Vector3(0, 1.6, 0)
+	remote.add_child(tag)
+	return remote
+
+
 func _on_lights_out() -> void:
+	if _grid_locked:
+		_grid_locked = false
+		car.controls_enabled = not pause_menu.is_open()
 	if start_lights.jumped:
 		lap_timer.add_penalty(float(_start_data.get("jump_penalty", 5.0)), "Largada en falso")
 		if race != null:
@@ -328,10 +408,27 @@ func _setup_qualifying() -> void:
 	qualifying = RaceSession.qualifying(DataLoader.load_json(DataLoader.GRID_PATH),
 		str(selected_driver.get("id", "")), player_time, str(Settings.get_value("ai_level")), ai_data,
 		GameState.session_seed)
+	qualifying = _limit_field(qualifying)
 	if GameState.is_qualifying() and qualifying.size() > 1:
 		var pole := qualifying[0] if not qualifying[0]["player"] else qualifying[1]
 		hud.show_message("Clasificación: la pole de la IA es %s (%s)" % [
 			LapTimer.format_time(float(pole["time"])), str(pole["driver"].get("name", ""))], 4.0)
+
+
+## En el navegador la carrera de 22 va muy lenta: quedan el jugador y los mejores de la
+## clasificación hasta `race.web_max_cars` de ai.json, en el mismo orden.
+func _limit_field(list: Array[Dictionary]) -> Array[Dictionary]:
+	var most := int(DataLoader.load_json(AI_PATH).get("race", {}).get("web_max_cars", 0))
+	if not OS.has_feature("web") or most <= 0 or list.size() <= most:
+		return list
+	var kept: Array[Dictionary] = []
+	var rivals := 0
+	for info in list:
+		if info["player"] or rivals < most - 1:
+			kept.append(info)
+			if not info["player"]:
+				rivals += 1
+	return kept
 
 
 ## Carrera (Paso 47): los 21 rivales en el orden de la clasificación, todos en la grilla.
@@ -469,8 +566,9 @@ func _on_checkpoint_crossed(checkpoint: int, body: Node3D) -> void:
 func _physics_process(delta: float) -> void:
 	if car.controls_enabled:
 		rumble.update(car, delta)
-	# En carrera, R deja el auto quieto sobre la pista donde está (Main procesa antes que Car).
-	if race != null and race.running and car.controls_enabled and Input.is_action_just_pressed("reset_car"):
+	# En carrera y online, R deja el auto quieto sobre la pista donde está (Main procesa antes que Car).
+	var racing := (race != null and race.running) or (online != null and online.started and not start_lights.is_active())
+	if racing and car.controls_enabled and Input.is_action_just_pressed("reset_car"):
 		var at := int(track.locate(car.global_position, track_limits.index).x)
 		var heading := Basis.looking_at(track.flat_tangent(at), Vector3.UP)
 		car.spawn_transform = Transform3D(heading, track.edge_point(at, racing_line.offsets[at], 0.0) + Vector3(0, 0.6, 0))
@@ -704,12 +802,15 @@ func _on_session_finished() -> void:
 			str(selected_driver.get("id", "")), lap_timer.best_lap, str(Settings.get_value("ai_level")),
 			weather.ai_data(RaceSession.track_ai_data(DataLoader.load_json(AI_PATH), track.track_info)),
 			GameState.session_seed)
+		qualifying = _limit_field(qualifying)
 	await get_tree().create_timer(results_delay, false).timeout
 	car.engine_audio.set_muted(true)
 	car.audio_fx.set_muted(true)
 	hud.visible = false
 	if race != null:
 		_open_race_results()
+	elif online != null:
+		online.open_results()
 	elif GameState.is_qualifying():
 		_open_qualifying_results()
 	else:
@@ -934,6 +1035,10 @@ func _open_qualifying_results() -> void:
 		["P", "Piloto", "Equipo", "Tiempo", "Dif."], [34, 280, 150, 130, 110], rows, summary, "Correr la carrera")
 
 
+func session_subtitle() -> String:
+	return _session_subtitle()
+
+
 func _session_subtitle() -> String:
 	return "#%s %s  ·  %s  ·  %s" % [UiKit.number_text(selected_driver.get("number", "")),
 		str(selected_driver.get("name", "")), track_name, mode_name]
@@ -943,6 +1048,8 @@ func _on_paused_changed(paused: bool) -> void:
 	car.engine_audio.set_muted(paused)
 	car.audio_fx.set_muted(paused)
 	hud.visible = not paused
+	if online != null:
+		car.controls_enabled = not paused and not lap_timer.finished and not _grid_locked
 	if paused:
 		rumble.stop()
 		pause_menu.set_subtitle(_pause_subtitle())

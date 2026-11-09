@@ -27,6 +27,9 @@ var hold_max: float = 3.0
 var jump_distance: float = 0.3
 var reaction_speed: float = 0.5   ## m/s que cuentan como "ya arrancó"
 var hide_after: float = 2.0
+## Online: semilla común de la espera antes del apagado (0 = al azar), para que los dos
+## jugadores vean apagarse las luces juntos.
+var hold_seed: int = 0
 
 var state: State = State.IDLE
 var lights_on: int = 0
@@ -60,7 +63,12 @@ func begin(car: CarController, line: Transform3D, gantry_height: float) -> void:
 	_grid_forward.y = 0.0
 	_grid_forward = _grid_forward.normalized()
 	_build_lamps(line, gantry_height)
-	_hold_time = randf_range(hold_min, hold_max)
+	if hold_seed != 0:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hold_seed
+		_hold_time = rng.randf_range(hold_min, hold_max)
+	else:
+		_hold_time = randf_range(hold_min, hold_max)
 	_set_lights(0)
 	_timer = 0.0
 	state = State.WAITING

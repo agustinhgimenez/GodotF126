@@ -47,6 +47,7 @@
     "expert": { "name": "Experto", "pace": 1.0, "mistake": 0.01, "pass_margin": 0.5, "defend": true, "lap_time": 76.5 }
   },
   "race": {
+    "web_max_cars": 10,
     "skill": {
       "verstappen": 2, "norris": 2, "piastri": 2, "leclerc": 1, "russell": 1, "hamilton": 1,
       "antonelli": 0, "alonso": 0, "sainz": 0, "albon": 0, "gasly": 0, "hadjar": 0, "colapinto": 0,

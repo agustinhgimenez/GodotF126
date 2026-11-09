@@ -63,7 +63,7 @@ func set_value(key: String, value) -> void:
 ## No vuelve a mostrar el tutorial (tutorial_seen no es una opción del jugador) ni toca los
 ## controles.
 func reset_to_defaults() -> void:
-	var kept := {"tutorial_seen": get_value("tutorial_seen")}
+	var kept := {"tutorial_seen": get_value("tutorial_seen"), "player_name": get_value("player_name")}
 	for key in INPUT_KEYS:
 		kept[key] = get_value(key)
 	values = _defaults()
@@ -91,6 +91,10 @@ func apply_input() -> void:
 ## Valores por defecto ya saneados (el JSON trae los enteros como float).
 func _defaults() -> Dictionary:
 	var result: Dictionary = _data.get("defaults", {}).duplicate()
+	if OS.has_feature("web"):
+		for key in _web_defaults():
+			result[key] = _web_defaults()[key]
+		result["web_tuned"] = true
 	for key in result.keys():
 		result[key] = _sanitize(key, result[key])
 	return result
@@ -107,6 +111,23 @@ func load_settings() -> void:
 	for key in values.keys():
 		if saved.has(key):
 			values[key] = _sanitize(key, saved[key])
+	# Opciones guardadas en el navegador antes de que existieran los valores para la web.
+	if OS.has_feature("web") and saved.get("web_tuned") != true:
+		for key in _web_defaults():
+			values[key] = _sanitize(key, _web_defaults()[key])
+		values["web_tuned"] = true
+		save_settings()
+
+
+## Bloque "web_defaults" de data/settings.json sin su descripción.
+func _web_defaults() -> Dictionary:
+	var result: Dictionary = {}
+	var web = _data.get("web_defaults", {})
+	if web is Dictionary:
+		for key in web:
+			if key != "description" and _data.get("defaults", {}).has(key):
+				result[key] = web[key]
+	return result
 
 
 func save_settings() -> void:
@@ -188,7 +209,7 @@ func _sanitize(key: String, value):
 			if not (value is int or value is float):
 				return int(fallback)
 			return clampi(int(value), 0, TRACTION_LEVELS - 1)
-		"steering_assist", "abs", "fullscreen", "tutorial_seen", "ghost":
+		"steering_assist", "abs", "fullscreen", "tutorial_seen", "ghost", "web_tuned":
 			return value if value is bool else fallback
 		"bindings":
 			return value.duplicate(true) if value is Dictionary else {}
@@ -210,6 +231,8 @@ func _sanitize(key: String, value):
 			if not (value is int or value is float):
 				return int(fallback)
 			return clampi(int(value), 0, 100)
+		"player_name":
+			return str(value).strip_edges().left(16) if value is String else fallback
 	if key in VOLUME_BUSES:
 		if not (value is int or value is float):
 			return int(fallback)

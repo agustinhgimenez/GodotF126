@@ -15,7 +15,7 @@ Hay tres formas, con el mismo juego:
 | **En el navegador** | Chrome, Edge o Firefox actualizados, con WebGL 2 | Entrar a [ingsoftwareavanzado.agustingimenez.ar](https://ingsoftwareavanzado.agustingimenez.ar/), esperar la carga (~10 MB) y **hacer clic una vez sobre el juego** para que tome el teclado. |
 | **Desde el editor de Godot** | Godot 4.7.2 (Standard) | Abrir `GodotF126/project.godot` y apretar **F5**. |
 
-En el navegador el juego es el mismo, pero más lento: la práctica y la contrarreloj andan bien y la carrera de 22 autos se siente trabada en PC modestas. Para la carrera completa conviene el `.exe`. En el navegador no hay botón "Salir": se cierra la pestaña.
+El juego corre siempre en tu PC (también en el navegador: el sitio sólo entrega los archivos). En el navegador es el mismo juego, pero más lento; por eso ahí arranca con calidad gráfica **Baja** (se puede subir en Opciones) y la carrera se corre con **10 autos** en lugar de 22. Para la grilla completa conviene el `.exe`. En el navegador no hay botón "Salir": se cierra la pestaña.
 
 ![Menú principal](capturas/paso59-exe-menu.png)
 
@@ -23,7 +23,8 @@ En el navegador el juego es el mismo, pero más lento: la práctica y la contrar
 
 Se maneja con las **flechas** y **Enter** (o con el mouse). **Esc** vuelve atrás.
 
-- **Jugar**: elegir pista, clima y modo, después escudería y piloto.
+- **1 jugador**: elegir pista, clima y modo, después escudería y piloto.
+- **Multijugador online**: carrera contra otra persona por internet (sección 2.3).
 - **Opciones**: ayudas, cámara, calidad gráfica, sonido y más (sección 6).
 - **Controles**: tabla de teclas y asignación de teclado, mando o volante (sección 4).
 - **Salir** (sólo en Windows).
@@ -54,6 +55,22 @@ En la misma lista están **Neumáticos ‹ … ›** (el compuesto con el que se
 ![Escuderías](capturas/paso12-escuderias.png)
 
 Primero la escudería (11 equipos de 2026) y después el piloto (22). El auto del menú toma los colores del equipo. Después aparece la **pantalla de carga** con los controles y un consejo; la primera vez espera **Enter** para que se lean.
+
+### 2.3 Multijugador online (2 jugadores)
+
+![Multijugador online](capturas/online-multijugador.png)
+
+1. **Tu nombre**: escribilo arriba (hasta 16 letras). Es lo que ve el otro jugador; el piloto se elige después y puede ser cualquiera. Si lo dejás vacío, jugás como "Jugador" con un número.
+2. Uno elige **Crear sala**: pista, clima, vueltas (1, 2, 3 o 5) y neumáticos, Enter, y después escudería y piloto. La pantalla de carga dice "Sala creada · esperando a que alguien se una…".
+3. El otro elige **Unirse a una sala**: aparece la lista de salas abiertas (se actualiza sola), con quién la creó, la pista, las vueltas, el clima y los neumáticos. Enter en una sala, escudería y piloto.
+
+![Unirse a una sala](capturas/online-unirse.png)
+
+- **Las mismas reglas para los dos**: pista, vueltas, clima y neumáticos son los de la sala, y los dos autos usan el setup base (no el que cada uno guardó).
+- **Largada**: los dos autos en la grilla (el que creó la sala adelante). **Mientras el semáforo está en rojo los autos están bloqueados**: no se puede salir antes. Las luces se apagan a la vez en las dos PCs.
+- **En carrera** el otro auto choca de verdad. Arriba a la izquierda se ve "ONLINE · vas 1.º / 2.º" y la distancia en segundos. **Esc no detiene la carrera** (el otro sigue corriendo) y R vuelve a la pista.
+- **Resultado**: por tiempo total (vueltas + penalizaciones), con el nombre y el piloto de cada uno. Si el otro todavía no llegó, se lo espera hasta un minuto. "Repetir" vuelve a las salas. Si el otro se desconecta, seguís solo.
+- Se puede jugar entre el navegador y el `.exe`. Hace falta internet; Esc en la pantalla de carga cancela y vuelve a las salas.
 
 ## 3. En pista
 

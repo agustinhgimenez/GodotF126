@@ -15,6 +15,10 @@ signal setup_requested
 const CARD_SIZE := Vector2(540, 78)
 
 var accent: Color = Color("#FF87BC")
+## Título, ayuda y tarjeta de setup (la de "Crear sala" online usa otros y no tiene setup).
+var heading: String = "Elegí modo"
+var hint_text: String = "← → pista, clima, vueltas y neumáticos · Enter para confirmar · Esc para volver"
+var with_setup: bool = true
 
 var _modes: Array = []
 var _laps: Dictionary = {}           ## id de modo → vueltas elegidas
@@ -48,7 +52,7 @@ var _default_compound: String = ""
 
 func _ready() -> void:
 	add_theme_constant_override("separation", 14)
-	add_child(UiKit.make_label("Elegí modo", 26))
+	add_child(UiKit.make_label(heading, 26))
 
 
 ## compounds: bloque "tyre_compounds" de car.json; current_compound vacío = su "default".
@@ -94,14 +98,15 @@ func setup(data: Dictionary, current_mode: String, current_laps: int, compounds:
 			if str(_compounds[i].get("id", "")) == wanted:
 				_compound_index = i
 		add_child(_make_tyre_card())
-	var parts := _card("")
-	_setup_button = parts[0]
-	parts[1].text = "Setup del auto"
-	_setup_description = parts[2]
-	_setup_description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_setup_button.pressed.connect(func() -> void: setup_requested.emit())
-	add_child(_setup_button)
-	var hint := UiKit.make_label("← → pista, clima, vueltas y neumáticos · Enter para confirmar · Esc para volver", 16)
+	if with_setup:
+		var parts := _card("")
+		_setup_button = parts[0]
+		parts[1].text = "Setup del auto"
+		_setup_description = parts[2]
+		_setup_description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		_setup_button.pressed.connect(func() -> void: setup_requested.emit())
+		add_child(_setup_button)
+	var hint := UiKit.make_label(hint_text, 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
 	add_child(hint)
 
@@ -126,7 +131,8 @@ func focus_setup(summary: String) -> void:
 
 
 func set_setup_summary(summary: String) -> void:
-	_setup_description.text = summary
+	if _setup_description != null:
+		_setup_description.text = summary
 
 
 ## Paso 55: en el modo `id`, ← → también pasan por "seguir" (confirma con vueltas = 0), que
@@ -327,7 +333,7 @@ func _cycle_compound(direction: int) -> void:
 
 func _refresh_title(mode: Dictionary) -> void:
 	var id := str(mode.get("id", ""))
-	var text := str(mode.get("name", id))
+	var text := str(mode.get("menu_name", mode.get("name", id)))
 	if _laps.has(id):
 		var laps := int(_laps[id])
 		if laps == 0 and _continue.has(id):

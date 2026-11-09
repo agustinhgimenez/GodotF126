@@ -32,6 +32,9 @@ var _replay_button: Button
 var _options_button: Button
 var _controls_button: Button
 var _buttons: Array[Button] = []
+var _restart_button: Button
+## Online: el menú se abre encima del juego sin pausarlo (el rival sigue corriendo).
+var pauses_game: bool = true
 
 
 func _ready() -> void:
@@ -64,7 +67,7 @@ func set_subtitle(text: String) -> void:
 func open() -> void:
 	if is_open():
 		return
-	get_tree().paused = true
+	get_tree().paused = pauses_game
 	_root.visible = true
 	_show_main(_continue_button)
 	paused_changed.emit(true)
@@ -182,6 +185,12 @@ func _leave(request: Signal) -> void:
 	request.emit()
 
 
+## Online: sin pausar el juego y sin "Reiniciar".
+func set_online() -> void:
+	pauses_game = false
+	_restart_button.visible = false
+
+
 ## Paso 51: muestra el botón de la repetición.
 func enable_replay() -> void:
 	_replay_button.visible = true
@@ -226,7 +235,7 @@ func _build_ui() -> void:
 	_continue_button = _add_button("Continuar", close)
 	_replay_button = _add_button("Repetición", func() -> void: replay_requested.emit())
 	_replay_button.visible = false
-	_add_button("Reiniciar", func() -> void: _leave(restart_requested))
+	_restart_button = _add_button("Reiniciar", func() -> void: _leave(restart_requested))
 	_setup_button = _add_button("Setup del auto", _on_setup_pressed)
 	_setup_button.visible = false
 	_telemetry_button = _add_button("Telemetría", _on_telemetry_pressed)

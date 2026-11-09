@@ -20,7 +20,7 @@ Antes de grabar: en Opciones, calidad **Alta** y las ayudas de la tabla de abajo
 
 ## Escena 2 — Elegir sesión (0:30–1:10)
 
-**En pantalla:** Jugar → elegir **Práctica libre** → mostrar con ← / → la pista (Bakú) y el neumático → Escuderías: pasar por 2 o 3 equipos → elegir piloto → pantalla de carga.
+**En pantalla:** 1 jugador → elegir **Práctica libre** → mostrar con ← / → la pista (Bakú) y el neumático → Escuderías: pasar por 2 o 3 equipos → elegir piloto → pantalla de carga.
 **Decir:** "Se elige el modo, la pista, el clima, el neumático y el piloto. Los datos de la grilla, las pistas y el auto están en archivos JSON: el juego se ajusta sin tocar código."
 
 ## Escena 3 — Práctica y física (1:10–2:20)
@@ -36,7 +36,7 @@ Antes de grabar: en Opciones, calidad **Alta** y las ayudas de la tabla de abajo
 
 ## Escena 5 — Carrera de 22 autos (3:00–4:30)
 
-**En pantalla:** Jugar → **Carrera** (2 vueltas) → semáforo y largada → primeras curvas con tráfico → cámara exterior (**C**) para que se vean los rivales → señalar la torre de tiempos a la izquierda → una pasada o una defensa de la IA.
+**En pantalla:** 1 jugador → **Carrera** (2 vueltas) → semáforo y largada → primeras curvas con tráfico → cámara exterior (**C**) para que se vean los rivales → señalar la torre de tiempos a la izquierda → una pasada o una defensa de la IA.
 **Decir:** "Los otros 21 autos los maneja una IA con la misma física: sigue la línea ideal, aprovecha el rebufo, pasa y defiende. Los comisarios analizan los toques y sancionan; hay banderas y Safety Car, y cada auto tiene su estrategia de boxes."
 **Si se puede:** entrar a boxes (**P** limitador a 80 km/h, el auto para solo y cambia neumáticos) para mostrar la parada.
 Dos vueltas en Bakú son ~3 minutos (el ganador llega en ~2:42): dejarla correr entera y recortar en la edición.

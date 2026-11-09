@@ -1,0 +1,16 @@
+[Unit]
+Description=GodotF126 servidor online (2 jugadores)
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/godotf126-online
+ExecStart=/usr/bin/node server.js
+Environment=PORT=8765
+Environment=HOST=127.0.0.1
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

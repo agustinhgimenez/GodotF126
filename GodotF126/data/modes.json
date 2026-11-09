@@ -53,6 +53,15 @@
       "default_laps": 3
     },
     {
+      "id": "online",
+      "name": "Online",
+      "menu_name": "Crear sala",
+      "description": "Las mismas reglas para los dos: pista, clima, vueltas y neumáticos",
+      "standing_start": true,
+      "lap_options": [1, 2, 3, 5],
+      "default_laps": 2
+    },
+    {
       "id": "championship",
       "name": "Campeonato",
       "description": "Temporada nueva: clasificación y carrera en cada pista del calendario",

@@ -7,6 +7,8 @@ const MODE_QUALIFYING := "qualifying"
 const MODE_RACE := "race"
 ## Paso 55: el modo del menú; en juego cada fecha es clasificación o carrera con championship = true.
 const MODE_CHAMPIONSHIP := "championship"
+## Carrera de 2 jugadores por internet (Online, scripts/net/).
+const MODE_ONLINE := "online"
 
 ## Paso 53: pista (id de data/tracks.json); vacío = el default_track_id del archivo.
 var selected_track: String = ""
@@ -26,6 +28,10 @@ var qualifying_time: float = -1.0
 var weather: String = ""
 ## Paso 55: la sesión es una fecha de la temporada guardada (Championship, user://championship.json).
 var championship: bool = false
+## Online: id de la sala a la que se une (0 = crea una sala con las reglas elegidas).
+var online_room: int = 0
+## Online: al volver al menú se abre directo la pantalla de salas.
+var open_online_lobby: bool = false
 
 
 ## Paso 59: el .exe exportado no acepta una escena en la línea de comandos; "-- --benchmark"
@@ -62,9 +68,13 @@ func is_time_trial() -> bool:
 	return selected_mode == MODE_TIME_TRIAL
 
 
-## Contrarreloj, clasificación o carrera: sin cambios de setup ni rivales de práctica.
+## Contrarreloj, clasificación, carrera u online: sin cambios de setup ni rivales de práctica.
 func is_competitive() -> bool:
-	return selected_mode == MODE_TIME_TRIAL or selected_mode == MODE_QUALIFYING or selected_mode == MODE_RACE
+	return selected_mode in [MODE_TIME_TRIAL, MODE_QUALIFYING, MODE_RACE, MODE_ONLINE]
+
+
+func is_online() -> bool:
+	return selected_mode == MODE_ONLINE
 
 
 func is_race() -> bool:

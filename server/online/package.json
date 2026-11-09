@@ -1,0 +1,13 @@
+{
+  "name": "godotf126-online",
+  "version": "1.0.0",
+  "description": "Servidor de emparejamiento y reenvío para las carreras online de 2 jugadores de GodotF126",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

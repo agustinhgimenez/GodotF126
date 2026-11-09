@@ -1,0 +1,15 @@
+{
+  "description": "Carrera online de 2 jugadores en salas: uno crea la sala con sus reglas (pista, vueltas, clima, neumáticos; los dos con el setup base) y el otro se une desde la lista. server_url: servidor de salas (server/online/server.js en el VPS, publicado por nginx en /ws); se puede cambiar con '-- --server ws://…'. protocol: tiene que coincidir con PROTOCOL del servidor. send_rate: estados por segundo que manda cada jugador. El auto del rival es un auto físico con los pedales y el volante del otro; cada cuadro su velocidad se mezcla ('velocity_blend') con la que lo lleva a la posición extrapolada del último estado ('position_gain' 1/s, 'rotation_gain' 1/s); a más de 'teleport_distance' m se lo pone ahí directamente; 'max_extrapolation' s. 'finish_wait': s que se espera al rival después de llegar. 'start_timeout': s que se espera a que el rival termine de cargar.",
+  "server_url": "wss://ingsoftwareavanzado.agustingimenez.ar/ws",
+  "protocol": 2,
+  "send_rate": 20,
+  "ping_interval": 10.0,
+  "velocity_blend": 0.35,
+  "position_gain": 5.0,
+  "rotation_gain": 6.0,
+  "teleport_distance": 8.0,
+  "max_extrapolation": 0.5,
+  "remote_tyre_substeps": 2,
+  "finish_wait": 60.0,
+  "start_timeout": 90.0
+}

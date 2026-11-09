@@ -54,7 +54,7 @@ func test_grilla_2026() -> void:
 
 func test_modos() -> void:
 	var modes := DataLoader.load_json(DataLoader.MODES_PATH)
-	for id in ["practice", "time_trial", "qualifying", "race", "championship"]:
+	for id in ["practice", "time_trial", "qualifying", "race", "online", "championship"]:
 		assert_false(DataLoader.find_mode(modes, id).is_empty(), "modo %s" % id)
 	assert_false(DataLoader.find_mode(modes, str(modes["default_mode"])).is_empty(), "el modo por defecto existe")
 

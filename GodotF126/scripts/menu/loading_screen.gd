@@ -4,8 +4,13 @@ extends Control
 ## Carga main.tscn en otro hilo con barra de progreso y muestra piloto, circuito, modo,
 ## un consejo y los controles. La primera vez (tutorial_seen en Settings) espera Enter
 ## para que se lean los controles; después pasa sola cuando terminó de cargar.
+## Online: mientras carga crea la sala (GameState.online_room 0) o se une a la elegida, y no
+## larga hasta que estén los dos; el que se une toma las reglas de la sala (pista, vueltas,
+## clima, neumáticos; la pista se arma recién en el _ready() de la carrera, así que la carga en
+## curso sirve igual). No espera Enter (el rival está esperando). Esc vuelve a las salas.
 
 const RACE_SCENE := "res://scenes/main.tscn"
+const MENU_SCENE := "res://scenes/menu.tscn"
 const TIME_NAMES := {"sunset": "Atardecer", "day": "Día"}
 ## Parte de la barra que ocupa la carga del recurso; el resto es armar la pista.
 const RESOURCE_SHARE := 0.85
@@ -28,6 +33,8 @@ var _title: Label
 var _subtitle: Label
 var _tip: Label
 var _controls: ControlsPanel
+var _online: bool = false
+var _online_text: String = ""
 
 
 func _ready() -> void:
@@ -35,7 +42,7 @@ func _ready() -> void:
 	var loading = data.get("loading", {})
 	if loading is Dictionary:
 		min_seconds = float(loading.get("min_seconds", min_seconds))
-	wait_for_confirm = not bool(Settings.get_value("tutorial_seen"))
+	wait_for_confirm = not bool(Settings.get_value("tutorial_seen")) and not GameState.is_online()
 	_read_session()
 	_build_ui()
 	_tip.text = _pick_tip(data.get("tips", []))
@@ -43,6 +50,9 @@ func _ready() -> void:
 	var error := ResourceLoader.load_threaded_request(RACE_SCENE)
 	if error != OK:
 		push_error("No se pudo empezar a cargar %s (%d)" % [RACE_SCENE, error])
+	_online = GameState.is_online()
+	if _online:
+		_start_matchmaking()
 
 
 func _process(delta: float) -> void:
@@ -51,6 +61,10 @@ func _process(delta: float) -> void:
 		return
 	if _loaded == null:
 		_poll_load()
+		return
+	if _online and not Online.is_matched():
+		_status.text = "Listo · %s  (Esc para cancelar)" % _online_text
+		_status.modulate.a = 0.65 + 0.35 * sin(_elapsed * 4.0)
 		return
 	if wait_for_confirm and not _confirmed:
 		var pulse := 0.65 + 0.35 * sin(_elapsed * 4.0)
@@ -61,6 +75,13 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _online and not _starting and event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		Online.leave()
+		_starting = true
+		GameState.open_online_lobby = true
+		get_tree().change_scene_to_file(MENU_SCENE)
+		return
 	if event.is_action_pressed("ui_accept"):
 		get_viewport().set_input_as_handled()
 		_confirmed = true
@@ -145,6 +166,68 @@ func _read_session() -> void:
 		if season != null and not season.is_finished():
 			_mode_text = "%s · %s (fecha %d/%d) · %s" % [season.season_name, str(season.current_round()["name"]),
 				season.round_index() + 1, season.round_count(), _mode_text]
+
+
+func _start_matchmaking() -> void:
+	var grid := DataLoader.load_json(DataLoader.GRID_PATH)
+	var driver_id := GameState.selected_driver_id
+	if driver_id.is_empty():
+		driver_id = str(grid.get("default_driver_id", "colapinto"))
+	var found := DataLoader.find_driver(grid, driver_id)
+	var driver: Dictionary = found.get("driver", {})
+	var team: Dictionary = found.get("team", {})
+	var laps := GameState.lap_count
+	if laps <= 0:
+		laps = int(DataLoader.find_mode(DataLoader.load_json(DataLoader.MODES_PATH), GameState.MODE_ONLINE).get("default_laps", 2))
+	_online_text = "Conectando con el servidor…"
+	Online.status_changed.connect(_on_online_status)
+	Online.matched.connect(_on_matched)
+	Online.failed.connect(_on_online_failed)
+	var player := {"name": Online.player_name(), "driver_id": driver_id,
+		"driver_name": str(driver.get("name", "")), "team_id": str(team.get("id", ""))}
+	if GameState.online_room > 0:
+		Online.join_room(GameState.online_room, player)
+	else:
+		var compound := GameState.tyre_compound
+		if compound.is_empty():
+			compound = str(DataLoader.load_json(DataLoader.CAR_PATH).get("tyre_compounds", {}).get("default", ""))
+		Online.create_room(player, {"track": TrackGenerator.resolve_track_id(GameState.selected_track),
+			"laps": laps, "weather": GameState.weather, "compound": compound})
+
+
+func _exit_tree() -> void:
+	if Online.status_changed.is_connected(_on_online_status):
+		Online.status_changed.disconnect(_on_online_status)
+		Online.matched.disconnect(_on_matched)
+		Online.failed.disconnect(_on_online_failed)
+
+
+func _on_online_status(text: String) -> void:
+	_online_text = text
+
+
+func _on_matched(_slot: int, opponent: Dictionary, settings: Dictionary) -> void:
+	if settings.has("track"):
+		GameState.selected_track = str(settings["track"])
+	if settings.has("laps"):
+		GameState.lap_count = int(settings["laps"])
+	if settings.has("weather"):
+		GameState.weather = str(settings["weather"])
+	if not str(settings.get("compound", "")).is_empty():
+		GameState.tyre_compound = str(settings["compound"])
+	GameState.online_room = 0
+	_read_session()
+	var rival := OnlineRace.player_label(opponent)
+	_mode_text += "  ·  contra %s" % rival
+	_fill_texts()
+	_status.modulate.a = 1.0
+	_status.text = "¡Rival: %s!" % rival
+
+
+func _on_online_failed(reason: String) -> void:
+	if _starting:
+		return
+	_online_text = "%s · Esc para volver a las salas" % reason
 
 
 func _fill_texts() -> void:

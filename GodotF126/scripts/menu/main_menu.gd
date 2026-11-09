@@ -6,6 +6,8 @@ extends Node3D
 ## aro y la luz toman el color del equipo. Al confirmar se guardan el modo, el compuesto de
 ## neumáticos (Paso 33) y el piloto en GameState y se carga la carrera a través de la pantalla de carga (Paso 24).
 ## Desde ModeSelect se abre el setup del auto (SetupPanel, Paso 35; se guarda solo).
+## "1 jugador" abre esos modos; "Multijugador online" abre OnlineLobby (nombre, crear sala con
+## sus reglas en otro ModeSelect, o unirse a una de la lista) y después la elección de piloto.
 
 const LOADING_SCENE := "res://scenes/loading.tscn"
 const FALLBACK_TEAM_COLOR := Color("#FF87BC")
@@ -27,6 +29,11 @@ var _car_setup: CarSetup
 ## Paso 55: temporada guardada (null si no hay).
 var _season: Championship
 var _play_button: Button
+var _online_button: Button
+var _lobby: OnlineLobby
+var _room_modes: ModeSelect
+## Adónde vuelve Esc desde la elección de piloto: "modes", "room" (reglas de la sala) o "rooms" (lista).
+var _select_return: String = "modes"
 var _options_button: Button
 var _controls_button: Button
 var _quit_button: Button
@@ -63,6 +70,9 @@ func _ready() -> void:
 	_build_ui()
 	_show_selected()
 	_show_main()
+	if GameState.open_online_lobby:
+		GameState.open_online_lobby = false
+		_on_online_pressed()
 	_apply_quality()
 	Settings.changed.connect(func(_key: String) -> void: _apply_quality())
 
@@ -81,6 +91,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_close_setup()
 	elif _modes.visible:
 		_modes.back()
+	elif _room_modes.visible:
+		_room_modes.back()
+	elif _lobby.visible:
+		_lobby.back()
 	elif _options.visible:
 		_show_main()
 		_options_button.grab_focus()
@@ -97,8 +111,64 @@ func _show_main() -> void:
 	_select.visible = false
 	_options.visible = false
 	_controls.visible = false
+	_lobby.visible = false
+	_room_modes.visible = false
 	_main_panel.visible = true
 	_play_button.grab_focus()
+
+
+## Multijugador online: nombre, crear sala o unirse (OnlineLobby).
+func _on_online_pressed() -> void:
+	_main_panel.visible = false
+	_room_modes.visible = false
+	_select.visible = false
+	_lobby.visible = true
+	_lobby.open()
+
+
+func _on_lobby_cancelled() -> void:
+	_show_main()
+	_online_button.grab_focus()
+
+
+func _show_room_rules() -> void:
+	_lobby.visible = false
+	_select.visible = false
+	_room_modes.visible = true
+	_room_modes.open()
+
+
+func _on_room_rules_cancelled() -> void:
+	_room_modes.visible = false
+	_lobby.visible = true
+	_lobby.open()
+
+
+## Las reglas de la sala nueva (valen para los dos jugadores).
+func _on_room_rules_confirmed(_mode_id: String, laps: int, compound_id: String) -> void:
+	GameState.championship = false
+	GameState.selected_mode = GameState.MODE_ONLINE
+	GameState.online_room = 0
+	if not _room_modes.track_id().is_empty():
+		GameState.selected_track = _room_modes.track_id()
+	GameState.weather = _room_modes.weather_id()
+	GameState.lap_count = laps
+	GameState.tyre_compound = compound_id
+	_select_return = "room"
+	_room_modes.visible = false
+	_select.visible = true
+	_select.open()
+
+
+## Sala elegida de la lista: se une después de elegir piloto (en la pantalla de carga).
+func _on_room_chosen(room: Dictionary) -> void:
+	GameState.championship = false
+	GameState.selected_mode = GameState.MODE_ONLINE
+	GameState.online_room = int(room.get("id", 0))
+	_select_return = "rooms"
+	_lobby.visible = false
+	_select.visible = true
+	_select.open()
 
 
 func _on_options_pressed() -> void:
@@ -167,6 +237,7 @@ func _on_championship_confirmed(laps: int, compound_id: String) -> void:
 		return
 	GameState.selected_mode = GameState.MODE_CHAMPIONSHIP
 	GameState.lap_count = laps
+	_select_return = "modes"
 	_modes.visible = false
 	_select.visible = true
 	_select.open()
@@ -194,6 +265,7 @@ func _on_mode_confirmed(mode_id: String, laps: int, compound_id: String) -> void
 	GameState.selected_mode = mode_id
 	GameState.lap_count = laps
 	GameState.tyre_compound = compound_id
+	_select_return = "modes"
 	_modes.visible = false
 	_select.visible = true
 	_select.open()
@@ -217,7 +289,15 @@ func _close_setup() -> void:
 
 func _on_select_cancelled() -> void:
 	_show_selected()
-	_show_modes()
+	match _select_return:
+		"room":
+			_show_room_rules()
+		"rooms":
+			_select.visible = false
+			_lobby.visible = true
+			_lobby.open_rooms()
+		_:
+			_show_modes()
 
 
 func _on_driver_confirmed(driver_id: String) -> void:
@@ -250,6 +330,9 @@ func _preview(team: Dictionary, driver: Dictionary) -> void:
 	_title_stripe.color = color
 	_card_stripe.color = color
 	UiKit.apply_button_style(_play_button, color)
+	UiKit.apply_button_style(_online_button, color)
+	_lobby.set_accent(color)
+	_room_modes.set_accent(color)
 	UiKit.apply_button_style(_options_button, color)
 	UiKit.apply_button_style(_controls_button, color)
 	UiKit.apply_button_style(_quit_button, color)
@@ -324,9 +407,12 @@ func _build_ui() -> void:
 	_main_panel.add_theme_constant_override("separation", 14)
 	UiKit.place(_main_panel, Vector4(0, 0, 0, 0), Vector4(80, 260, 640, 560))
 	root.add_child(_main_panel)
-	_play_button = UiKit.make_button("Jugar", FALLBACK_TEAM_COLOR)
+	_play_button = UiKit.make_button("1 jugador", FALLBACK_TEAM_COLOR)
 	_play_button.pressed.connect(_on_play_pressed)
 	_main_panel.add_child(_play_button)
+	_online_button = UiKit.make_button("Multijugador online", FALLBACK_TEAM_COLOR)
+	_online_button.pressed.connect(_on_online_pressed)
+	_main_panel.add_child(_online_button)
 	_options_button = UiKit.make_button("Opciones", FALLBACK_TEAM_COLOR)
 	_options_button.pressed.connect(_on_options_pressed)
 	_main_panel.add_child(_options_button)
@@ -361,7 +447,12 @@ func _build_ui() -> void:
 	var compounds = car_data.get("tyre_compounds", {})
 	_season = Championship.load_saved()
 	var in_season := GameState.championship and _season != null
-	_modes.setup(DataLoader.load_json(DataLoader.MODES_PATH),
+	var modes_data := DataLoader.load_json(DataLoader.MODES_PATH)
+	var single_player := modes_data.duplicate()
+	var online_mode: Dictionary = DataLoader.find_mode(modes_data, GameState.MODE_ONLINE)
+	single_player["modes"] = modes_data.get("modes", []).filter(func(mode) -> bool:
+		return str(mode.get("id", "")) != GameState.MODE_ONLINE)
+	_modes.setup(single_player,
 		GameState.MODE_CHAMPIONSHIP if in_season else GameState.selected_mode,
 		_season.laps if in_season else GameState.lap_count,
 		compounds if compounds is Dictionary else {}, GameState.tyre_compound,
@@ -371,6 +462,33 @@ func _build_ui() -> void:
 	_modes.confirmed.connect(_on_mode_confirmed)
 	_modes.cancelled.connect(_on_modes_cancelled)
 	_modes.setup_requested.connect(_open_setup)
+
+	_lobby = OnlineLobby.new()
+	_lobby.name = "OnlineLobby"
+	_lobby.visible = false
+	UiKit.place(_lobby, Vector4(0, 0, 0, 0), Vector4(80, 210, 660, 712))
+	root.add_child(_lobby)
+	_lobby.create_requested.connect(_show_room_rules)
+	_lobby.room_chosen.connect(_on_room_chosen)
+	_lobby.cancelled.connect(_on_lobby_cancelled)
+
+	# Reglas de la sala online: pista, clima, vueltas y neumáticos (el setup es el base para los dos).
+	_room_modes = ModeSelect.new()
+	_room_modes.name = "RoomRules"
+	_room_modes.heading = "Crear sala"
+	_room_modes.hint_text = "← → pista, clima, vueltas y neumáticos · Enter crea la sala · Esc para volver"
+	_room_modes.with_setup = false
+	_room_modes.visible = false
+	UiKit.place(_room_modes, Vector4(0, 0, 0, 0), Vector4(80, 210, 660, 712))
+	root.add_child(_room_modes)
+	var online_laps := GameState.lap_count if GameState.is_online() else 0
+	_room_modes.setup({"modes": [online_mode] if not online_mode.is_empty() else []},
+		GameState.MODE_ONLINE, online_laps,
+		compounds if compounds is Dictionary else {}, GameState.tyre_compound,
+		DataLoader.load_json(DataLoader.TRACKS_PATH), GameState.selected_track,
+		Weather.conditions(), GameState.weather)
+	_room_modes.confirmed.connect(_on_room_rules_confirmed)
+	_room_modes.cancelled.connect(_on_room_rules_cancelled)
 
 	_car_setup = CarSetup.load_saved()
 	_modes.set_setup_summary(_car_setup.summary())
