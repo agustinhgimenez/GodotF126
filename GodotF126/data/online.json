@@ -1,5 +1,5 @@
 {
-  "description": "Carrera online de 2 jugadores en salas: uno crea la sala con sus reglas (pista, vueltas, clima, neumáticos; los dos con el setup base) y el otro se une desde la lista. server_url: servidor de salas (server/online/server.js en el VPS, publicado por nginx en /ws); se puede cambiar con '-- --server ws://…'. protocol: tiene que coincidir con PROTOCOL del servidor. send_rate: estados por segundo que manda cada jugador. El auto del rival es un auto físico con los pedales y el volante del otro; cada cuadro su velocidad se mezcla ('velocity_blend') con la que lo lleva a la posición extrapolada del último estado ('position_gain' 1/s, 'rotation_gain' 1/s); a más de 'teleport_distance' m se lo pone ahí directamente; 'max_extrapolation' s. 'finish_wait': s que se espera al rival después de llegar. 'start_timeout': s que se espera a que el rival termine de cargar.",
+  "description": "Carrera online de 2 jugadores en salas: uno crea la sala con sus reglas (pista, vueltas, clima, neumáticos; los dos con el setup base) y el otro se une desde la lista. server_url: servidor de salas (server/online/server.js en el VPS, publicado por nginx en /ws); se puede cambiar con '-- --server ws://…'. protocol: tiene que coincidir con PROTOCOL del servidor. send_rate: estados por segundo que manda cada jugador. El auto del rival es un auto físico con los pedales y el volante del otro; cada cuadro su velocidad se mezcla ('velocity_blend') con la que lo lleva a la posición extrapolada del último estado ('position_gain' 1/s, 'rotation_gain' 1/s); a más de 'teleport_distance' m se lo pone ahí directamente; 'max_extrapolation' s. 'finish_wait': s que se espera al rival después de llegar. 'start_timeout': s que se espera a que el rival termine de cargar. 'ready_frames': cuadros de la carrera ya dibujados antes de avisar 'ready'; con los dos listos el servidor manda 'go' y el semáforo de las dos PCs sigue el reloj desde ese instante (menos medio ping), así se apaga a la vez aunque una PC se trabe.",
   "server_url": "wss://ingsoftwareavanzado.agustingimenez.ar/ws",
   "protocol": 2,
   "send_rate": 20,
@@ -11,5 +11,6 @@
   "max_extrapolation": 0.5,
   "remote_tyre_substeps": 2,
   "finish_wait": 60.0,
-  "start_timeout": 90.0
+  "start_timeout": 90.0,
+  "ready_frames": 30
 }

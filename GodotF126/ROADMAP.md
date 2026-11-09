@@ -1365,4 +1365,16 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Suite GUT | 67/67 (582 comprobaciones) |
 
   Capturas: `informes/capturas/touch-elegir-dispositivo.png`, `touch-manejando.png`, `touch-menu-volver.png`, `touch-pausa.png`. Prueba en `%TEMP%\touch_test.gd` (`TT_PICK=pc` o `phone`; respalda y restaura `settings.json`, `records.json`, `last_race.json` y `setup.json`). **Falta probarlo en un celular de verdad.**
+- **Semáforo online simultáneo**:
+  - **Antes**: cada PC avisaba "ready" apenas armaba la escena, y las luces sumaban el tiempo de cada cuadro, volviendo a cero en cada etapa. Una traba (la web compilando el brillo de las luces, una pestaña lenta) se perdía entera y esa PC largaba atrasada.
+  - **Ahora**: "ready" sale después de 30 cuadros ya dibujados (`ready_frames` de `data/online.json`) y con un ping recién medido. Al llegar "go", cada PC fija el arranque común (`Time.get_ticks_msec()` menos medio ping) y `StartLights` calcula las luces y el apagado con el reloj desde ese instante (`sync_start_msec`, `_follow_clock()`).
+  - En 1 jugador el semáforo sigue igual (cuenta cuadros).
+- **Auto que aceleraba solo en la PC**: si la ventana o la pestaña perdía el foco con una tecla apretada (cambiar de ventana, clic afuera de la página), nunca llegaba el "soltó" y el auto seguía acelerando o doblando. `main.gd` suelta todas las acciones de manejo al perder el foco (`_notification`, `NOTIFICATION_APPLICATION_FOCUS_OUT` / `NOTIFICATION_WM_WINDOW_FOCUS_OUT`).
+
+| Prueba | Resultado |
+|---|---|
+| Dos instancias online, una con una traba simulada de 1,5 s con 2 luces prendidas (`online_game.gd` con `OG_HITCH=1` y `OG_LIGHTS_ONLY=1`) | las dos apagan el semáforo en el mismo milisegundo del reloj del sistema (precisión de la prueba: 20 ms); acelerando en rojo el auto no se mueve (3 mm); 0 fallas |
+| Acelerador y dirección apretados + pérdida de foco (`focus_test.gd`) | se sueltan (1,0 → 0,0) |
+| Suite GUT | 67/67 (582 comprobaciones) |
+
 - **Cómo probar**: abrir https://ingsoftwareavanzado.agustingimenez.ar/ desde el celular, acostado → "Celular". En la PC: Godot con `-- --choose` (muestra la elección) o `-- --touch` (Celular directo, cambia las opciones guardadas).

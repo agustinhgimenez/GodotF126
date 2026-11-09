@@ -68,7 +68,7 @@ Primero la escudería (11 equipos de 2026) y después el piloto (22). El auto de
 ![Unirse a una sala](capturas/online-unirse.png)
 
 - **Las mismas reglas para los dos**: pista, vueltas, clima y neumáticos son los de la sala, y los dos autos usan el setup base (no el que cada uno guardó).
-- **Largada**: los dos autos en la grilla (el que creó la sala adelante). **Mientras el semáforo está en rojo los autos están bloqueados**: no se puede salir antes. Las luces se apagan a la vez en las dos PCs.
+- **Largada**: los dos autos en la grilla (el que creó la sala adelante). **Mientras el semáforo está en rojo los autos están bloqueados**: no se puede salir antes. Las luces se apagan a la vez en las dos PCs: el semáforo arranca recién cuando los dos ya están viendo la pista y sigue un reloj común, así que una PC más lenta no larga atrasada.
 - **En carrera** el otro auto choca de verdad. Arriba a la izquierda se ve "ONLINE · vas 1.º / 2.º" y la distancia en segundos. **Esc no detiene la carrera** (el otro sigue corriendo) y R vuelve a la pista.
 - **Resultado**: por tiempo total (vueltas + penalizaciones), con el nombre y el piloto de cada uno. Si el otro todavía no llegó, se lo espera hasta un minuto. "Repetir" vuelve a las salas. Si el otro se desconecta, seguís solo.
 - Se puede jugar entre el navegador y el `.exe`. Hace falta internet; Esc en la pantalla de carga cancela y vuelve a las salas.

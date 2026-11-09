@@ -324,8 +324,9 @@ func _setup_start_lights() -> void:
 
 
 ## Online: el semáforo arranca cuando el servidor dice "go" (seed común de la espera).
-func begin_start_lights(seed_value: int) -> void:
+func begin_start_lights(seed_value: int, sync_msec: int = 0) -> void:
 	start_lights.hold_seed = seed_value
+	start_lights.sync_start_msec = sync_msec
 	start_lights.begin(car, track.get_start_line_transform(), TrackGenerator.GANTRY_HEIGHT)
 
 
@@ -578,6 +579,15 @@ func _physics_process(delta: float) -> void:
 
 func _exit_tree() -> void:
 	rumble.stop()
+
+
+## Si la ventana (o la pestaña del navegador) pierde el foco con una tecla apretada, nunca llega
+## el "soltó": sin esto el auto sigue acelerando o doblando solo.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		for action in DEFAULT_KEYS:
+			if InputMap.has_action(action) and Input.is_action_pressed(action):
+				Input.action_release(action)
 
 
 # Godot saca de la escena primero al último hijo: el guardián va siempre último para que, al

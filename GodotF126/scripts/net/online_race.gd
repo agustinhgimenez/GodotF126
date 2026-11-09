@@ -55,8 +55,18 @@ func setup(main_node: Node, local_car: CarController, data: Dictionary) -> void:
 	Online.message.connect(_on_message)
 	Online.failed.connect(_on_failed)
 	main.lap_timer.session_finished.connect(_on_local_finished)
-	Online.send({"t": "ready"})
 	main.hud.show_message("Esperando a %s…" % remote_name, 30.0)
+	_send_ready()
+
+
+## "ready" recién cuando la carrera ya se está dibujando: los primeros cuadros (sobre todo en la
+## web) tardan, y el semáforo no tiene que arrancar mientras uno todavía no ve la pista.
+func _send_ready() -> void:
+	for i in int(_data.get("ready_frames", 30)):
+		await get_tree().process_frame
+	if is_inside_tree() and not started:
+		Online.send({"t": "ping", "c": Time.get_ticks_msec()})
+		Online.send({"t": "ready"})
 
 
 ## "Nombre (Piloto)" de un jugador como lo manda el servidor.
@@ -194,7 +204,9 @@ func _start(seed_value: int) -> void:
 		return
 	started = true
 	main.hud.show_message("¡Largada contra %s!" % remote_name, 2.0)
-	main.begin_start_lights(seed_value)
+	# El servidor manda "go" a los dos a la vez: cada uno descuenta lo que tardó en llegarle
+	# (medio ping) y las luces siguen el reloj desde ese instante común.
+	main.begin_start_lights(seed_value, Time.get_ticks_msec() - int(Online.rtt * 500.0))
 
 
 ## El rival ya no está (se fue, se cortó la conexión o no cargó): se saca su auto y, si

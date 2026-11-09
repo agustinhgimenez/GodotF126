@@ -5,7 +5,8 @@ extends Node3D
 ## Arma las luces en 3D colgadas del pórtico de la pista y avisa por señales para que el HUD
 ## dibuje las mismas luces. Si el auto avanza más de jump_distance antes del apagado es
 ## largada en falso. Después del apagado mide el tiempo de reacción.
-## Todo avanza en _process / _physics_process, así que se congela con la pausa.
+## Todo avanza en _process / _physics_process, así que se congela con la pausa (en online la
+## secuencia sigue el reloj común, sync_start_msec).
 
 signal lights_changed(count: int)
 signal lights_out
@@ -30,6 +31,10 @@ var hide_after: float = 2.0
 ## Online: semilla común de la espera antes del apagado (0 = al azar), para que los dos
 ## jugadores vean apagarse las luces juntos.
 var hold_seed: int = 0
+## Online: Time.get_ticks_msec() del arranque común de la secuencia (0 = contar cuadros). Las
+## luces salen del reloj y no de sumar delta: si una PC se traba un momento (la web al compilar
+## el brillo de las luces) no se atrasa respecto de la otra.
+var sync_start_msec: int = 0
 
 var state: State = State.IDLE
 var lights_on: int = 0
@@ -81,6 +86,9 @@ func is_active() -> bool:
 func _process(delta: float) -> void:
 	if state == State.IDLE or state == State.DONE:
 		return
+	if sync_start_msec > 0 and is_active():
+		_follow_clock()
+		return
 	_timer += delta
 	match state:
 		State.WAITING:
@@ -105,6 +113,25 @@ func _process(delta: float) -> void:
 			if _timer >= hide_after and (reaction_time >= 0.0 or jumped):
 				state = State.DONE
 				finished.emit()
+
+
+## La misma secuencia que _process (espera, una luz por intervalo, espera al azar, apagado),
+## calculada con el tiempo desde sync_start_msec.
+func _follow_clock() -> void:
+	var elapsed := (Time.get_ticks_msec() - sync_start_msec) / 1000.0
+	var out_at := pre_delay + (LIGHT_COUNT - 1) * light_interval + _hold_time
+	if elapsed >= out_at:
+		_timer = elapsed - out_at
+		state = State.OUT
+		_set_lights(0)
+		lights_out.emit()
+		return
+	var count := 0
+	if elapsed >= pre_delay:
+		count = mini(int((elapsed - pre_delay) / light_interval) + 1, LIGHT_COUNT)
+	state = State.WAITING if count == 0 else (State.HOLD if count == LIGHT_COUNT else State.LIGHTING)
+	if count != lights_on:
+		_set_lights(count)
 
 
 func _physics_process(_delta: float) -> void:
