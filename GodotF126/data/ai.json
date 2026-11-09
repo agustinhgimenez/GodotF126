@@ -41,10 +41,10 @@
   },
   "default_level": "medium",
   "levels": {
-    "easy": { "name": "Fácil", "pace": 0.88, "mistake": 0.05, "pass_margin": 1.8, "defend": false, "lap_time": 81.55 },
-    "medium": { "name": "Medio", "pace": 0.93, "mistake": 0.03, "pass_margin": 1.2, "defend": true, "lap_time": 79.267 },
-    "hard": { "name": "Difícil", "pace": 0.97, "mistake": 0.02, "pass_margin": 0.8, "defend": true, "lap_time": 77.6 },
-    "expert": { "name": "Experto", "pace": 1.0, "mistake": 0.01, "pass_margin": 0.5, "defend": true, "lap_time": 76.5 }
+    "easy": { "name": "Fácil", "pace": 0.88, "mistake": 0.05, "pass_margin": 1.8, "defend": false, "lap_time": 78.983 },
+    "medium": { "name": "Medio", "pace": 0.93, "mistake": 0.03, "pass_margin": 1.2, "defend": true, "lap_time": 76.417 },
+    "hard": { "name": "Difícil", "pace": 0.97, "mistake": 0.02, "pass_margin": 0.8, "defend": true, "lap_time": 74.833 },
+    "expert": { "name": "Experto", "pace": 1.0, "mistake": 0.01, "pass_margin": 0.5, "defend": true, "lap_time": 73.667 }
   },
   "race": {
     "web_max_cars": 10,

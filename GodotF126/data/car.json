@@ -5,7 +5,7 @@
   "aero": {
     "air_density": 1.225,
     "cla": 3.2,
-    "cda": 1.57,
+    "cda": 1.1,
     "balance": 0.44,
     "pressure_height": 0.35,
     "active": {
@@ -132,7 +132,7 @@
   },
   "gearbox": {
     "default_mode": "manual",
-    "gear_ratios": [9.43, 7.95, 6.70, 5.65, 4.76, 4.02, 3.39, 2.85],
+    "gear_ratios": [5.43, 4.02, 3.19, 2.65, 2.26, 1.97, 1.74, 1.55],
     "reverse_ratio": 9.0,
     "final_drive": 3.0,
     "shift_time": 0.08,
@@ -144,7 +144,7 @@
   "dashboard": {
     "shift_light_count": 15,
     "shift_light_start_rpm": 9000,
-    "speed_tick_step": 20
+    "speed_tick_step": 25
   },
   "cockpit": {
     "mirror_resolution": [320, 120],

@@ -1378,3 +1378,31 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
 | Suite GUT | 67/67 (582 comprobaciones) |
 
 - **Cómo probar**: abrir https://ingsoftwareavanzado.agustingimenez.ar/ desde el celular, acostado → "Celular". En la PC: Godot con `-- --choose` (muestra la elección) o `-- --touch` (Celular directo, cambia las opciones guardadas).
+
+### Velocidades reales (después del Paso 60)
+- **Antes** la 8.ª llegaba a ~190 km/h (tope fijo): las relaciones de la caja eran de auto de calle (8.ª 2,85 × final 3,0) y el limitador cortaba ahí.
+- **Ahora** la caja es de Fórmula 1 (`gearbox.gear_ratios` de `data/car.json`: 5,43 / 4,02 / 3,19 / 2,65 / 2,26 / 1,97 / 1,74 / 1,55, final 3,0). A 12.000 rpm cada marcha llega a ≈ 100 / 135 / 170 / 205 / 240 / 275 / 312 / **350 km/h**; con el limitador (12.500 rpm), ~365.
+- El arrastre bajó a **CdA 1,1** (`aero.cda`, antes 1,57) para que la 8.ª se pueda estirar. Con el modo recta abierto (alerones planos, sólo en las rectas marcadas) pasa los 350 km/h; con el modo curva el tope queda en ~322.
+- El velocímetro escala solo hasta la 8.ª (0–375) con marcas cada 25 km/h y números cada 50 (`dashboard.speed_tick_step` 25).
+- Mismos valores por defecto en `gearbox.gd`, `car_controller.gd` y `car_setup.gd`. El panel de setup muestra "8ª: ~365 km/h" con la final 3,0.
+- **La IA anda más rápido** (rectas más largas a fondo); se volvieron a medir sus vueltas lanzadas:
+
+| Pista | Fácil | Medio | Difícil | Experto | Antes (Medio) |
+|---|---|---|---|---|---|
+| Bakú (`levels.*.lap_time` de `ai.json`) | 78,983 | 76,417 | 74,833 | 73,667 | 79,267 |
+| Prueba (`ai_lap_times`) | 54,05 | 52,567 | 51,65 | 50,9 | 56,833 |
+| Buenos Aires (`ai_lap_times`) | 91,05 | 88,083 | 86,2 | 87,117 | 94,3 |
+
+  En Buenos Aires el Experto da 0,9 s más lento que el Difícil (determinístico; se toca alguna frenada de más con el ritmo 1,0): queda para afinar la IA. Los récords guardados de antes ahora son más fáciles de batir.
+
+| Prueba (aceleración en línea recta, `drag_test.gd`: TC 3, ERS Normal, caja automática, piso plano) | Resultado |
+|---|---|
+| Modo recta abierto | 0–100 en **2,53 s**, 0–200 en 5,27 s, 0–300 en 10,90 s, 0–330 en 14,88 s (331 km/h a los 15 s), 0–350 en 20,03 s; máxima 360 km/h en 8.ª |
+| Modo recta cerrado | máxima 322 km/h |
+| Antes del cambio | máxima 193 km/h |
+| Vueltas de la IA (`paso54_ailaps.gd`, `--fixed-fps 60`) en las 3 pistas y 4 niveles | 0 golpes, 0 rescates, 0 salidas |
+| Carrera `paso47_race.gd` (`--fixed-fps 60`), **nueva referencia** | termina, 0 rescates, 0 golpes contra el muro, 0 fallas; gana **VER 2:36.333**, RUS 2:38.733, NOR 2:40.350 (antes Norris 2:41.667, VER 2:43.700, RUS 2:45.883) |
+| IA Experto en Bakú manejando el auto del jugador | 279 km/h al final de la recta principal (la Bakú del juego es más corta que la real) |
+| Suite GUT | 67/67 (582 comprobaciones); se actualizaron `test_gearbox.gd` (relación de 1.ª = 5,43 × final) y `test_car_physics.gd` (marcha > 1 tras acelerar) |
+
+  Captura: `informes/capturas/velocidad-recta.png` (velocímetro nuevo a 270 km/h en 7.ª). Como F1 real: 0–100 ≈ 2,5 s, 0–300 ≈ 11 s; los 350 se alcanzan en rectas largas con modo recta.

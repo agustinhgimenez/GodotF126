@@ -13,7 +13,7 @@ const REVERSE := -1
 const NEUTRAL := 0
 const MAX_REVERSE_ENGAGE_SPEED := 1.0   ## m/s
 
-@export var gear_ratios: PackedFloat32Array = PackedFloat32Array([9.43, 7.95, 6.70, 5.65, 4.76, 4.02, 3.39, 2.85])
+@export var gear_ratios: PackedFloat32Array = PackedFloat32Array([5.43, 4.02, 3.19, 2.65, 2.26, 1.97, 1.74, 1.55])
 @export var reverse_ratio: float = 9.0
 @export var final_drive: float = 3.0
 @export var efficiency: float = 0.9

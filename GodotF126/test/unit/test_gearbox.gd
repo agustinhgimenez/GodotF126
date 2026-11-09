@@ -13,7 +13,7 @@ func before_each() -> void:
 func test_configura_desde_car_json() -> void:
 	assert_eq(box.get_gear_count(), 8, "8 marchas")
 	assert_eq(box.gear, 1, "arranca en 1.ª")
-	assert_almost_eq(box.get_ratio_for(1), 9.43 * box.final_drive, 0.001)
+	assert_almost_eq(box.get_ratio_for(1), 5.43 * box.final_drive, 0.001)
 	assert_eq(box.get_ratio_for(Gearbox.NEUTRAL), 0.0, "neutro sin relación")
 
 

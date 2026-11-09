@@ -156,15 +156,15 @@ static func base_from_car_data(car_data: Dictionary) -> Dictionary:
 	var front: Dictionary = suspension.get("front", {})
 	var rear: Dictionary = suspension.get("rear", {})
 	var gearbox: Dictionary = car_data.get("gearbox", {})
-	var ratios: Array = gearbox.get("gear_ratios", [2.85])
+	var ratios: Array = gearbox.get("gear_ratios", [1.55])
 	return {
 		"cla": float(aero.get("cla", 3.2)),
-		"cda": float(aero.get("cda", 1.57)),
+		"cda": float(aero.get("cda", 1.1)),
 		"balance": float(aero.get("balance", 0.44)),
 		"stiffness": Vector2(float(front.get("stiffness", 75000.0)), float(rear.get("stiffness", 65000.0))),
 		"damper": Vector2(float(front.get("damping", 4000.0)), float(rear.get("damping", 3600.0))),
 		"anti_roll": Vector2(float(front.get("anti_roll", 40000.0)), float(rear.get("anti_roll", 30000.0))),
-		"top_ratio": float(ratios[ratios.size() - 1]) if not ratios.is_empty() else 2.85,
+		"top_ratio": float(ratios[ratios.size() - 1]) if not ratios.is_empty() else 1.55,
 		"limiter_rpm": float(car_data.get("engine", {}).get("limiter_rpm", 12500.0)),
 		"wheel_radius": float(car_data.get("wheel_radius", 0.36)),
 	}
@@ -180,12 +180,12 @@ func derive(base: Dictionary) -> Dictionary:
 	var ground := maxf(1.0 - ride_cla_per_mm * ride_mm, 0.1)
 	var front_cla := cla * balance * maxf(1.0 + wing_cla_per_step * front_wing, 0.1) * ground
 	var rear_cla := cla * (1.0 - balance) * maxf(1.0 + wing_cla_per_step * rear_wing, 0.1) * ground
-	var cda := float(base.get("cda", 1.57)) * maxf(1.0 + front_wing_cda_per_step * front_wing + rear_wing_cda_per_step * rear_wing, 0.1)
+	var cda := float(base.get("cda", 1.1)) * maxf(1.0 + front_wing_cda_per_step * front_wing + rear_wing_cda_per_step * rear_wing, 0.1)
 	var springs := Vector2(_factor(spring_per_step, offset("front_springs")), _factor(spring_per_step, offset("rear_springs")))
 	var bars := Vector2(_factor(anti_roll_per_step, offset("front_anti_roll")), _factor(anti_roll_per_step, offset("rear_anti_roll")))
 	var final_drive := get_value("final_drive")
 	var top_speed := float(base.get("limiter_rpm", 12500.0)) * TAU / 60.0 \
-		/ maxf(float(base.get("top_ratio", 2.85)) * final_drive, 0.01) * float(base.get("wheel_radius", 0.36))
+		/ maxf(float(base.get("top_ratio", 1.55)) * final_drive, 0.01) * float(base.get("wheel_radius", 0.36))
 	return {
 		"cla": front_cla + rear_cla,
 		"cda": cda,

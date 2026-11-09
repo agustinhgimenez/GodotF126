@@ -47,7 +47,7 @@ func test_acelera_y_sube_de_marcha() -> void:
 	var kmh := car.get_speed_kmh()
 	assert_gt(kmh, 100.0, "en 3 s a fondo: %.0f km/h" % kmh)
 	assert_lt(kmh, 250.0)
-	assert_gt(car.gearbox.gear, 2, "la caja automática subió (marcha %d)" % car.gearbox.gear)
+	assert_gt(car.gearbox.gear, 1, "la caja automática subió (marcha %d)" % car.gearbox.gear)
 	assert_gt(car.forward_speed, 0.0, "va para adelante")
 	assert_gt(_upright(), 0.98, "derecho")
 

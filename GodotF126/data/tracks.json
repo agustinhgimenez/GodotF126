@@ -212,7 +212,7 @@
       "scene": "res://scenes/tracks/track.tscn",
       "status": "prueba",
       "records_key": "prueba",
-      "ai_lap_times": {"easy": 57.833, "medium": 56.833, "hard": 56.033, "expert": 55.383},
+      "ai_lap_times": {"easy": 54.05, "medium": 52.567, "hard": 51.65, "expert": 50.9},
       "centerline": {
         "default_corner_radius": 25.0,
         "start": [300, 0],
@@ -245,7 +245,7 @@
       "notes": "Paso 54: autódromo permanente inventado, inspirado en el de Buenos Aires (recta larga, una 'S', un curvón rápido de radio grande, chicana, horquilla y la vuelta de cierre; sentido horario, llano y con césped). NO es el layout oficial de ningún circuito.",
       "status": "jugable",
       "records_key": "buenos_aires",
-      "ai_lap_times": {"description": "Paso 54: vuelta lanzada de cada nivel de la IA en esta pista (s); la clasificación estimada usa estos en vez de los de ai.json (medidos en Bakú).", "easy": 96.7, "medium": 94.3, "hard": 92.567, "expert": 91.35},
+      "ai_lap_times": {"description": "Paso 54: vuelta lanzada de cada nivel de la IA en esta pista (s); la clasificación estimada usa estos en vez de los de ai.json (medidos en Bakú).", "easy": 91.05, "medium": 88.083, "hard": 86.2, "expert": 87.117},
       "ground": {"color": [0.3, 0.46, 0.22]},
       "centerline": {
         "width": 13.0,

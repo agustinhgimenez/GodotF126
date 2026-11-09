@@ -100,7 +100,7 @@ const CHASSIS_KEYS := {
 @export var air_density: float = 1.225         ## kg/m³
 ## m²: coeficiente × área. Carga = ½ · ρ · ClA · v² (hacia abajo); arrastre = ½ · ρ · CdA · v².
 @export var cla: float = 3.2
-@export var cda: float = 1.57
+@export var cda: float = 1.1
 @export var aero_balance: float = 0.44         ## fracción de la carga en el eje delantero
 @export var pressure_height: float = 0.35      ## m sobre el piso donde empuja el arrastre
 ## Setup (Paso 35): m que se baja (−) o sube (+) el auto; el piso queda a floor_clearance del

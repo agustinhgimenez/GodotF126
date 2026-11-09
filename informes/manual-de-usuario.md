@@ -150,6 +150,8 @@ Gatillo derecho acelera y el izquierdo frena (de a poco), palanca izquierda dobl
 
 ## 5. Manejar rápido
 
+- **Velocidades como una F1**: 0–100 km/h en unos 2,5 s y 0–300 en unos 11 s. Cada marcha llega más o menos a 100 / 135 / 170 / 205 / 240 / 275 / 312 / 350 km/h; en las rectas largas, con los alerones abiertos, se pasan los 350.
+
 - Los carteles **150 · 100 · 50** antes de cada curva marcan dónde frenar. La **línea de trazada** (L) se pone amarilla donde hay que levantar y roja donde hay que frenar.
 - **Aerodinámica activa**: en las rectas los alerones se abren (menos arrastre) y se cierran al frenar. **G** suma potencia con energía limitada por vuelta, sólo a menos de 1 s del de adelante.
 - **ERS** (V): Ataque gasta la batería rápido; Recarga la llena al levantar y al frenar.
