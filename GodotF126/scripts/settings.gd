@@ -92,8 +92,7 @@ func apply_input() -> void:
 func _defaults() -> Dictionary:
 	var result: Dictionary = _data.get("defaults", {}).duplicate()
 	if OS.has_feature("web"):
-		for key in _web_defaults():
-			result[key] = _web_defaults()[key]
+		result.merge(_platform_defaults("web_defaults"), true)
 		result["web_tuned"] = true
 	for key in result.keys():
 		result[key] = _sanitize(key, result[key])
@@ -113,20 +112,34 @@ func load_settings() -> void:
 			values[key] = _sanitize(key, saved[key])
 	# Opciones guardadas en el navegador antes de que existieran los valores para la web.
 	if OS.has_feature("web") and saved.get("web_tuned") != true:
-		for key in _web_defaults():
-			values[key] = _sanitize(key, _web_defaults()[key])
-		values["web_tuned"] = true
-		save_settings()
+		_apply_platform("web_defaults", "web_tuned")
 
 
-## Bloque "web_defaults" de data/settings.json sin su descripción.
-func _web_defaults() -> Dictionary:
+## Al elegir "Celular" (TouchControls): todas las ayudas al máximo, una sola vez (mobile_tuned);
+## después el jugador las puede cambiar en Opciones.
+func apply_mobile_defaults() -> void:
+	if get_value("mobile_tuned") != true:
+		_apply_platform("mobile_defaults", "mobile_tuned")
+		changed.emit("")
+
+
+func _apply_platform(block: String, flag: String) -> void:
+	var platform_values := _platform_defaults(block)
+	for key in platform_values:
+		values[key] = _sanitize(key, platform_values[key])
+	values[flag] = true
+	apply_global()
+	save_settings()
+
+
+## Bloque "web_defaults" / "mobile_defaults" de data/settings.json sin su descripción.
+func _platform_defaults(block: String) -> Dictionary:
 	var result: Dictionary = {}
-	var web = _data.get("web_defaults", {})
-	if web is Dictionary:
-		for key in web:
+	var platform = _data.get(block, {})
+	if platform is Dictionary:
+		for key in platform:
 			if key != "description" and _data.get("defaults", {}).has(key):
-				result[key] = web[key]
+				result[key] = platform[key]
 	return result
 
 
@@ -209,7 +222,7 @@ func _sanitize(key: String, value):
 			if not (value is int or value is float):
 				return int(fallback)
 			return clampi(int(value), 0, TRACTION_LEVELS - 1)
-		"steering_assist", "abs", "fullscreen", "tutorial_seen", "ghost", "web_tuned":
+		"steering_assist", "abs", "fullscreen", "tutorial_seen", "ghost", "web_tuned", "mobile_tuned":
 			return value if value is bool else fallback
 		"bindings":
 			return value.duplicate(true) if value is Dictionary else {}

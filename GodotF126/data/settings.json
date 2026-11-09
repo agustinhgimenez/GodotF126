@@ -24,10 +24,19 @@
     "steer_curve": 1.0,
     "vibration": 100,
     "web_tuned": false,
+    "mobile_tuned": false,
     "player_name": ""
   },
   "web_defaults": {
     "description": "En el navegador (más lento que el .exe) estos valores reemplazan a los de arriba. Se aplican también una vez sobre las opciones ya guardadas en el navegador (web_tuned).",
+    "quality": "low"
+  },
+  "mobile_defaults": {
+    "description": "Al elegir \"Celular\" al entrar a la web (controles táctiles), todas las ayudas al máximo: caja automática, ABS, control de tracción 3 y dirección asistida. Se aplican una vez (mobile_tuned); después se pueden cambiar en Opciones.",
+    "gearbox": "automatic",
+    "abs": true,
+    "traction_control": 3,
+    "steering_assist": true,
     "quality": "low"
   },
   "steering": {

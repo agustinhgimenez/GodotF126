@@ -25,6 +25,7 @@ config/icon="res://icon.svg"
 GameState="*res://scripts/game_state.gd"
 Settings="*res://scripts/settings.gd"
 Online="*res://scripts/net/online_client.gd"
+TouchControls="*res://scripts/ui/touch_controls.gd"
 
 [display]
 

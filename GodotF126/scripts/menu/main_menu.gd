@@ -89,7 +89,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_select.back()
 	elif _setup_panel.visible:
 		_close_setup()
-	elif _modes.visible:
+	elif _modes_scroll.visible:
 		_modes.back()
 	elif _room_modes.visible:
 		_room_modes.back()
@@ -105,8 +105,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().quit()
 
 
+## Botón "Volver" de los controles táctiles: en la pantalla principal no hay adónde volver.
+func can_go_back() -> bool:
+	return not _main_panel.visible
+
+
 func _show_main() -> void:
-	_modes.visible = false
+	_modes_scroll.visible = false
 	_setup_panel.visible = false
 	_select.visible = false
 	_options.visible = false
@@ -194,7 +199,7 @@ func _on_play_pressed() -> void:
 
 func _show_modes() -> void:
 	_select.visible = false
-	_modes.visible = true
+	_modes_scroll.visible = true
 	_modes.open()
 	# El foco puede caer en una tarjeta de abajo (Campeonato) antes de que el panel recién
 	# mostrado tenga tamaño: follow_focus no la alcanza.
@@ -238,7 +243,7 @@ func _on_championship_confirmed(laps: int, compound_id: String) -> void:
 	GameState.selected_mode = GameState.MODE_CHAMPIONSHIP
 	GameState.lap_count = laps
 	_select_return = "modes"
-	_modes.visible = false
+	_modes_scroll.visible = false
 	_select.visible = true
 	_select.open()
 
@@ -266,7 +271,7 @@ func _on_mode_confirmed(mode_id: String, laps: int, compound_id: String) -> void
 	GameState.lap_count = laps
 	GameState.tyre_compound = compound_id
 	_select_return = "modes"
-	_modes.visible = false
+	_modes_scroll.visible = false
 	_select.visible = true
 	_select.open()
 
@@ -276,14 +281,14 @@ func _on_modes_cancelled() -> void:
 
 
 func _open_setup() -> void:
-	_modes.visible = false
+	_modes_scroll.visible = false
 	_setup_panel.visible = true
 	_setup_panel.open()
 
 
 func _close_setup() -> void:
 	_setup_panel.visible = false
-	_modes.visible = true
+	_modes_scroll.visible = true
 	_modes.focus_setup(_car_setup.summary())
 
 
@@ -425,13 +430,14 @@ func _build_ui() -> void:
 	# En el navegador quit() no cierra nada: se juega en una pestaña.
 	var web := OS.has_feature("web")
 	_quit_button.visible = not web
-	var hint_text := "Flechas para elegir · Enter para confirmar" if web else "Flechas para elegir · Enter para confirmar · Esc para salir"
+	var hint_text := "Tocá o hacé clic para elegir (también flechas y Enter)" if web else "Flechas para elegir · Enter para confirmar · Esc para salir"
 	var hint := UiKit.make_label(hint_text, 16)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
 	_main_panel.add_child(hint)
 
 	# Paso 54: pista + 4 modos + neumáticos + setup no entran en 720 px; el panel se desplaza
-	# siguiendo el foco (sin barra visible).
+	# siguiendo el foco (sin barra visible). Se oculta el panel entero, no sólo los modos: oculto
+	# el ScrollContainer vacío se quedaría con los clics y toques de los botones de abajo.
 	_modes_scroll = ScrollContainer.new()
 	_modes_scroll.name = "ModeScroll"
 	_modes_scroll.follow_focus = true

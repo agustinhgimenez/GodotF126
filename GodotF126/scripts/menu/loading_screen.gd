@@ -3,7 +3,8 @@ extends Control
 ## Pantalla de carga (Paso 24) entre el menú y la carrera (scenes/loading.tscn).
 ## Carga main.tscn en otro hilo con barra de progreso y muestra piloto, circuito, modo,
 ## un consejo y los controles. La primera vez (tutorial_seen en Settings) espera Enter
-## para que se lean los controles; después pasa sola cuando terminó de cargar.
+## para que se lean los controles; después pasa sola cuando terminó de cargar. En el celular
+## (TouchControls) no espera: los controles de la lista son los del teclado.
 ## Online: mientras carga crea la sala (GameState.online_room 0) o se une a la elegida, y no
 ## larga hasta que estén los dos; el que se une toma las reglas de la sala (pista, vueltas,
 ## clima, neumáticos; la pista se arma recién en el _ready() de la carrera, así que la carga en
@@ -42,7 +43,8 @@ func _ready() -> void:
 	var loading = data.get("loading", {})
 	if loading is Dictionary:
 		min_seconds = float(loading.get("min_seconds", min_seconds))
-	wait_for_confirm = not bool(Settings.get_value("tutorial_seen")) and not GameState.is_online()
+	wait_for_confirm = not bool(Settings.get_value("tutorial_seen")) and not GameState.is_online() \
+		and not TouchControls.enabled
 	_read_session()
 	_build_ui()
 	_tip.text = _pick_tip(data.get("tips", []))
@@ -82,7 +84,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		GameState.open_online_lobby = true
 		get_tree().change_scene_to_file(MENU_SCENE)
 		return
-	if event.is_action_pressed("ui_accept"):
+	if event.is_action_pressed("ui_accept") or (event is InputEventScreenTouch and event.pressed):
 		get_viewport().set_input_as_handled()
 		_confirmed = true
 

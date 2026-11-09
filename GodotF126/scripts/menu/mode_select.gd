@@ -13,6 +13,8 @@ signal cancelled
 signal setup_requested
 
 const CARD_SIZE := Vector2(540, 78)
+## Ayuda en el celular (TouchControls): las vueltas se cambian tocando a la derecha del modo.
+const TOUCH_HINT := "Tocá pista, clima o neumático para cambiarlos · tocá a la derecha de un modo para cambiar las vueltas"
 
 var accent: Color = Color("#FF87BC")
 ## Título, ayuda y tarjeta de setup (la de "Crear sala" online usa otros y no tiene setup).
@@ -21,6 +23,7 @@ var hint_text: String = "← → pista, clima, vueltas y neumáticos · Enter pa
 var with_setup: bool = true
 
 var _modes: Array = []
+var _hint: Label
 var _laps: Dictionary = {}           ## id de modo → vueltas elegidas
 var _buttons: Dictionary = {}        ## id de modo → Button
 var _titles: Dictionary = {}         ## id de modo → Label del título
@@ -106,13 +109,14 @@ func setup(data: Dictionary, current_mode: String, current_laps: int, compounds:
 		_setup_description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		_setup_button.pressed.connect(func() -> void: setup_requested.emit())
 		add_child(_setup_button)
-	var hint := UiKit.make_label(hint_text, 16)
-	hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
-	add_child(hint)
+	_hint = UiKit.make_label(hint_text, 16)
+	_hint.add_theme_color_override("font_color", Color(0.7, 0.72, 0.78))
+	add_child(_hint)
 
 
 ## Muestra los modos con el foco en el último elegido.
 func open() -> void:
+	_hint.text = TOUCH_HINT if TouchControls.enabled else hint_text
 	var button: Button = _buttons.get(_current_mode)
 	if button == null and not _buttons.is_empty():
 		button = _buttons.values()[0]
@@ -200,13 +204,19 @@ func _make_card(mode: Dictionary) -> Button:
 		confirmed.emit(id, int(_laps.get(id, 0)), compound_id()))
 	if _laps.has(id):
 		button.gui_input.connect(func(event: InputEvent) -> void:
-			if event.is_action_pressed("ui_right"):
+			if event.is_action_pressed("ui_right") or _is_laps_tap(event, button):
 				_cycle_laps(mode, 1)
 				button.accept_event()
 			elif event.is_action_pressed("ui_left"):
 				_cycle_laps(mode, -1)
 				button.accept_event())
 	return button
+
+
+## En el celular no hay ← →: tocar el tercio derecho de la tarjeta cambia las vueltas.
+func _is_laps_tap(event: InputEvent, button: Button) -> bool:
+	return TouchControls.enabled and event is InputEventMouseButton and event.pressed \
+		and event.button_index == MOUSE_BUTTON_LEFT and event.position.x > button.size.x * 0.66
 
 
 func _make_tyre_card() -> Button:

@@ -25,6 +25,7 @@ Se maneja con las **flechas** y **Enter** (o con el mouse). **Esc** vuelve atrá
 
 - **1 jugador**: elegir pista, clima y modo, después escudería y piloto.
 - **Multijugador online**: carrera contra otra persona por internet (sección 2.3).
+- **Desde el celular**: en la web, al entrar elegí "Celular" para manejar con controles en pantalla (sección 2.4).
 - **Opciones**: ayudas, cámara, calidad gráfica, sonido y más (sección 6).
 - **Controles**: tabla de teclas y asignación de teclado, mando o volante (sección 4).
 - **Salir** (sólo en Windows).
@@ -71,6 +72,21 @@ Primero la escudería (11 equipos de 2026) y después el piloto (22). El auto de
 - **En carrera** el otro auto choca de verdad. Arriba a la izquierda se ve "ONLINE · vas 1.º / 2.º" y la distancia en segundos. **Esc no detiene la carrera** (el otro sigue corriendo) y R vuelve a la pista.
 - **Resultado**: por tiempo total (vueltas + penalizaciones), con el nombre y el piloto de cada uno. Si el otro todavía no llegó, se lo espera hasta un minuto. "Repetir" vuelve a las salas. Si el otro se desconecta, seguís solo.
 - Se puede jugar entre el navegador y el `.exe`. Hace falta internet; Esc en la pantalla de carga cancela y vuelve a las salas.
+
+### 2.4 Jugar desde el celular (versión web)
+
+![Elegir Celular o PC](capturas/touch-elegir-dispositivo.png)
+
+Al entrar a la web se elige **Celular** o **PC**. Con PC se juega como siempre (teclado, mando y mouse). Con Celular, con el teléfono acostado:
+
+![Controles en pantalla](capturas/touch-manejando.png)
+
+- **Joystick a la izquierda** para doblar (apoyá el pulgar donde quieras de ese lado).
+- **X acelera** y **cuadrado frena**, como en un mando de PlayStation; se puede deslizar el dedo de uno al otro.
+- **▲ / ▼** suben y bajan los cambios (si la caja estaba en automática pasa a manual); **AUTO / MAN** cambia la caja.
+- Arriba a la derecha: **pausa**, **CAM** (cámara) y **volver a la pista**.
+- En los menús, **← Volver** arriba a la derecha hace de Esc, y las vueltas de un modo se cambian tocando a la derecha de su tarjeta.
+- La primera vez quedan todas las ayudas al máximo (caja automática, ABS, control de tracción 3, dirección asistida, calidad Baja); se pueden cambiar en Opciones. La carrera es de 6 autos para que vaya fluida.
 
 ## 3. En pista
 

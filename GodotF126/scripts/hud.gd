@@ -408,18 +408,23 @@ func _build_ui() -> void:
 	_track_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_track_label)
 
-	# Abajo a la derecha: tablero.
+	# Abajo a la derecha: tablero. Con los controles táctiles va abajo al centro (los costados
+	# son de los pulgares).
+	var touch := TouchControls.enabled
+	var dash_anchor := Vector4(0.5, 1, 0.5, 1) if touch else Vector4(1, 1, 1, 1)
+	var dash_right := Dashboard.SIZE.x / 2.0 if touch else -24.0
 	_dashboard = Dashboard.new()
 	_dashboard.name = "Dashboard"
-	_place(_dashboard, Vector4(1, 1, 1, 1),
-		Vector4(-Dashboard.SIZE.x - 24, -Dashboard.SIZE.y - 20, -24, -20))
+	_place(_dashboard, dash_anchor,
+		Vector4(dash_right - Dashboard.SIZE.x, -Dashboard.SIZE.y - 20, dash_right, -20))
 	root.add_child(_dashboard)
 
 	# A la izquierda del tablero, arriba de la ayuda: neumáticos (Paso 33).
 	_tyres = TyrePanel.new()
 	_tyres.name = "Tyres"
-	_place(_tyres, Vector4(1, 1, 1, 1), Vector4(-Dashboard.SIZE.x - 36 - TyrePanel.SIZE.x, -96 - TyrePanel.SIZE.y,
-		-Dashboard.SIZE.x - 36, -96))
+	var tyres_bottom := -20.0 if touch else -96.0
+	_place(_tyres, dash_anchor, Vector4(dash_right - Dashboard.SIZE.x - 12 - TyrePanel.SIZE.x, tyres_bottom - TyrePanel.SIZE.y,
+		dash_right - Dashboard.SIZE.x - 12, tyres_bottom))
 	root.add_child(_tyres)
 
 	# Centro: mensajes y aviso de derrape.
@@ -507,6 +512,7 @@ func _build_ui() -> void:
 	var hint := _make_label(16, HORIZONTAL_ALIGNMENT_LEFT,
 		"W/S acelerar/frenar · A/D girar · E/Q marchas · C cámara · R volver a la pista · Esc pausa y controles")
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.visible = not TouchControls.enabled
 	_place(hint, Vector4(0, 1, 0, 1), Vector4(24, -84, 760, -20))
 	root.add_child(hint)
 

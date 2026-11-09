@@ -1339,3 +1339,30 @@ Para la materia alcanza con **H1** (1 auto, 1 pista, física jugable, HUD, flujo
   Capturas: `informes/capturas/online-menu-principal.png`, `online-multijugador.png`, `online-unirse.png`, `online-crear-sala.png`. **Falta probarlo con dos personas de verdad** (las pruebas manejan los autos con la IA).
 - **Cómo probar**: en dos PCs (o dos pestañas, o el `.exe` y una pestaña) abrir el juego → "Multijugador online" → poner un nombre. Uno elige "Crear sala", pista / clima / vueltas / neumáticos, Enter, escudería y piloto. El otro elige "Unirse a una sala", Enter en la sala, escudería y piloto. Largan juntos cuando el semáforo se apaga.
 - **Actualizar el servidor** (desde la carpeta del repositorio): `scp server\online\server.js VPS-DonWeb:/opt/godotf126-online/` y `ssh VPS-DonWeb "systemctl restart godotf126-online"`. Si cambia el protocolo, subir `protocol` en `data/online.json` y volver a exportar web y `.exe`.
+
+### Jugar desde el celular en la web (después del Paso 60)
+- **Al entrar a la web se elige "Celular" o "PC"** ("¿Desde dónde jugás?"; en Android / iOS el foco empieza en Celular). Con **PC** todo queda como siempre (teclado, mando y mouse; nada táctil). El `.exe` no pregunta ni muestra controles táctiles.
+- **Con Celular** (`scripts/ui/touch_controls.gd`, autoload `TouchControls`), manejando:
+  - **joystick analógico a la izquierda** para doblar (aparece donde se apoya el pulgar; cuanto más se lo corre, más dobla);
+  - a la derecha, como un mando de PlayStation: **X acelera** y **cuadrado frena** (se puede deslizar de uno al otro sin levantar el dedo);
+  - **▲ / ▼ pasan los cambios** (si la caja está en automática la pasan a manual) y **AUTO / MAN** cambia la caja;
+  - arriba a la derecha: **pausa**, **CAM** (cámara) y **volver a la pista**.
+  - El tablero y los neumáticos pasan abajo al centro y se oculta la ayuda de teclas.
+- **Ayudas al máximo** la primera vez que se elige Celular (`mobile_defaults` de `data/settings.json`: caja automática, ABS, control de tracción 3, dirección asistida, calidad Baja; marca `mobile_tuned`, después se cambian en Opciones). La carrera usa **6 autos** (`race.mobile_max_cars` de `data/ai.json`).
+- **En los menús**:
+  - botón **"← Volver"** arriba a la derecha (hace de Esc; no aparece en la pantalla principal);
+  - las vueltas de un modo cambian **tocando el tercio derecho de la tarjeta**;
+  - la pantalla de carga no espera Enter;
+  - con el celular parado aparece "Girá el celular para jugar acostado";
+  - la imagen ocupa toda la pantalla, sin bandas.
+- **Arreglo de clics y toques en el menú principal**: el panel de los modos (`ModeScroll`, Paso 54) quedaba invisible pero activo encima de los botones "1 jugador", "Multijugador online", "Opciones"… y se comía los clics del mouse y los toques (con teclado no se notaba). Ahora se oculta el panel entero. La ayuda del menú web dice "Tocá o hacé clic para elegir (también flechas y Enter)".
+- Todo pasa por las acciones del InputMap (`Input.action_press` para pedales y dirección; `InputEventAction` para cambios, cámara y pausa): el auto y los menús no saben que es táctil. `main.gd` expone `is_driving()` (HUD visible y sin resultado) y `main_menu.gd` `can_go_back()`.
+
+| Prueba | Resultado |
+|---|---|
+| Entrada eligiendo PC (dedos y mouse simulados, `-- --choose`) | no hay controles táctiles en el menú ni en la carrera; **clic del mouse en "Multijugador online" y "1 jugador" abre cada uno** (antes no respondían) |
+| Entrada eligiendo Celular | ayudas al máximo (automática, TC 3); tocar "1 jugador" y un modo con el dedo abre cada pantalla; "Volver" vuelve; X acelera (29 m/s en 3 s); joystick izquierda/derecha da +0,70 / −0,51 y vuelve a 0 al soltar; deslizar de X a cuadrado suelta el acelerador y frena; ▼ pasa a manual y AUTO / MAN vuelve; pausa abre la pausa y suelta el acelerador; "Volver" la cierra; CAM cambia la cámara; 0 fallas |
+| Suite GUT | 67/67 (582 comprobaciones) |
+
+  Capturas: `informes/capturas/touch-elegir-dispositivo.png`, `touch-manejando.png`, `touch-menu-volver.png`, `touch-pausa.png`. Prueba en `%TEMP%\touch_test.gd` (`TT_PICK=pc` o `phone`; respalda y restaura `settings.json`, `records.json`, `last_race.json` y `setup.json`). **Falta probarlo en un celular de verdad.**
+- **Cómo probar**: abrir https://ingsoftwareavanzado.agustingimenez.ar/ desde el celular, acostado → "Celular". En la PC: Godot con `-- --choose` (muestra la elección) o `-- --touch` (Celular directo, cambia las opciones guardadas).

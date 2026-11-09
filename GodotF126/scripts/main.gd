@@ -416,10 +416,12 @@ func _setup_qualifying() -> void:
 
 
 ## En el navegador la carrera de 22 va muy lenta: quedan el jugador y los mejores de la
-## clasificación hasta `race.web_max_cars` de ai.json, en el mismo orden.
+## clasificación hasta `race.web_max_cars` de ai.json (`mobile_max_cars` en el celular), en el
+## mismo orden.
 func _limit_field(list: Array[Dictionary]) -> Array[Dictionary]:
-	var most := int(DataLoader.load_json(AI_PATH).get("race", {}).get("web_max_cars", 0))
-	if not OS.has_feature("web") or most <= 0 or list.size() <= most:
+	var race_data: Dictionary = DataLoader.load_json(AI_PATH).get("race", {})
+	var most := int(race_data.get("mobile_max_cars" if TouchControls.enabled else "web_max_cars", 0))
+	if not (OS.has_feature("web") or TouchControls.enabled) or most <= 0 or list.size() <= most:
 		return list
 	var kept: Array[Dictionary] = []
 	var rivals := 0
@@ -1037,6 +1039,12 @@ func _open_qualifying_results() -> void:
 
 func session_subtitle() -> String:
 	return _session_subtitle()
+
+
+## Controles táctiles (TouchControls): se ven mientras se maneja, no en la pausa, la
+## repetición ni el resultado.
+func is_driving() -> bool:
+	return hud.visible and not results_screen.is_open()
 
 
 func _session_subtitle() -> String:

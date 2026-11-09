@@ -48,6 +48,7 @@
   },
   "race": {
     "web_max_cars": 10,
+    "mobile_max_cars": 6,
     "skill": {
       "verstappen": 2, "norris": 2, "piastri": 2, "leclerc": 1, "russell": 1, "hamilton": 1,
       "antonelli": 0, "alonso": 0, "sainz": 0, "albon": 0, "gasly": 0, "hadjar": 0, "colapinto": 0,
